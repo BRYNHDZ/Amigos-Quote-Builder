@@ -38,21 +38,26 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 .cat-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .cat-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#30471F}
 .atag{font-size:10px;padding:1px 6px;border-radius:20px;background:#e6f0e0;color:#30471F;font-weight:700}
-.svc{display:flex;align-items:center;gap:7px;padding:7px 0;border-bottom:1px solid #f5f5f0;cursor:pointer;user-select:none}
+/* Service row: fixed-height controls on the right, name takes remaining space */
+.svc{display:flex;align-items:flex-start;gap:7px;padding:7px 0;border-bottom:1px solid #f5f5f0;cursor:pointer;user-select:none}
 .svc:last-child{border-bottom:none}
-.chk{width:16px;height:16px;border-radius:4px;border:1.5px solid #d8d8d0;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;transition:all .12s}
+.chk{width:16px;height:16px;border-radius:4px;border:1.5px solid #d8d8d0;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;transition:all .12s;margin-top:1px}
 .chk.on{background:#30471F;border-color:#30471F}
 .chk.dis{opacity:.3;cursor:not-allowed}
-.svc-info{flex:1;min-width:0}
-.svc-nm{font-size:12px;font-weight:700;color:#18240F;line-height:1.3;display:flex;align-items:center;flex-wrap:wrap;gap:3px}
+/* Name column: takes all remaining space, clips properly */
+.svc-name-col{flex:1;min-width:0;overflow:hidden}
+.svc-nm{font-size:12px;font-weight:700;color:#18240F;line-height:1.4;word-wrap:break-word}
 .svc-nm.dim{color:#bbb}
-.desc-txt{font-size:11px;color:#888;line-height:1.4;margin-top:2px;display:none}
-.desc-txt.open{display:block}
-.pop{font-size:10px;padding:1px 6px;border-radius:20px;background:#FFB300;color:#18240F;font-weight:700}
-.req{font-size:10px;color:#bbb;font-weight:400}
-.pi{width:72px;font-size:12px;padding:5px 6px;border:1.5px solid #d8d8d0;border-radius:6px;text-align:right;background:#fafaf8;color:#18240F;font-family:'Nunito',sans-serif;flex-shrink:0}
-.exp-btn{font-size:10px;color:#aaa;cursor:pointer;padding:1px 4px;border-radius:4px;border:1px solid #e8e8e0;background:#fafaf8;flex-shrink:0;margin-left:2px;font-family:'Nunito',sans-serif}
+.svc-tags{display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin-top:2px}
+.desc-txt{font-size:11px;color:#888;line-height:1.4;margin-top:4px}
+/* Controls column: fixed width, right-aligned */
+.svc-controls{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.pop{font-size:10px;padding:1px 6px;border-radius:20px;background:#FFB300;color:#18240F;font-weight:700;white-space:nowrap}
+.req{font-size:10px;color:#bbb;font-weight:400;white-space:nowrap}
+.pi{width:68px;font-size:12px;padding:5px 6px;border:1.5px solid #d8d8d0;border-radius:6px;text-align:right;background:#fafaf8;color:#18240F;font-family:'Nunito',sans-serif}
+.exp-btn{font-size:11px;color:#aaa;cursor:pointer;padding:2px 5px;border-radius:4px;border:1px solid #e8e8e0;background:#fafaf8;white-space:nowrap;font-family:'Nunito',sans-serif;line-height:1}
 .exp-btn:hover{background:#f0f0ea}
+.auto-val{text-align:right;font-size:12px;min-width:68px}
 .met{background:#F3F4F6;border-radius:8px;padding:10px 12px}
 .met-l{font-size:10px;color:#888;margin-bottom:1px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .met-v{font-size:22px;font-weight:700;color:#18240F;font-family:'Fredoka',sans-serif}
@@ -160,10 +165,36 @@ function setSeg(gid,btn,fn){document.querySelectorAll('#'+gid+' button').forEach
 function upd(){ST.lawn=parseFloat($('iLn').value)||0;ST.lot=parseFloat($('iLt').value)||0;ST.paved=parseFloat($('iPv').value)||0;ST.mulch=parseFloat($('iMu').value)||0;ST.trim=parseFloat($('iTr').value)||0;ST.peren=parseFloat($('iPe').value)||0;render();}
 function ovr(id,val){const ov=getOv();const n=parseFloat(val);if(isNaN(n)||val==='')delete ov[id];else ov[id]=n;renderOut();}
 function cp(t,btn){navigator.clipboard.writeText(t).then(()=>{if(btn){const o=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=o,1400);}}).catch(()=>{});}
-function cpItem(id,what,btn){let t='';const allCats=[...REC_CATS,...ONE_CATS];for(const cat of allCats){const item=cat.items.find(i=>i.id===id);if(item){const p=gp(id);const isRec=ST.mode==='recurring';const mo=Math.round(p/12);if(what==='n')t=item.name;else if(what==='d')t=DESCS[id]||'';else t=item.name+'\n'+(DESCS[id]||'')+'\n\n'+(isRec?'$'+mo+'/month':'$'+Math.round(p)+' flat');break;}}cp(t,btn);}
+function cpItem(id,what,btn){let t='';const allCats=[...REC_CATS,...ONE_CATS];for(const cat of allCats){const item=cat.items.find(i=>i.id===id);if(item){const p=gp(id);const isRec=ST.mode==='recurring';if(what==='n')t=item.name;else if(what==='d')t=DESCS[id]||'';else t=item.name+'\n'+(DESCS[id]||'')+'\n\n'+(isRec?'$'+Math.round(p/12)+'/month':'$'+Math.round(p)+' flat');break;}}cp(t,btn);}
 function cpHeader(id,btn){const m=MKT[id];if(m)cp(m.title+'\n\n'+m.desc,btn);}
 function cpAll(btn){const lines=[];const isRec=ST.mode==='recurring';for(const cat of getCats()){const sel=cat.items.filter(i=>getSel().has(i.id));if(!sel.length)continue;const m=MKT[cat.id];if(m){lines.push(m.title);lines.push('');lines.push(m.desc);lines.push('');}sel.forEach(item=>{const p=gp(item.id);lines.push(item.name);lines.push(DESCS[item.id]||'');lines.push(isRec?'$'+Math.round(p/12)+'/month':'$'+Math.round(p)+' flat');lines.push('');});}const t=tot();if(t>0){lines.push('---');if(isRec){lines.push('Annual total: $'+Math.round(t).toLocaleString());lines.push('Monthly (12-mo): $'+Math.round(t/12).toLocaleString());}else{lines.push('Total: $'+Math.round(t).toLocaleString());}}cp(lines.join('\n'),btn);}
-function renderSvc(){const sug=getSug();const sel=getSel();const isRec=ST.mode==='recurring';let h='';for(const cat of getCats()){const m=MKT[cat.id];h+='<div class="card"><div class="cat-hd"><div class="cat-title">'+(m?m.title:cat.id)+'</div>'+(cat.addon?'<span class="atag">'+cat.addon+'</span>':'')+'</div>';for(const item of cat.items){const selected=sel.has(item.id);const dis=isRec&&MDEPS.includes(item.id)&&!isMow();const p=gp(item.id);const sp=sug[item.id]||0;const isExp=ST.exp.has(item.id);const chk=selected&&!dis?'<svg width="10" height="10" viewBox="0 0 12 12"><polyline points="1,6.5 4.5,10 11,2" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'';h+='<div class="svc" onclick="'+(dis?'':' toggle(\''+item.id+'\',\''+cat.id+'\')' )+'" style="'+(dis?'cursor:default':'')+'"><div class="chk '+(selected&&!dis?'on':'')+(dis?' dis':'')+'">'+chk+'</div><div class="svc-info"><div class="svc-nm'+(dis?' dim':'')+'">'+item.name+(item.pop?'<span class="pop">Popular</span>':'')+(dis?'<span class="req"> · requires mowing plan</span>':'')+'</div>';if(isExp)h+='<div class="desc-txt open">'+(DESCS[item.id]||'')+'</div>';h+='</div><button class="exp-btn" onclick="toggleExp(\''+item.id+'\',event)">'+(isExp?'▲':'▼')+'</button>';if(item.auto){h+='<div style="text-align:right;font-size:12px;min-width:72px"><div style="font-weight:700;color:#30471F">$'+Math.round(p).toLocaleString()+'</div><div style="font-size:10px;color:#aaa">+25% auto</div></div>';}else{h+='<input class="pi" type="number" value="'+(p>0?Math.round(p):'')+'" placeholder="'+(sp>0?Math.round(sp):'—')+'" onclick="event.stopPropagation()" oninput="event.stopPropagation();ovr(\''+item.id+'\',this.value)">';}h+='</div>';}if(cat.id==='C'&&ST.mulch>0)h+='<div class="sm-hint">Clean Look = $'+BCB+' + $'+BCR1+'/yd (first 8) + $'+BCR2+'/yd beyond · Estate = $'+BEB+' + $'+BER1+'/yd + $'+BER2+'/yd beyond · '+ST.mulch+' yds</div>';if(cat.id==='D')h+='<div class="sm-hint">Spring cleanup scales with leaf volume — leaf '+ST.leaf+' → ×'+SLM[ST.leaf]+'</div>';h+='</div>';}$('svcCol').innerHTML=h;}
+function renderSvc(){
+  const sug=getSug();const sel=getSel();const isRec=ST.mode==='recurring';
+  let h='';
+  for(const cat of getCats()){
+    const m=MKT[cat.id];
+    h+='<div class="card"><div class="cat-hd"><div class="cat-title">'+(m?m.title:cat.id)+'</div>'+(cat.addon?'<span class="atag">'+cat.addon+'</span>':'')+'</div>';
+    for(const item of cat.items){
+      const selected=sel.has(item.id);
+      const dis=isRec&&MDEPS.includes(item.id)&&!isMow();
+      const p=gp(item.id);const sp=sug[item.id]||0;const isExp=ST.exp.has(item.id);
+      const chk=selected&&!dis?'<svg width="10" height="10" viewBox="0 0 12 12"><polyline points="1,6.5 4.5,10 11,2" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'';
+      h+='<div class="svc" onclick="'+(dis?'':' toggle(\''+item.id+'\',\''+cat.id+'\')' )+'" style="'+(dis?'cursor:default':'')+'"><div class="chk '+(selected&&!dis?'on':'')+(dis?' dis':'')+'">'+chk+'</div>';
+      h+='<div class="svc-name-col"><div class="svc-nm'+(dis?' dim':'')+'">'+item.name+'</div>';
+      if(item.pop||dis){h+='<div class="svc-tags">'+(item.pop?'<span class="pop">Popular</span>':'')+(dis?'<span class="req">· requires mowing plan</span>':'')+'</div>';}
+      if(isExp)h+='<div class="desc-txt">'+(DESCS[item.id]||'')+'</div>';
+      h+='</div>';
+      h+='<div class="svc-controls"><button class="exp-btn" onclick="toggleExp(\''+item.id+'\',event)">'+(isExp?'▲':'▼')+'</button>';
+      if(item.auto){h+='<div class="auto-val"><div style="font-weight:700;color:#30471F">$'+Math.round(p).toLocaleString()+'</div><div style="font-size:10px;color:#aaa">+25% auto</div></div>';}
+      else{h+='<input class="pi" type="number" value="'+(p>0?Math.round(p):'')+'" placeholder="'+(sp>0?Math.round(sp):'—')+'" onclick="event.stopPropagation()" oninput="event.stopPropagation();ovr(\''+item.id+'\',this.value)">';}
+      h+='</div></div>';
+    }
+    if(cat.id==='C'&&ST.mulch>0)h+='<div class="sm-hint">Clean Look = $'+BCB+' + $'+BCR1+'/yd (first 8) + $'+BCR2+'/yd beyond · Estate = $'+BEB+' + $'+BER1+'/yd + $'+BER2+'/yd beyond · '+ST.mulch+' yds</div>';
+    if(cat.id==='D')h+='<div class="sm-hint">Spring cleanup scales with leaf volume — leaf '+ST.leaf+' → ×'+SLM[ST.leaf]+'</div>';
+    h+='</div>';
+  }
+  $('svcCol').innerHTML=h;
+}
 function renderOut(){const t=tot();const isRec=ST.mode==='recurring';let h='<div class="card" style="margin-bottom:10px"><div class="slbl">Summary</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';if(isRec){h+='<div class="met"><div class="met-l">Annual total</div><div class="met-v">'+(t>0?'$'+Math.round(t).toLocaleString():'—')+'</div></div><div class="met"><div class="met-l">Monthly ÷12</div><div class="met-v">'+(t>0?'$'+Math.round(t/12).toLocaleString():'—')+'</div></div>';}else{h+='<div class="met" style="grid-column:1/-1"><div class="met-l">Job total (flat)</div><div class="met-v">'+(t>0?'$'+Math.round(t).toLocaleString():'—')+'</div></div>';}h+='</div>';if(isRec){const trimSel=['E1','E4','E2'].filter(id=>ST.sel.has(id));if(trimSel.length&&ST.trim>0){const vM={E1:1,E4:2,E2:6};let tT=0,tH=0;trimSel.forEach(id=>{tT+=gp(id);tH+=ST.trim*(vM[id]||1);});const ir=tH>0?Math.round(tT/tH):0,ok=Math.abs(ir-ST.rate)<10,lo=ir<ST.rate-10;const cl=ok?'#30471F':lo?'#cc0000':'#7a5800';h+='<div class="info-bar"><span style="color:#888">Trim rate: </span><span style="font-weight:700;color:'+cl+'">$'+ir+'/hr · '+(lo?'below target':ok?'on target':'above target')+'</span><span style="color:#888"> (target $'+ST.rate+'/hr)</span></div>';}}if(ST.mulch>0&&(ST.sel.has('F1')||ST.selOne.has('OF1'))){const id=isRec?'F1':'OF1';const p=gp(id);const cost=Math.round(ST.mulch*30);const margin=p-cost;h+='<div class="info-bar"><span style="color:#888">Mulch: </span><span style="font-weight:700">$'+Math.round(p).toLocaleString()+'</span><span style="color:#888"> · $'+cost+' material · </span><span style="color:#30471F;font-weight:700">$'+margin+' margin</span></div>';}h+='<button class="cp-all" onclick="cpAll(this)">Copy all line items</button></div>';h+='<div class="card"><div class="slbl">Jobber line items</div>';let any=false;for(const cat of getCats()){const sel=cat.items.filter(i=>getSel().has(i.id));if(!sel.length)continue;any=true;const m=MKT[cat.id];if(m)h+='<div class="jh"><div style="display:flex;justify-content:space-between;align-items:start;gap:6px"><div><div class="jh-title">'+m.title+'</div><div class="jh-desc">'+m.desc+'</div></div><button class="qb" style="flex-shrink:0;width:48px" onclick="cpHeader(\''+cat.id+'\',this)">Copy</button></div><div class="jh-tag">$0 marketing header — paste into Jobber quote description</div></div>';h+='<div class="qhd">'+(m?m.title.replace(/^\S+\s/,''):cat.id)+'</div>';sel.forEach(item=>{const p=gp(item.id);const priceStr=isRec?'$'+Math.round(p/12)+'/month':'$'+Math.round(p)+' flat';h+='<div class="qi"><div class="qi-nm">'+item.name+'</div><div class="qi-desc">'+(DESCS[item.id]||'')+'</div><div class="qi-pr">'+priceStr+'</div><div class="qi-btns"><button class="qb" onclick="cpItem(\''+item.id+'\',\'n\',this)">Name</button><button class="qb" onclick="cpItem(\''+item.id+'\',\'d\',this)">Desc</button><button class="qb g" onclick="cpItem(\''+item.id+'\',\'a\',this)">All</button></div></div>';});}if(!any)h+='<div class="empty">Select services to see line items</div>';h+='</div>';$('outCol').innerHTML=h;}
 function render(){$('estW').style.display=(!ST.lawn&&ST.lot)?'block':'none';renderSvc();renderOut();}
 render();
