@@ -92,18 +92,16 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
   </div>
 </header>
 
-<div class="mode-bar">
-  <button class="mode-btn on" id="mRec" onclick="setMode('recurring')">🌿 Property Plan (Recurring)</button>
-  <button class="mode-btn" id="mOne" onclick="setMode('onetime')">🔧 One-Off Job</button>
-</div>
-
 <div class="card">
   <div class="slbl">Property details</div>
-  <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
-    <div style="flex:1"><label class="lbl">Property address</label><input type="text" id="iAddr" placeholder="e.g. 123 Main St, Springfield, OH 45501" style="width:100%;font-size:13px;padding:7px 9px;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;outline:none;font-family:'Nunito',sans-serif"></div>
+  <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px"><label class="lbl">Property address</label><input type="text" id="iAddr" placeholder="e.g. 123 Main St, Springfield, OH 45501" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupAddr();}" style="width:100%;font-size:13px;padding:7px 9px;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;outline:none;font-family:'Nunito',sans-serif"></div>
+    <button class="addr-btn" onclick="lookupAddr()" id="lkBtn">📍 Look up</button>
     <button class="addr-btn" onclick="openEarth()">🌍 Earth</button>
     <button class="addr-btn" onclick="openLotSearch()">🔍 Lot info</button>
   </div>
+  <div id="mapBox" style="display:none;height:300px;border-radius:10px;overflow:hidden;border:1.5px solid #d8d8d0;margin-bottom:6px"></div>
+  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
   <div class="g2" style="margin-bottom:12px">
     <div><label class="lbl">Lawn / turf (sq ft)</label><input type="number" id="iLn" placeholder="e.g. 8000" oninput="upd()"></div>
     <div><label class="lbl">Lot size (sq ft)</label><input type="number" id="iLt" placeholder="e.g. 10890" oninput="upd()"></div>
@@ -130,7 +128,7 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
         <button onclick="setSeg('lPg',this,()=>ST.leaf=5)">5</button>
       </div>
     </div>
-    <div id="snowRow"><label class="lbl" style="margin-bottom:5px">Snow trigger</label>
+    <div id="snowRow" style="display:none"><label class="lbl" style="margin-bottom:5px">Snow trigger</label>
       <div class="seg" id="snPg">
         <button class="on" onclick="setSeg('snPg',this,()=>ST.snow='2plus')">2&quot;+</button>
         <button onclick="setSeg('snPg',this,()=>ST.snow='1plus')">1&quot;+</button>
@@ -139,6 +137,11 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
     </div>
   </div>
   <div id="estW" style="display:none" class="warn">No lawn size — estimating turf at 70% of lot.</div>
+</div>
+
+<div class="mode-bar">
+  <button class="mode-btn" id="mRec" onclick="setMode('recurring')">🌿 Property Plan (Recurring)</button>
+  <button class="mode-btn" id="mOne" onclick="setMode('onetime')">🔧 One-Off Job</button>
 </div>
 
 <div class="cols">
@@ -151,8 +154,8 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 const $=id=>document.getElementById(id);
 const V=35,BCB=100,BCR1=38,BCR2=26,BEB=200,BER1=60,BER2=40;
 const SLM=[0.75,0.9,1.0,1.15,1.30,1.50];
-let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:80,leaf:2,snow:'2plus',mode:'recurring',sel:new Set(['A1']),selOne:new Set(),ov:{},ovOne:{},exp:new Set()};
-function setMode(m){ST.mode=m;$('mRec').classList.toggle('on',m==='recurring');$('mOne').classList.toggle('on',m==='onetime');$('snowRow').style.display=m==='onetime'?'none':'';render();}
+let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:80,leaf:2,snow:'2plus',mode:null,sel:new Set(['A1']),selOne:new Set(),ov:{},ovOne:{},exp:new Set()};
+function setMode(m){ST.mode=m;$('mRec').classList.toggle('on',m==='recurring');$('mOne').classList.toggle('on',m==='onetime');$('snowRow').style.display=m==='recurring'?'':'none';render();}
 const MKT={A:{title:'🌿 Mowing Packages',desc:'Our weekly mowing packages provide consistent, professional care for your lawn throughout the entire growing season.'},C:{title:'🌸 Flower Bed Care & Mulch',desc:'Keep your landscape beds pristine all season long. Includes weeding plans, mulch installation, and bed edging.'},B:{title:'🌱 Lawn Health Services',desc:'Treatments designed to relieve soil compaction, improve nutrient uptake, and thicken your existing turf.'},D:{title:'🌱 Spring Cleanup (Spring Only)',desc:'Comprehensive spring property care designed to properly reset and prepare your landscape at the start of the season.'},G:{title:'🍂 Fall Leaf Care & Cleanups (Fall Only)',desc:'Comprehensive fall property care designed to manage falling leaves and prepare your landscape for winter.'},E:{title:'✂️ Trimming & Pruning',desc:'Professional shaping services to maintain neat, balanced bushes throughout the growing season.'},H:{title:'❄️ Winter Services',desc:'Reliable, 24/7 snow and ice management to keep your property safe and accessible all winter long.'},OB:{title:'🌱 Lawn Health',desc:'One-time aeration and overseeding treatments.'},OE:{title:'✂️ Trimming & Pruning',desc:'One-time shaping and pruning services.'},OF:{title:'🪵 Bed & Mulch Services',desc:'One-time bed care and mulch installation.'},OD:{title:'🧹 Property Cleanups',desc:'One-time spring or fall property cleanup.'}};
 const DESCS={A1:'Weekly professional mowing of all turf areas during the growing season (35 visits, April–November). Using specialized mulching blades, grass clippings are finely shredded and returned to the lawn to naturally feed the soil. Includes string trimming around edges, obstacles, and beds, and blowing of hard surfaces.',A2:'Weekly professional mowing (35 visits). Grass clippings are bagged and removed for a consistently clean appearance. Includes string trimming, edges, obstacles, beds, and blowing of hard surfaces.',C1:'Routine maintenance of garden beds using string trimmers to control visible weed growth. Performed during regular weekly visits. Mechanical trim only — no hand pulling; root systems remain intact.',C2:'Ongoing hand-pulled weeding and light bed upkeep performed during regular weekly visits. Includes an application of Preen weed preventer.',B1:'Mechanical core aeration performed in spring to relieve soil compaction and improve air, water, and nutrient movement into the root zone.',B2:'Mechanical core aeration performed in fall to reduce compaction following the growing season.',B3:'Application of grass seed in spring to improve turf density. Intended to thicken existing turf — not designed to restore large bare areas.',B4:'Application of grass seed in fall to increase turf density and improve lawn thickness for the following season.',D1:'Seasonal cleanup in early spring to reset the property after winter. All organic material is finely shredded and returned to the soil.',D2:'Seasonal cleanup in early spring. All collected material is completely hauled away for a perfectly clean appearance.',G1:'Add-on to mowing plan. Leaves shredded and mulched into the turf during fall visits. Includes a deep end-of-season cleanup.',G2:'Add-on to mowing plan. Leaves collected and hauled away during every fall visit. Concludes with a comprehensive full-property final cleanup.',G3:'Add-on to mowing plan. Most comprehensive — leaves completely cleared from lawn, hardscapes, and all flower beds during every visit.',G4:'Single comprehensive cleanup. Leaves, sticks, and debris cleared. All organic material finely shredded and returned to the soil.',G5:'Single comprehensive cleanup. Leaves, sticks, and debris cleared. All collected material completely hauled away.',E1:'One professional trimming visit per year. Restores a neat, balanced shape. Ground level only — tree work not included.',E4:'Two professional trimming visits per year. Recommended for faster-growing landscapes. Ground level only.',E2:'Ongoing trimming support throughout the season as needed. Add-on to mowing plan. Ground level only.',E5:'Upgrades shaping services to include step ladders for taller bushes. Tree work remains excluded.',E3:'Seasonal pruning of perennial flowers at appropriate times. Does not include bush or tree trimming.',F1:'Delivery and installation of dark brown mulch in flower beds. Includes natural edge-defining and complimentary Preen weed preventer. $150/yard.',H1:'24/7 snow clearing triggered after ~2 inches. Unlimited visits for qualifying events.',H2:'Priority 24/7 snow clearing triggered after ~1 inch. Earlier dispatch and priority scheduling.',H4:'Highest priority 24/7 snow clearing at any accumulation. Property remains completely clear at all times.',H3:'Application of salt to walkways and driveways following snow removal.',OB1:'One-time mechanical core aeration in spring. Relieves soil compaction, improves air, water, and nutrient movement.',OB2:'One-time mechanical core aeration in fall. Reduces compaction following the growing season.',OB3:'One-time application of grass seed in spring to improve turf density.',OB4:'One-time application of grass seed in fall to increase turf density for the following season.',OE1:'One-time professional trimming for bushes and shrubs. Restores a neat, balanced shape. Ground level only.',OE3:'One-time pruning of perennial flowers at appropriate times.',OF1:'Delivery and installation of dark brown mulch in flower beds. Includes bed edging and complimentary Preen weed preventer. $150/yard.',OF2:'One-time comprehensive hand-pulled weeding of flower beds.',OF3:'One-time bed reset — clearing, edging, and bringing beds back to a maintainable baseline before ongoing service can begin.',OD1:'One-time spring property cleanup. Clears leaves, sticks, and debris. Organic material mulched and returned to the soil.',OD2:'One-time spring property cleanup. All material hauled away.',OD3:'One-time fall cleanup. Single comprehensive leaf clearing visit. Organic material mulched back.',OD4:'One-time fall cleanup. All material hauled away.'};
 const REC_CATS=[{id:'A',items:[{id:'A1',name:'Weekly Maintenance – Nutrient Standard',pop:true},{id:'A2',name:'Weekly Maintenance – Pristine Standard',auto:true}]},{id:'C',addon:'add-on to mowing',items:[{id:'C1',name:'Garden Maintenance – Clean Look Plan',pop:true,dep:true},{id:'C2',name:'Garden Maintenance – Estate Detail Plan',dep:true},{id:'F1',name:'Mulch Installation & Flower Bed Edging'}]},{id:'B',items:[{id:'B1',name:'Spring Aeration'},{id:'B2',name:'Fall Aeration'},{id:'B3',name:'Spring Overseeding'},{id:'B4',name:'Fall Overseeding'}]},{id:'D',items:[{id:'D1',name:'Spring Cleanup – Nutrient Standard',pop:true},{id:'D2',name:'Spring Cleanup – Pristine Standard'}]},{id:'G',addon:'add-on to mowing',items:[{id:'G1',name:'Leaf Care – Standard',pop:true,dep:true},{id:'G2',name:'Leaf Care – Pristine',dep:true},{id:'G3',name:'Leaf Care – Estate',dep:true},{id:'G4',name:'One-Time Cleanup – Nutrient Standard',pop:true},{id:'G5',name:'One-Time Cleanup – Pristine Standard'}]},{id:'E',items:[{id:'E1',name:'Annual Shaping'},{id:'E4',name:'Bi-Annual Shaping'},{id:'E2',name:'Premium Managed Shaping',dep:true},{id:'E5',name:'Ladder Use Upgrade'},{id:'E3',name:'Perennial Flower Pruning'}]},{id:'H',items:[{id:'H1',name:'Snow Removal – Standard'},{id:'H2',name:'Snow Removal – Premium'},{id:'H4',name:'Snow Removal – Zero Tolerance'},{id:'H3',name:'Salt Treatment'}]}];
@@ -169,17 +172,26 @@ function gp(id){const ov=getOv();if(id==='A2'){const b='A1'in ST.ov?ST.ov.A1:(ge
 function toggle(id,cid){const sel=getSel();const isRec=ST.mode==='recurring';if(isRec&&MDEPS.includes(id)&&!isMow())return;if(id==='E5'&&!hasTrim())return;if(sel.has(id)){sel.delete(id);if(isRec&&cid==='A'&&!isMow())MDEPS.forEach(d=>sel.delete(d));if(cid==='E'&&!sel.has('E1')&&!sel.has('E4')&&!sel.has('E2'))sel.delete('E5');}else sel.add(id);render();}
 function toggleExp(id){ST.exp.has(id)?ST.exp.delete(id):ST.exp.add(id);render();}
 function setSeg(gid,btn,fn){document.querySelectorAll('#'+gid+' button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');fn();render();}
-function upd(){ST.lawn=parseFloat($('iLn').value)||0;ST.lot=parseFloat($('iLt').value)||0;ST.paved=parseFloat($('iPv').value)||0;ST.mulch=parseFloat($('iMu').value)||0;ST.trim=parseFloat($('iTr').value)||0;ST.peren=parseFloat($('iPe').value)||0;render();}
-function ovr(id,val){const ov=getOv();const n=parseFloat(val);if(isNaN(n)||val==='')delete ov[id];else ov[id]=n;render();}
+let _rT;function scheduleRender(){clearTimeout(_rT);_rT=setTimeout(render,120);}
+function upd(){ST.lawn=parseFloat($('iLn').value)||0;ST.lot=parseFloat($('iLt').value)||0;ST.paved=parseFloat($('iPv').value)||0;ST.mulch=parseFloat($('iMu').value)||0;ST.trim=parseFloat($('iTr').value)||0;ST.peren=parseFloat($('iPe').value)||0;scheduleRender();}
+function ovr(id,val){const ov=getOv();const n=parseFloat(val);if(isNaN(n)||val==='')delete ov[id];else ov[id]=n;scheduleRender();}
 function resetOvr(id,e){e.stopPropagation();const ov=getOv();delete ov[id];render();}
 function getAddr(){return ($('iAddr').value||'').trim();}
 function openEarth(){const a=getAddr();if(!a)return;window.open('https://earth.google.com/web/search/'+encodeURIComponent(a),'_blank');}
 function openLotSearch(){const a=getAddr();if(!a)return;window.open('https://www.google.com/search?q='+encodeURIComponent(a+' Zillow OR Realtor OR Redfin lot size'),'_blank');}
+function lookupAddr(){
+  const a=getAddr();if(!a)return;
+  const box=$('mapBox'),meta=$('mapMeta');
+  const url='https://maps.google.com/maps?q='+encodeURIComponent(a)+'&t=k&z=19&output=embed';
+  box.innerHTML='<iframe width="100%" height="100%" frameborder="0" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'+url+'"></iframe>';
+  box.style.display='block';meta.style.display='flex';
+  $('mapAddr').textContent=a;
+}
 function cp(t,btn){navigator.clipboard.writeText(t).then(()=>{if(btn){const o=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=o,1400);}}).catch(()=>{});}
 function cpMo(val,el){if(!val)return;navigator.clipboard.writeText(String(val)).then(()=>{el.classList.add('copied');const o=el.textContent;el.textContent='✓ Copied';setTimeout(()=>{el.textContent=o;el.classList.remove('copied');},1400);}).catch(()=>{});}
 function renderSvc(){
   const ae=document.activeElement;const focusId=ae&&ae.dataset&&ae.dataset.id?ae.dataset.id:null;
-  const cursorPos=focusId?ae.selectionStart:0;
+  let cursorPos=0;if(focusId){try{cursorPos=ae.selectionStart||0;}catch(e){}}
   const sug=getSug();const sel=getSel();const isRec=ST.mode==='recurring';
   let h='';
   for(const cat of getCats()){
@@ -218,7 +230,7 @@ function renderOut(){const isRec=ST.mode==='recurring';let h='<div class="card" 
 let refOpen=new Set();
 function toggleRef(cid,e){e.stopPropagation();refOpen.has(cid)?refOpen.delete(cid):refOpen.add(cid);render();}
 function renderRef(){let h='<div class="card ref-section"><div class="slbl">Reference — Line Items & Subtitles</div>';const cats=getCats();for(const cat of cats){const m=MKT[cat.id];const open=refOpen.has(cat.id);h+='<div class="ref-cat"><div class="ref-cat-hd" onclick="toggleRef(\''+cat.id+'\',event)"><span>'+(m?m.title:cat.id)+'</span><span style="font-size:10px;color:#aaa">'+(open?'▲':'▼')+'</span></div>';if(open){if(m)h+='<div class="ref-sub-desc">'+m.desc+'</div>';h+='<div class="ref-cat-body">';for(const item of cat.items){h+='<div class="ref-item"><div class="ref-item-nm">'+item.name+'</div><div class="ref-item-desc">'+(DESCS[item.id]||'')+'</div></div>';}h+='</div>';}h+='</div>';}h+='</div>';return h;}
-function render(){$('estW').style.display=(!ST.lawn&&ST.lot)?'block':'none';renderSvc();renderOut();}
+function render(){$('estW').style.display=(!ST.lawn&&ST.lot)?'block':'none';if(!ST.mode){$('svcCol').innerHTML='<div class="card"><div class="empty" style="padding:28px 16px;font-size:12px;color:#888;line-height:1.6">Fill in the property details above, then choose <b style="color:#30471F">Property Plan</b> or <b style="color:#30471F">One-Off Job</b> to see pricing.</div></div>';$('outCol').innerHTML='';return;}renderSvc();renderOut();}
 render();
 </script>
 </body>
