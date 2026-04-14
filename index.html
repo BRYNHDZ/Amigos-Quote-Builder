@@ -81,6 +81,10 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 .sm-hint{font-size:10px;color:#aaa;margin-top:6px;padding-top:6px;border-top:1px dashed #e8e8e0}
 .addr-btn{padding:7px 12px;font-size:12px;font-weight:700;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;cursor:pointer;white-space:nowrap;font-family:'Nunito',sans-serif;transition:all .12s}
 .addr-btn:hover{background:#e6f0e0;border-color:#30471F}
+.unit-btn{width:52px;font-size:11px;font-weight:700;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#30471F;cursor:pointer;white-space:nowrap;font-family:'Nunito',sans-serif;transition:all .12s;flex-shrink:0}
+.unit-btn:hover{background:#e6f0e0;border-color:#30471F}
+.ext-lnk{color:#30471F;font-weight:700;text-decoration:none;white-space:nowrap}
+.ext-lnk:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -94,16 +98,18 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 
 <div class="card">
   <div class="slbl">Property details</div>
-  <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
+  <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:6px;flex-wrap:wrap">
     <div style="flex:1;min-width:180px"><label class="lbl">Property address</label><input type="text" id="iAddr" placeholder="e.g. 123 Main St, Springfield, OH 45501" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupAddr();}" style="width:100%;font-size:13px;padding:7px 9px;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;outline:none;font-family:'Nunito',sans-serif"></div>
     <button class="addr-btn" onclick="lookupAddr()" id="lkBtn">📍 Look up</button>
-    <button class="addr-btn" onclick="openEarth()">🌍 Earth</button>
-    <button class="addr-btn" onclick="openLotSearch()">🔍 Lot info</button>
   </div>
-  <div id="mapBox" style="display:none;height:300px;border-radius:10px;overflow:hidden;border:1.5px solid #d8d8d0;margin-bottom:6px"></div>
+  <div style="font-size:11px;color:#888;margin-bottom:10px">Open in:
+    <a href="#" onclick="openEarth();return false" class="ext-lnk">🌍 Earth (3D)</a> <span style="color:#bbb;font-weight:400">— ctrl+drag to rotate</span> ·
+    <a href="#" onclick="openLotSearch();return false" class="ext-lnk">🏠 Zillow/Redfin</a>
+  </div>
+  <div id="mapBox" style="display:none;height:380px;border-radius:10px;overflow:hidden;border:1.5px solid #d8d8d0;margin-bottom:6px"></div>
   <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
   <div class="g2" style="margin-bottom:12px">
-    <div><label class="lbl">Lot size (sq ft)</label><input type="number" id="iLt" placeholder="e.g. 10890" oninput="upd()"><div class="hint">Enter this alone → all services auto-estimate</div></div>
+    <div><label class="lbl">Lot size</label><div style="display:flex;gap:4px"><input type="number" id="iLt" placeholder="e.g. 10890" step="any" oninput="upd()" style="flex:1;min-width:0"><button type="button" id="iLtU" class="unit-btn" onclick="toggleLotUnit()">sqft</button></div><div class="hint" id="iLtH">Enter this alone → all services auto-estimate</div></div>
     <div><label class="lbl">Home footprint (sq ft)</label><input type="number" id="iHf" placeholder="e.g. 2000" oninput="upd()"><div class="hint">Subtracts home from lot. Zillow "building area" ÷ stories.</div></div>
     <div><label class="lbl">Lawn / turf (sq ft)</label><input type="number" id="iLn" placeholder="auto" oninput="upd()"></div>
     <div><label class="lbl">Paved area — driveway + walks (sq ft)</label><input type="number" id="iPv" placeholder="auto" oninput="upd()"></div>
@@ -173,7 +179,7 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 const $=id=>document.getElementById(id);
 const V=35,BCB=100,BCR1=38,BCR2=26,BEB=200,BER1=60,BER2=40;
 const SLM=[0.75,0.9,1.0,1.15,1.30,1.50];
-let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:0,leaf:null,snow:null,mode:null,homeVal:0,homeFt:0,complex:null,visitsRemain:0,oneTier:'remote',sel:new Set(['A1']),selOne:new Set(),ov:{},ovOne:{},exp:new Set()};
+let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:0,leaf:null,snow:null,mode:null,homeVal:0,homeFt:0,complex:null,visitsRemain:0,oneTier:'remote',sel:new Set(['A1']),selOne:new Set(),ov:{},ovOne:{},exp:new Set(),lotUnit:'sqft'};
 const CXM={low:1.0,med:1.15,high:1.35};
 const TIER_FLOOR={remote:250,driveby:550,appt:1000};
 const PLAN_FLOOR=149;
@@ -195,7 +201,9 @@ function toggle(id,cid){const sel=getSel();const isRec=ST.mode==='recurring';if(
 function toggleExp(id){ST.exp.has(id)?ST.exp.delete(id):ST.exp.add(id);render();}
 function setSeg(gid,btn,fn){document.querySelectorAll('#'+gid+' button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');fn();render();}
 let _rT;function scheduleRender(){clearTimeout(_rT);_rT=setTimeout(render,120);}
-function upd(){ST.lawn=parseFloat($('iLn').value)||0;ST.lot=parseFloat($('iLt').value)||0;ST.paved=parseFloat($('iPv').value)||0;ST.mulch=parseFloat($('iMu').value)||0;ST.trim=parseFloat($('iTr').value)||0;ST.peren=parseFloat($('iPe').value)||0;ST.homeVal=parseFloat($('iHv').value)||0;ST.homeFt=parseFloat($('iHf').value)||0;const vr=parseFloat($('iVr')&&$('iVr').value);ST.visitsRemain=isNaN(vr)||vr<=0?0:Math.min(35,vr);scheduleRender();}
+function upd(){ST.lawn=parseFloat($('iLn').value)||0;const lt=parseFloat($('iLt').value)||0;ST.lot=ST.lotUnit==='ac'?Math.round(lt*43560):Math.round(lt);ST.paved=parseFloat($('iPv').value)||0;ST.mulch=parseFloat($('iMu').value)||0;ST.trim=parseFloat($('iTr').value)||0;ST.peren=parseFloat($('iPe').value)||0;ST.homeVal=parseFloat($('iHv').value)||0;ST.homeFt=parseFloat($('iHf').value)||0;const vr=parseFloat($('iVr')&&$('iVr').value);ST.visitsRemain=isNaN(vr)||vr<=0?0:Math.min(35,vr);updLotHint();scheduleRender();}
+function updLotHint(){const el=$('iLtH');if(!el)return;if(ST.lot>0){el.textContent=ST.lotUnit==='sqft'?'≈ '+(ST.lot/43560).toFixed(2)+' ac':'= '+ST.lot.toLocaleString()+' sqft';}else el.textContent='Enter this alone → all services auto-estimate';}
+function toggleLotUnit(){const btn=$('iLtU'),inp=$('iLt');const val=parseFloat(inp.value);if(ST.lotUnit==='sqft'){ST.lotUnit='ac';btn.textContent='ac';inp.placeholder='e.g. 0.25';if(!isNaN(val)&&val>0){const ac=val/43560;inp.value=+ac.toFixed(3);}}else{ST.lotUnit='sqft';btn.textContent='sqft';inp.placeholder='e.g. 10890';if(!isNaN(val)&&val>0){inp.value=Math.round(val*43560);}}upd();}
 function effRate(){return ST.rate||80;}
 function effLeaf(){return ST.leaf==null?2:ST.leaf;}
 function effSnow(){return ST.snow||'2plus';}
@@ -206,7 +214,7 @@ function ovr(id,val){const ov=getOv();const n=parseFloat(val);if(isNaN(n)||val==
 function updLiveRow(id){const p=gp(id);const mo=ST.mode==='recurring'&&p>0?Math.round(p/12):0;const moEl=document.querySelector('.svc-mo[data-mo="'+id+'"]');if(moEl){moEl.textContent=mo>0?'$'+mo+'/mo':'';moEl.setAttribute('onclick','event.stopPropagation();cpMo('+mo+',this)');}const a2El=document.querySelector('[data-px="'+id+'"]');if(a2El)a2El.textContent='$'+Math.round(p).toLocaleString();}
 function resetOvr(id,e){e.stopPropagation();const ov=getOv();delete ov[id];render();}
 function getAddr(){return ($('iAddr').value||'').trim();}
-function openEarth(){const a=getAddr();if(!a)return;window.open('https://earth.google.com/web/search/'+encodeURIComponent(a),'_blank');}
+function openEarth(){const a=getAddr();if(!a)return;const win=window.open('about:blank','_blank');if(!win)return;const fallback='https://earth.google.com/web/search/'+encodeURIComponent(a);fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(a)).then(r=>r.json()).then(j=>{if(j&&j.length){const lat=j[0].lat,lon=j[0].lon;win.location='https://earth.google.com/web/@'+lat+','+lon+',0a,200d,65t,0h,0r';}else{win.location=fallback;}}).catch(()=>{win.location=fallback;});}
 function openLotSearch(){const a=getAddr();if(!a)return;window.open('https://www.google.com/search?q='+encodeURIComponent(a+' Zillow OR Realtor OR Redfin lot size'),'_blank');}
 function lookupAddr(){
   const a=getAddr();if(!a)return;
