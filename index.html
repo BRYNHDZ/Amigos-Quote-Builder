@@ -232,7 +232,7 @@ const REC_CATS=[{id:'A',items:[{id:'A1',name:'Weekly Maintenance – Nutrient St
 const ONE_CATS=[{id:'OB',items:[{id:'OB1',name:'Spring Aeration'},{id:'OB2',name:'Fall Aeration'},{id:'OB3',name:'Spring Overseeding'},{id:'OB4',name:'Fall Overseeding'}]},{id:'OD',items:[{id:'OD1',name:'Spring Cleanup – Nutrient Standard',pop:true},{id:'OD2',name:'Spring Cleanup – Pristine Standard'},{id:'OD3',name:'Fall Cleanup – Nutrient Standard',pop:true},{id:'OD4',name:'Fall Cleanup – Pristine Standard'}]},{id:'OE',items:[{id:'OE1',name:'Bush & Shrub Shaping'},{id:'OE3',name:'Perennial Flower Pruning'}]},{id:'OF',items:[{id:'OF1',name:'Mulch Installation & Flower Bed Edging',pop:true},{id:'OF2',name:'One-Time Weeding'},{id:'OF3',name:'Bed Reset / Garden Cleanup'}]}];
 const MDEPS=['C1','C2','G1','G2','G3','E2'];
 function isMow(){return ST.sel.has('A1')||ST.sel.has('A2')}
-function hasTrim(){const s=ST.mode==='recurring'?ST.sel:ST.selOne;return s.has('E1')||s.has('E4')||s.has('E2');}
+function hasTrim(){const s=ST.mode==='recurring'?ST.sel:ST.selOne;return s.has('E1')||s.has('E2')||s.has('OE1');}
 function bp(y,b,r1,r2){return b+Math.min(y,8)*r1+Math.max(y-8,0)*r2;}
 function trimHrs(lot){
   if(lot<=0)return 0;
@@ -251,6 +251,7 @@ function gp(id){const ov=getOv();if(id==='A2'){const b='A1'in ST.ov?ST.ov.A1:(ge
 function toggle(id,cid){const sel=getSel();const isRec=ST.mode==='recurring';if(isRec&&MDEPS.includes(id)&&!isMow())return;if(id==='E5'&&!hasTrim())return;if(sel.has(id)){sel.delete(id);if(isRec&&cid==='A'&&!isMow())MDEPS.forEach(d=>sel.delete(d));if(cid==='E'&&!sel.has('E1')&&!sel.has('E4')&&!sel.has('E2'))sel.delete('E5');}else sel.add(id);render();}
 function toggleExp(id){ST.exp.has(id)?ST.exp.delete(id):ST.exp.add(id);render();}
 function setSeg(gid,btn,fn){document.querySelectorAll('#'+gid+' button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');fn();render();}
+function setDial(field,val){ST[field]=val;render();}
 let _rT;function scheduleRender(){clearTimeout(_rT);_rT=setTimeout(render,120);}
 function upd(){ST.lawn=parseFloat($('iLn').value)||0;const lt=parseFloat($('iLt').value)||0;ST.lot=ST.lotUnit==='ac'?Math.round(lt*43560):Math.round(lt);ST.paved=parseFloat($('iPv').value)||0;ST.mulch=parseFloat($('iMu').value)||0;ST.trim=parseFloat($('iTr').value)||0;ST.peren=parseFloat($('iPe').value)||0;ST.homeVal=parseFloat($('iHv').value)||0;ST.homeFt=parseFloat($('iHf').value)||0;const vr=parseFloat($('iVr')&&$('iVr').value);ST.visitsRemain=isNaN(vr)||vr<=0?0:Math.min(35,vr);updLotHint();scheduleRender();}
 function updLotHint(){const el=$('iLtH');if(!el)return;el.style.color='';el.style.fontWeight='';if(ST.lot>0){el.textContent=ST.lotUnit==='sqft'?'≈ '+(ST.lot/43560).toFixed(2)+' ac':'= '+ST.lot.toLocaleString()+' sqft';}else el.textContent='Enter this alone → all services auto-estimate';}
@@ -334,7 +335,7 @@ function renderSvc(){
   let h='';
   for(const cat of getCats()){
     const m=MKT[cat.id];
-    h+='<div class="card"><div class="cat-hd"><div class="cat-title">'+(m?m.title:cat.id)+'</div>'+(cat.addon?'<span class="atag">'+cat.addon+'</span>':'')+'</div>';
+    h+='<div class="card"><div class="cat-hd"><div class="cat-title">'+(m?m.title:cat.id)+'</div>'+(cat.addon?'<span class="atag">'+cat.addon+'</span>':'')+'</div>';if((cat.id==='E'||cat.id==='OE')&&hasTrim()){h+='<div style="margin-bottom:10px"><label class="lbl" style="margin-bottom:5px">Trim density</label><div class="seg" id="tdPg'+cat.id+'">'+'<button class="'+(ST.trimDensity==='light'?'on':'')+'" onclick="setDial(\'trimDensity\',\'light\')">Light</button>'+'<button class="'+(ST.trimDensity==='std'?'on':'')+'" onclick="setDial(\'trimDensity\',\'std\')">Standard</button>'+'<button class="'+(ST.trimDensity==='dense'?'on':'')+'" onclick="setDial(\'trimDensity\',\'dense\')">Dense</button>'+'</div></div>';}
     for(const item of cat.items){
       const selected=sel.has(item.id);
       const disMow=isRec&&MDEPS.includes(item.id)&&!isMow();
