@@ -233,6 +233,7 @@ const ONE_CATS=[{id:'OB',items:[{id:'OB1',name:'Spring Aeration'},{id:'OB2',name
 const MDEPS=['C1','C2','G1','G2','G3','E2'];
 function isMow(){return ST.sel.has('A1')||ST.sel.has('A2')}
 function hasTrim(){const s=ST.mode==='recurring'?ST.sel:ST.selOne;return s.has('E1')||s.has('E2')||s.has('OE1');}
+function hasBeds(){const s=ST.mode==='recurring'?ST.sel:ST.selOne;return s.has('C1')||s.has('C2')||s.has('F1')||s.has('OF1')||s.has('OF2')||s.has('OF3');}
 function bp(y,b,r1,r2){return b+Math.min(y,8)*r1+Math.max(y-8,0)*r2;}
 function trimHrs(lot){
   if(lot<=0)return 0;
@@ -335,7 +336,7 @@ function renderSvc(){
   let h='';
   for(const cat of getCats()){
     const m=MKT[cat.id];
-    h+='<div class="card"><div class="cat-hd"><div class="cat-title">'+(m?m.title:cat.id)+'</div>'+(cat.addon?'<span class="atag">'+cat.addon+'</span>':'')+'</div>';if((cat.id==='E'||cat.id==='OE')&&hasTrim()){h+='<div style="margin-bottom:10px"><label class="lbl" style="margin-bottom:5px">Trim density</label><div class="seg" id="tdPg'+cat.id+'">'+'<button class="'+(ST.trimDensity==='light'?'on':'')+'" onclick="setDial(\'trimDensity\',\'light\')">Light</button>'+'<button class="'+(ST.trimDensity==='std'?'on':'')+'" onclick="setDial(\'trimDensity\',\'std\')">Standard</button>'+'<button class="'+(ST.trimDensity==='dense'?'on':'')+'" onclick="setDial(\'trimDensity\',\'dense\')">Dense</button>'+'</div></div>';}
+    h+='<div class="card"><div class="cat-hd"><div class="cat-title">'+(m?m.title:cat.id)+'</div>'+(cat.addon?'<span class="atag">'+cat.addon+'</span>':'')+'</div>';if((cat.id==='E'||cat.id==='OE')&&hasTrim()){h+='<div style="margin-bottom:10px"><label class="lbl" style="margin-bottom:5px">Trim density</label><div class="seg" id="tdPg'+cat.id+'">'+'<button class="'+(ST.trimDensity==='light'?'on':'')+'" onclick="setDial(\'trimDensity\',\'light\')">Light</button>'+'<button class="'+(ST.trimDensity==='std'?'on':'')+'" onclick="setDial(\'trimDensity\',\'std\')">Standard</button>'+'<button class="'+(ST.trimDensity==='dense'?'on':'')+'" onclick="setDial(\'trimDensity\',\'dense\')">Dense</button>'+'</div></div>';}if((cat.id==='C'||cat.id==='OF')&&hasBeds()){h+='<div style="margin-bottom:10px"><label class="lbl" style="margin-bottom:5px">Weed pressure</label><div class="seg" id="wpPg'+cat.id+'">'+'<button class="'+(ST.weedPressure==='light'?'on':'')+'" onclick="setDial(\'weedPressure\',\'light\')">Light</button>'+'<button class="'+(ST.weedPressure==='mod'?'on':'')+'" onclick="setDial(\'weedPressure\',\'mod\')">Moderate</button>'+'<button class="'+(ST.weedPressure==='heavy'?'on':'')+'" onclick="setDial(\'weedPressure\',\'heavy\')">Heavy</button>'+'</div></div>';}
     for(const item of cat.items){
       const selected=sel.has(item.id);
       const disMow=isRec&&MDEPS.includes(item.id)&&!isMow();
