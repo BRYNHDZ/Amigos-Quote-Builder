@@ -190,6 +190,37 @@ const CXM={low:1.0,med:1.15,high:1.35};
 const TIER_FLOOR={remote:250,driveby:550,appt:1000};
 const PLAN_FLOOR=149;
 const PLAN_DISCOUNT=0.95;
+// Time-based labor model — see docs/superpowers/specs/2026-05-17-time-based-pricing-overhaul-design.md §2.1
+const CREW_HOUR_RATE=160;
+const LABOR_DAY=1280;
+// Mulch time-per-yard model — §3.3
+const MULCH_MAT_PER_YD=70;
+const MULCH_MIN_PER_YD={light:10,mod:20,heavy:30};
+// Trim density multipliers — §3.2 (per-service weights, recurring vs one-time)
+const TRIM_DENSITY_MULT={
+  E1: {light:1.0, std:1.15, dense:1.35},
+  E2: {light:1.0, std:1.10, dense:1.20},
+  E5: {light:1.0, std:1.15, dense:1.35},
+  OE1:{light:1.0, std:1.40, dense:1.80}
+};
+// Weed pressure multipliers — §3.3
+const WEED_PRESSURE_MULT={
+  C1: {light:1.0, mod:1.15, heavy:1.30},
+  C2: {light:1.0, mod:1.15, heavy:1.30},
+  OF2:{light:1.0, mod:1.40, heavy:1.80},
+  OF3:{light:1.0, mod:1.40, heavy:1.80}
+};
+// Trim lot brackets — §4.2
+const TRIM_BRACKETS=[
+  {maxSqft:10890,  hrs:2}, // <0.25 ac — flat 2h
+  {maxSqft:21780,  hrs:4}, // 0.25–0.5 ac — interp 2→4
+  {maxSqft:32670,  hrs:6}, // 0.5–0.75 ac — interp 4→6
+  {maxSqft:Infinity,hrs:8} // >0.75 ac — interp 6→8 capped
+];
+// Outside-ICP threshold (sqft)
+const ICP_LOT_CAP=32670;
+// E2 = X × E1
+const E2_MULT=2.25;
 const RATE_BASE=80;
 const RATE_SVCS=['A1','A2','C1','C2','B1','B2','B3','B4','D1','D2','G1','G2','G3','G4','G5','OB1','OB2','OB3','OB4','OD1','OD2','OD3','OD4','H1','H2','H4','H3'];
 const PLAN_SVCS=['A1','A2','C1','C2','B1','B2','B3','B4','D1','D2','G1','G2','G3','G4','G5','E1','E4','E2','E5','E3','F1','H1','H2','H3','H4'];
