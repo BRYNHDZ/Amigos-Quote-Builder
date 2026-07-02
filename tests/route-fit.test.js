@@ -73,3 +73,37 @@ test('rankRoutes ignores stops without coordinates', () => {
   ], 1);
   assert.strictEqual(r.ranked[0].density, 1);
 });
+
+const DATA = {
+  base: {lat:0, lng:0},
+  blacklist: ['Villa Park', {town:'Lombard', scope:'mowing'}],
+  routes: [
+    {name:'Route X', stops:[{lat:0,lng:0.005}]},
+    {name:'Route Y', stops:[{lat:0,lng:0.02}]}
+  ]
+};
+
+test('computeFit: in-area, unlisted town -> full route ranking', () => {
+  const r = RouteFit.computeFit({pin:{lat:0,lng:0.03}, town:'Wheaton'}, DATA);
+  assert.strictEqual(r.area.status, 'in');
+  assert.strictEqual(r.blacklist.blocked, false);
+  assert.ok(r.routes && r.routes.ranked.length === 2);
+});
+
+test('computeFit: out-of-area -> no route ranking', () => {
+  const r = RouteFit.computeFit({pin:{lat:0,lng:0.3}, town:'Wheaton'}, DATA);
+  assert.strictEqual(r.area.status, 'out');
+  assert.strictEqual(r.routes, null);
+});
+
+test('computeFit: blacklisted both -> no route ranking', () => {
+  const r = RouteFit.computeFit({pin:{lat:0,lng:0.03}, town:'Villa Park'}, DATA);
+  assert.strictEqual(r.blacklist.scope, 'both');
+  assert.strictEqual(r.routes, null);
+});
+
+test('computeFit: mowing-only blacklist still ranks routes', () => {
+  const r = RouteFit.computeFit({pin:{lat:0,lng:0.03}, town:'Lombard'}, DATA);
+  assert.strictEqual(r.blacklist.scope, 'mowing');
+  assert.ok(r.routes && r.routes.ranked.length === 2);
+});

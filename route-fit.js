@@ -69,11 +69,21 @@
     return { ranked: ranked, fallback: !anyDensity };
   }
 
+  function computeFit(input, data) {
+    var area = classifyServiceArea(input.pin, data.base);
+    var bl = matchBlacklist(input.town, data.blacklist);
+    var routes = (area.status === 'out' || bl.scope === 'both')
+      ? null
+      : rankRoutes(input.pin, data.routes);
+    return { area: area, blacklist: bl, routes: routes };
+  }
+
   var api = {
     haversineMi: haversineMi,
     classifyServiceArea: classifyServiceArea,
     matchBlacklist: matchBlacklist,
     rankRoutes: rankRoutes,
+    computeFit: computeFit,
     SERVICE_AREA: SERVICE_AREA,
     ROUTE_RADIUS_MI: ROUTE_RADIUS_MI
   };
