@@ -23,9 +23,31 @@
     return { status: status, distanceMi: Math.round(d * 10) / 10, method: 'proxy' };
   }
 
+  function normTown(s) { return (s || '').toString().trim().toLowerCase(); }
+
+  function matchBlacklist(town, blacklist) {
+    var t = normTown(town);
+    var entries = (blacklist || []).map(function (e) {
+      return typeof e === 'string'
+        ? { town: e, scope: 'both' }
+        : { town: e.town, scope: e.scope || 'both' };
+    });
+    for (var i = 0; i < entries.length; i++) {
+      if (normTown(entries[i].town) === t && t !== '') {
+        var scope = entries[i].scope;
+        var label = scope === 'both' ? 'out — mowing + landscaping'
+                  : scope === 'mowing' ? 'no new mowing · landscaping OK'
+                  : 'no new landscaping · mowing OK';
+        return { blocked: true, scope: scope, label: label };
+      }
+    }
+    return { blocked: false, scope: null, label: '' };
+  }
+
   var api = {
     haversineMi: haversineMi,
     classifyServiceArea: classifyServiceArea,
+    matchBlacklist: matchBlacklist,
     SERVICE_AREA: SERVICE_AREA,
     ROUTE_RADIUS_MI: ROUTE_RADIUS_MI
   };

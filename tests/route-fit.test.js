@@ -18,3 +18,28 @@ test('classifyServiceArea buckets by straight-line distance', () => {
   assert.strictEqual(RouteFit.classifyServiceArea({lat:0,lng:0.2}, base).status, 'out');        // ~13.8 mi
   assert.strictEqual(RouteFit.classifyServiceArea({lat:0,lng:0.05}, base).method, 'proxy');
 });
+
+test('matchBlacklist: string entry blocks both services', () => {
+  const r = RouteFit.matchBlacklist('Villa Park', ['Villa Park']);
+  assert.strictEqual(r.blocked, true);
+  assert.strictEqual(r.scope, 'both');
+  assert.match(r.label, /mowing \+ landscaping/);
+});
+
+test('matchBlacklist: object entry with mowing scope', () => {
+  const r = RouteFit.matchBlacklist('lombard', [{town:'Lombard', scope:'mowing'}]);
+  assert.strictEqual(r.blocked, true);
+  assert.strictEqual(r.scope, 'mowing');
+  assert.match(r.label, /no new mowing/);
+});
+
+test('matchBlacklist: unlisted town is not blocked', () => {
+  const r = RouteFit.matchBlacklist('Wheaton', ['Villa Park', {town:'Lombard', scope:'mowing'}]);
+  assert.strictEqual(r.blocked, false);
+  assert.strictEqual(r.scope, null);
+});
+
+test('matchBlacklist: handles empty/undefined blacklist', () => {
+  assert.strictEqual(RouteFit.matchBlacklist('Wheaton', []).blocked, false);
+  assert.strictEqual(RouteFit.matchBlacklist('Wheaton').blocked, false);
+});
