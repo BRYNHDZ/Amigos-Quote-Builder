@@ -1,0 +1,325 @@
+{
+  "generatedAt": "2026-07-02",
+  "base": {
+    "address": "352 Roosevelt Rd, Glen Ellyn, IL 60137"
+  },
+  "blacklist": [],
+  "routes": [
+    {
+      "name": "Route A",
+      "stops": [
+        {
+          "address": "1N544 Bob O Link Dr, Winfield, IL"
+        },
+        {
+          "address": "202 South Lorraine Road, Wheaton, IL"
+        },
+        {
+          "address": "404 Countryside Drive, Wheaton, IL"
+        },
+        {
+          "address": "829 E. Indiana St, Wheaton, IL"
+        },
+        {
+          "address": "26W021 Quail Run Drive, Wheaton, IL"
+        },
+        {
+          "address": "222 Hillside Ct, Wheaton, IL"
+        },
+        {
+          "address": "615 West Wesley Street, Wheaton, IL"
+        },
+        {
+          "address": "300 N Carlton st, Wheaton, IL"
+        },
+        {
+          "address": "703 Childs Street, Wheaton, IL"
+        },
+        {
+          "address": "1615 Stoddard Av, Wheaton, IL"
+        },
+        {
+          "address": "622 W WESLEY ST, Wheaton, IL"
+        },
+        {
+          "address": "509 Campbell Avenue, Wheaton, IL"
+        },
+        {
+          "address": "1606 East Liberty Drive, Wheaton, IL"
+        },
+        {
+          "address": "919 Howard street, Wheaton, IL"
+        },
+        {
+          "address": "1312 Manchester Road, Wheaton, IL"
+        },
+        {
+          "address": "1228 Champion Forest Ct, Wheaton, IL"
+        },
+        {
+          "address": "906 n west st, Wheaton, IL"
+        },
+        {
+          "address": "612 W. Wesley Street, Wheaton, IL"
+        },
+        {
+          "address": "1565 Stoddard Ave, Wheaton, IL"
+        },
+        {
+          "address": "s41 Beverly St, Wheaton, IL"
+        }
+      ]
+    },
+    {
+      "name": "Route B",
+      "stops": [
+        {
+          "address": "85 N MAIN ST, Glen Ellyn, IL"
+        },
+        {
+          "address": "358 Center Street, Glen Ellyn, IL"
+        },
+        {
+          "address": "185 Hill Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "171 N. Ott Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "1804 East Hawthorne Boulevard, Wheaton, IL"
+        },
+        {
+          "address": "496 phillips Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "246 Glenwood Av, Glen Ellyn, IL"
+        },
+        {
+          "address": "260 Kenilworth CT, Glen Ellyn, IL"
+        },
+        {
+          "address": "428 Phillips Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "310 Brandon Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "201 Hill Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "100 N Kenilworth Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "750 Western Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "57 Brandon, Glen Ellyn, IL"
+        },
+        {
+          "address": "90 Joyce Ct, Glen Ellyn, IL"
+        },
+        {
+          "address": "197 Hill Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "61 Brandon Av, Glen Ellyn, IL"
+        }
+      ]
+    },
+    {
+      "name": "Route C",
+      "stops": [
+        {
+          "address": "699 Revere Road, Glen Ellyn, IL"
+        },
+        {
+          "address": "416 Lawrence Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "771 Crescent Blvd, Glen Ellyn, IL"
+        },
+        {
+          "address": "570 Phillips Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "436 Carleton Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "761 Highview Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "682 Forest Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "685 Forest Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "442 Carleton Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "67 Stephanie Lane, Glen Ellyn, IL"
+        },
+        {
+          "address": "159 Forest Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "318 Merton Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "248 N. Montclair Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "539 Fairview Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "319 Merton Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "196 East Rd, Glen Ellyn, IL"
+        },
+        {
+          "address": "588 Hawthorne Blvd, Glen Ellyn, IL"
+        },
+        {
+          "address": "585 Hawthorne Blvd, Glen Ellyn, IL"
+        },
+        {
+          "address": "751 Highview Ave, Glen Ellyn, IL"
+        }
+      ]
+    },
+    {
+      "name": "Route D",
+      "stops": [
+        {
+          "address": "1830 Golden Pond Ln, Wheaton, IL"
+        },
+        {
+          "address": "22W141 Arbor Lane, Glen Ellyn, IL"
+        },
+        {
+          "address": "1010 Brighton Drive, Wheaton, IL"
+        },
+        {
+          "address": "1008 Lodalia Ct, Wheaton, IL"
+        },
+        {
+          "address": "3S201 Sequoia Drive, Glen Ellyn, IL"
+        },
+        {
+          "address": "568 Brighton Dr, Wheaton, IL"
+        },
+        {
+          "address": "2002 Sherwood Pl, Wheaton, IL"
+        },
+        {
+          "address": "1018 East Elm Street, Wheaton, IL"
+        },
+        {
+          "address": "1974 Sherwood place, Wheaton, IL"
+        },
+        {
+          "address": "328 W Elm st, Wheaton, IL"
+        },
+        {
+          "address": "350 South Lambert Road, Glen Ellyn, IL"
+        },
+        {
+          "address": "101 Christina Cir, Wheaton, IL"
+        },
+        {
+          "address": "1962 Chatham Drive, Wheaton, IL"
+        },
+        {
+          "address": "2188 Blacksmith Dr, Wheaton, IL"
+        },
+        {
+          "address": "130 E Thompson Dr, Wheaton, IL"
+        },
+        {
+          "address": "1318 Coolidge, Wheaton, IL"
+        },
+        {
+          "address": "1000 Lodalia Court, Wheaton, IL"
+        },
+        {
+          "address": "1305 Sussex lane, Wheaton, IL"
+        },
+        {
+          "address": "105 Christina Circle, Wheaton, IL"
+        },
+        {
+          "address": "307 S. Arboretum Circle, Wheaton, IL"
+        }
+      ]
+    },
+    {
+      "name": "Route E",
+      "stops": [
+        {
+          "address": "215 Grandview Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "261 Spring Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "2098 Valley Road, Lombard, IL"
+        },
+        {
+          "address": "563 Lowden Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "567 Lowden Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "2041 Valley Road, Lombard, IL"
+        },
+        {
+          "address": "244 South Milton Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "243 Bryant Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "2060 S Valley Road, Lombard, IL"
+        },
+        {
+          "address": "287 spring Av, Glen Ellyn, IL"
+        },
+        {
+          "address": "732 Glenbard Road, Glen Ellyn, IL"
+        },
+        {
+          "address": "167 Hedge Court, Glen Ellyn, IL"
+        },
+        {
+          "address": "245 Spring Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "160 S. Montclair Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "264 Spring Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "254 Spring Avenue, Glen Ellyn, IL"
+        },
+        {
+          "address": "285 Milton ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "888 Smith St, Glen Ellyn, IL"
+        },
+        {
+          "address": "782 Amber Ridge Ave, Glen Ellyn, IL"
+        },
+        {
+          "address": "714 Glenbard Rd, Glen Ellyn, IL"
+        },
+        {
+          "address": "2040 Valley Rd, Lombard, IL"
+        }
+      ]
+    }
+  ]
+}

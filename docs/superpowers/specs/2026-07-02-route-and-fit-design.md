@@ -186,8 +186,33 @@ Blacklisted / out-of-area states replace the route block with the stop reason.
 - Manual: run a handful of real addresses (Wheaton client = in + right route;
   Villa Park = blacklisted; Elk Grove Village = out) and eyeball the panel.
 
+## Current data snapshot (2026-07-02)
+
+Built `routes.json` from a Jobber "Recurring Jobs" CSV export (route letter lives
+in each Job title). **97 unique properties** (deduped from 108 rows), no
+multi-route conflicts.
+
+| Route | Stops | Makeup |
+|---|---|---|
+| A | 20 | Wheaton ×19, Winfield ×1 |
+| B | 17 | Glen Ellyn ×16, Wheaton ×1 |
+| C | 19 | Glen Ellyn ×19 |
+| D | 20 | Wheaton ×17, Glen Ellyn ×3 |
+| E | 21 | Glen Ellyn ×17, Lombard ×4 |
+
+- **Whole book = 4 towns** (Glen Ellyn 55, Wheaton 37, Lombard 4, Winfield 1) —
+  all affluent DuPage core. Villa Park not present → blacklist is forward-looking.
+- Routes are geographic **by town, but doubled up within a town** (Wheaton = A & D;
+  Glen Ellyn = B, C & E). This validates Approach C: the density match resolves
+  *which* of the same-town routes a new address joins. Zone-centers would fail here.
+- Orphan `197 Hill Avenue, Glen Ellyn` (billing-only, no route row) assigned to
+  **Route B** by street-neighbor inference (185 & 201 Hill Ave are Route B) —
+  pending user confirmation.
+- `routes.json` currently has addresses only (no lat/lng); the tool geocodes all
+  97 once via Nominatim (~1 req/sec, one-time) and caches results back.
+
 ## Open items
 
-- Coworker's Jobber agent to export active clients → `routes.json`.
-- User to finalize the `blacklist` town list.
+- User to finalize the `blacklist` town list (forward-looking).
+- User to confirm the `197 Hill Avenue` → Route B assignment.
 - Decide if/when to wire the v2 directions API for the drive-time gate.
