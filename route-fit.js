@@ -44,10 +44,36 @@
     return { blocked: false, scope: null, label: '' };
   }
 
+  function rankRoutes(pin, routes, radiusMi) {
+    radiusMi = radiusMi || ROUTE_RADIUS_MI;
+    var ranked = (routes || []).map(function (r) {
+      var nearest = Infinity, density = 0;
+      (r.stops || []).forEach(function (s) {
+        if (typeof s.lat !== 'number' || typeof s.lng !== 'number') return;
+        var d = haversineMi(pin, s);
+        if (d < nearest) nearest = d;
+        if (d <= radiusMi) density++;
+      });
+      return {
+        name: r.name,
+        density: density,
+        nearestMi: nearest === Infinity ? null : Math.round(nearest * 100) / 100
+      };
+    }).filter(function (r) { return r.nearestMi !== null; });
+
+    var anyDensity = ranked.some(function (r) { return r.density > 0; });
+    ranked.sort(function (a, b) {
+      if (b.density !== a.density) return b.density - a.density;
+      return a.nearestMi - b.nearestMi;
+    });
+    return { ranked: ranked, fallback: !anyDensity };
+  }
+
   var api = {
     haversineMi: haversineMi,
     classifyServiceArea: classifyServiceArea,
     matchBlacklist: matchBlacklist,
+    rankRoutes: rankRoutes,
     SERVICE_AREA: SERVICE_AREA,
     ROUTE_RADIUS_MI: ROUTE_RADIUS_MI
   };

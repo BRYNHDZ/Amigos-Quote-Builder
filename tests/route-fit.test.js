@@ -43,3 +43,33 @@ test('matchBlacklist: handles empty/undefined blacklist', () => {
   assert.strictEqual(RouteFit.matchBlacklist('Wheaton', []).blocked, false);
   assert.strictEqual(RouteFit.matchBlacklist('Wheaton').blocked, false);
 });
+
+test('rankRoutes ranks by density within radius, then nearest', () => {
+  const pin = {lat:0, lng:0};
+  const routes = [
+    {name:'Route X', stops:[{lat:0,lng:0.005},{lat:0,lng:0.01}]}, // ~0.35 & ~0.69 mi -> density 2
+    {name:'Route Y', stops:[{lat:0,lng:0.02}]}                    // ~1.38 mi -> density 0
+  ];
+  const r = RouteFit.rankRoutes(pin, routes, 1);
+  assert.strictEqual(r.ranked[0].name, 'Route X');
+  assert.strictEqual(r.ranked[0].density, 2);
+  assert.strictEqual(r.fallback, false);
+});
+
+test('rankRoutes flags fallback when all densities are zero', () => {
+  const pin = {lat:0, lng:0};
+  const routes = [
+    {name:'Far A', stops:[{lat:0,lng:0.05}]},  // ~3.5 mi
+    {name:'Far B', stops:[{lat:0,lng:0.03}]}   // ~2.1 mi
+  ];
+  const r = RouteFit.rankRoutes(pin, routes, 1);
+  assert.strictEqual(r.fallback, true);
+  assert.strictEqual(r.ranked[0].name, 'Far B'); // nearest wins in fallback
+});
+
+test('rankRoutes ignores stops without coordinates', () => {
+  const r = RouteFit.rankRoutes({lat:0,lng:0}, [
+    {name:'Mixed', stops:[{address:'no coords'},{lat:0,lng:0.005}]}
+  ], 1);
+  assert.strictEqual(r.ranked[0].density, 1);
+});
