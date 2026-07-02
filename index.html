@@ -175,6 +175,7 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 </div>
 
 <div id="avBox" style="display:none;margin-bottom:10px"></div>
+<div id="fitBox" style="display:none;margin-bottom:10px"></div>
 
 <div class="mode-bar">
   <button class="mode-btn" id="mRec" onclick="setMode('recurring')">🌿 Recurring Job</button>
@@ -212,11 +213,60 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 </div>
 </div>
 
+<script src="route-fit.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+let ROUTE_DATA=null;
+async function loadRouteData(){
+  try{ROUTE_DATA=await fetch('routes.json').then(r=>r.json());}catch(e){ROUTE_DATA=null;}
+  renderFit();
+}
+async function geocodeForFit(a){
+  try{
+    const g=await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q='+encodeURIComponent(a)).then(r=>r.json());
+    if(!g||!g.length){ST.fitGeo=null;renderFit();return;}
+    const ad=g[0].address||{};
+    ST.fitGeo={lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||''};
+  }catch(e){ST.fitGeo=null;}
+  renderFit();
+}
+function fitBadge(status){
+  return status==='in'?{bd:'#30471F',bg:'#f5f9f4',fg:'#30471F',ic:'✓',txt:'IN AREA'}
+    :status==='borderline'?{bd:'#FFB300',bg:'#fffbec',fg:'#7a5800',ic:'!',txt:'BORDERLINE'}
+    :{bd:'#cc0000',bg:'#fff5f5',fg:'#a00',ic:'✕',txt:'OUT OF AREA'};
+}
+function renderFit(){
+  const box=$('fitBox');if(!box)return;
+  if(!ST.fitGeo||!ROUTE_DATA||typeof RouteFit==='undefined'){box.style.display='none';box.innerHTML='';return;}
+  const v=RouteFit.computeFit({pin:{lat:ST.fitGeo.lat,lng:ST.fitGeo.lng},town:ST.fitGeo.town},ROUTE_DATA);
+  const c=fitBadge(v.area.status);
+  let h='<div style="background:'+c.bg+';border:1.5px solid '+c.bd+';border-radius:10px;padding:10px 14px">';
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+c.bd+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">'+c.ic+'</div><div style="font-size:12px;font-weight:700;color:'+c.fg+'">'+c.txt+' · ~'+v.area.distanceMi+' mi from base</div></div>';
+  h+='<div style="font-size:10px;color:#999;margin-bottom:6px">straight-line proxy — verify surface-street route (no highway/toll)</div>';
+  if(v.blacklist.blocked){
+    const bc=v.blacklist.scope==='both'?'#a00':'#7a5800';
+    h+='<div style="font-size:11px;font-weight:700;color:'+bc+';margin-bottom:6px">⛔ '+(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
+  }
+  if(v.routes&&v.routes.ranked.length){
+    const top=v.routes.ranked.slice(0,3);
+    if(v.routes.fallback){
+      h+='<div style="font-size:11px;color:'+c.fg+'"><b>Outlier — no route within 1 mi.</b> Nearest: '+top[0].name+' ('+top[0].nearestMi+' mi)</div>';
+    }else{
+      const b=top[0];
+      h+='<div style="font-size:12px;font-weight:700;color:#30471F;margin-bottom:2px">Best route: '+b.name+'</div>';
+      h+='<div style="font-size:11px;color:#666;margin-bottom:4px">'+b.density+' stop'+(b.density===1?'':'s')+' within 1 mi · closest '+b.nearestMi+' mi</div>';
+      const rest=top.slice(1).filter(r=>r.density>0||r.nearestMi<3);
+      rest.forEach(r=>{h+='<div style="font-size:11px;color:#888">Runner-up: '+r.name+' — '+r.density+' within 1 mi · '+r.nearestMi+' mi</div>';});
+    }
+  }else if(v.area.status==='out'){
+    h+='<div style="font-size:11px;color:#a00">Outside service area — decline politely or hand off.</div>';
+  }
+  h+='</div>';
+  box.style.display='block';box.innerHTML=h;
+}
 const V=35,BCB=100,BCR1=38,BCR2=26,BEB=200,BER1=60,BER2=40;
 const SLM=[0.75,0.9,1.0,1.15,1.30,1.50];
-let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:0,leaf:null,snow:null,mode:null,homeVal:0,homeFt:0,complex:null,bedFootprint:null,visitsRemain:0,oneTier:'remote',recView:'visit',sel:new Set(['A1']),selOne:new Set(),ov:{},ovOne:{},exp:new Set(),lotUnit:'sqft',trimDensity:'light',weedPressure:'light',bufferOn:false,planStartMonth:3};
+let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:0,leaf:null,snow:null,mode:null,homeVal:0,homeFt:0,complex:null,bedFootprint:null,visitsRemain:0,oneTier:'remote',recView:'visit',sel:new Set(['A1']),selOne:new Set(),ov:{},ovOne:{},exp:new Set(),lotUnit:'sqft',trimDensity:'light',weedPressure:'light',bufferOn:false,planStartMonth:3,fitGeo:null};
 // Bed footprint % of nonHome area — drives auto-derived mulch yards
 // Calibrated so 0.25-acre / 2000-sqft home produces clean 3/6/9 yards
 const BED_FOOTPRINT_PCT={low:0.03,mod:0.07,high:0.10};
@@ -331,6 +381,7 @@ function lookupAddr(){
   box.style.display='block';meta.style.display='flex';
   $('mapAddr').textContent=a;
   lookupLot(a);
+  geocodeForFit(a);
 }
 const DUPAGE_GIS='https://gis.dupageco.org/arcgis/rest/services/DuPage_County_IL/ParcelsWithRealEstateCC/MapServer/0/query';
 function addrTokens(a){
@@ -425,8 +476,8 @@ function toggleRef(cid,e){e.stopPropagation();refOpen.has(cid)?refOpen.delete(ci
 function renderRef(){let h='<div class="card ref-section"><div class="slbl">Reference — Line Items & Subtitles</div>';const cats=getCats();for(const cat of cats){const m=MKT[cat.id];const open=refOpen.has(cat.id);h+='<div class="ref-cat"><div class="ref-cat-hd" onclick="toggleRef(\''+cat.id+'\',event)"><span>'+(m?m.title:cat.id)+'</span><span style="font-size:10px;color:#aaa">'+(open?'▲':'▼')+'</span></div>';if(open){if(m)h+='<div class="ref-sub-desc">'+m.desc+'</div>';h+='<div class="ref-cat-body">';for(const item of cat.items){h+='<div class="ref-item"><div class="ref-item-nm">'+item.name+'</div><div class="ref-item-desc">'+(DESCS[item.id]||'')+'</div></div>';}h+='</div>';}h+='</div>';}h+='</div>';return h;}
 function getAvatar(){if(!ST.lot||!ST.homeVal)return null;const acres=ST.lot/43560,hv=ST.homeVal,cx=ST.complex,leaf=ST.leaf;const lotSweet=acres>=0.23&&acres<=0.5;const hvSweet=hv>=700&&hv<=1500;const leafSweet=leaf>=2&&leaf<=4;const cxSweet=cx==='low';if(acres>0.7&&hv<600)return{s:'red',t:'Land-rich, cash-poor combo',d:'Large lot + lower home value is the pattern to watch — economics tend to break down here.'};if(lotSweet&&hvSweet&&leafSweet&&cxSweet)return{s:'green',t:'Solid fit for ideal avatar',d:acres.toFixed(2)+' ac · ~$'+hv+'K home · leaf '+leaf+' · low complexity.'};if(acres>0.5&&hv>=1500)return{s:'green',t:'Larger property, strong home value',d:'Bigger than ideal but high-value homes often become top-spending clients.'};if(acres>1.2)return{s:'yellow',t:'Very large lot',d:'Over ~1.2 ac — consider whether this fits your route & equipment before quoting.'};return{s:'yellow',t:'Outside ideal avatar — still quotable',d:'Ideal: ¼–½ ac, ~$700K–$1.5M home, low complexity, leaf 2–4. This one is '+acres.toFixed(2)+' ac · ~$'+hv+'K · '+cx+' complexity · leaf '+leaf+'.'};}
 function renderAvatar(){const a=getAvatar();const box=$('avBox');if(!a){box.style.display='none';box.innerHTML='';return;}const col=a.s==='green'?{bd:'#30471F',bg:'#f5f9f4',fg:'#30471F',ic:'✓'}:a.s==='yellow'?{bd:'#FFB300',bg:'#fffbec',fg:'#7a5800',ic:'!'}:{bd:'#cc0000',bg:'#fff5f5',fg:'#a00',ic:'✕'};box.style.display='block';box.innerHTML='<div style="background:'+col.bg+';border:1.5px solid '+col.bd+';border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start"><div style="width:22px;height:22px;border-radius:50%;background:'+col.bd+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">'+col.ic+'</div><div style="flex:1"><div style="font-size:12px;font-weight:700;color:'+col.fg+';margin-bottom:2px">'+a.t+'</div><div style="font-size:11px;color:'+col.fg+';line-height:1.5">'+a.d+'</div></div></div>';}
-function render(){const _psm=ST.planStartMonth||3;if($('iPlanStart'))$('iPlanStart').value=String(_psm);if($('planStartHint')){if(ST.mode==='recurring'&&ST.recView==='plan'){if(_psm===3){$('planStartHint').innerHTML='· Full annual cycle (March–February)';}else{const _pm=_psm>=3?15-_psm:3-_psm;$('planStartHint').innerHTML='· '+_pm+' months until March · '+(ST.visitsRemain||0)+' mowing visits';}}else{$('planStartHint').innerHTML='';}}const d=derive();const autos=[];if(d){if(ST.lawn<=0)autos.push('lawn '+d.lawn.toLocaleString()+' sqft');if(ST.paved<=0)autos.push('paved '+d.paved.toLocaleString()+' sqft');if(ST.mulch<=0)autos.push('mulch '+d.mulch+' yd');if(ST.trim<=0)autos.push('trim '+d.trim+' hr');if(ST.peren<=0)autos.push('peren '+d.peren+' hr');}const w=$('estW');if(d&&autos.length){w.style.display='block';w.innerHTML='<b>Rough estimate only</b> — derived from lot '+ST.lot.toLocaleString()+' sqft'+(d.homeAuto?' · home assumed '+d.home.toLocaleString()+' sqft (enter actual for better accuracy)':' − home '+d.home.toLocaleString()+' sqft')+'. Auto-filled: '+autos.join(', ')+'. Walk the lot to refine.';}else w.style.display='none';if(d){const ph={iLn:d.lawn,iPv:d.paved,iMu:d.mulch,iTr:d.trim,iPe:d.peren};for(const k in ph){const el=$(k);if(el&&!el.value)el.placeholder='auto ~'+ph[k].toLocaleString();}}renderAvatar();if(!ST.mode){$('svcCol').innerHTML='<div class="card"><div class="empty" style="padding:28px 16px;font-size:12px;color:#888;line-height:1.6">Fill in the property details above, then choose <b style="color:#30471F">Property Plan</b> or <b style="color:#30471F">One-Off Job</b> to see pricing.</div></div>';$('outCol').innerHTML='';return;}renderSvc();renderOut();}
-render();
+function render(){const _psm=ST.planStartMonth||3;if($('iPlanStart'))$('iPlanStart').value=String(_psm);if($('planStartHint')){if(ST.mode==='recurring'&&ST.recView==='plan'){if(_psm===3){$('planStartHint').innerHTML='· Full annual cycle (March–February)';}else{const _pm=_psm>=3?15-_psm:3-_psm;$('planStartHint').innerHTML='· '+_pm+' months until March · '+(ST.visitsRemain||0)+' mowing visits';}}else{$('planStartHint').innerHTML='';}}const d=derive();const autos=[];if(d){if(ST.lawn<=0)autos.push('lawn '+d.lawn.toLocaleString()+' sqft');if(ST.paved<=0)autos.push('paved '+d.paved.toLocaleString()+' sqft');if(ST.mulch<=0)autos.push('mulch '+d.mulch+' yd');if(ST.trim<=0)autos.push('trim '+d.trim+' hr');if(ST.peren<=0)autos.push('peren '+d.peren+' hr');}const w=$('estW');if(d&&autos.length){w.style.display='block';w.innerHTML='<b>Rough estimate only</b> — derived from lot '+ST.lot.toLocaleString()+' sqft'+(d.homeAuto?' · home assumed '+d.home.toLocaleString()+' sqft (enter actual for better accuracy)':' − home '+d.home.toLocaleString()+' sqft')+'. Auto-filled: '+autos.join(', ')+'. Walk the lot to refine.';}else w.style.display='none';if(d){const ph={iLn:d.lawn,iPv:d.paved,iMu:d.mulch,iTr:d.trim,iPe:d.peren};for(const k in ph){const el=$(k);if(el&&!el.value)el.placeholder='auto ~'+ph[k].toLocaleString();}}renderAvatar();renderFit();if(!ST.mode){$('svcCol').innerHTML='<div class="card"><div class="empty" style="padding:28px 16px;font-size:12px;color:#888;line-height:1.6">Fill in the property details above, then choose <b style="color:#30471F">Property Plan</b> or <b style="color:#30471F">One-Off Job</b> to see pricing.</div></div>';$('outCol').innerHTML='';return;}renderSvc();renderOut();}
+render();loadRouteData();
 </script>
 </body>
 </html>
