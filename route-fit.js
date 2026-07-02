@@ -33,7 +33,7 @@
         : { town: e.town, scope: e.scope || 'both' };
     });
     for (var i = 0; i < entries.length; i++) {
-      if (normTown(entries[i].town) === t && t !== '') {
+      if (normTown(entries[i].town) === t && t !== '') { /* t !== '' guard: unnamed-municipality geocodes (empty town) bypass the blacklist — coordless/unnamed leads won't be blocked by town name */
         var scope = entries[i].scope;
         var label = scope === 'both' ? 'out — mowing + landscaping'
                   : scope === 'mowing' ? 'no new mowing · landscaping OK'

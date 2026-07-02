@@ -216,6 +216,7 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 <script src="route-fit.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 let ROUTE_DATA=null;
 async function loadRouteData(){
   try{ROUTE_DATA=await fetch('routes.json').then(r=>r.json());}catch(e){ROUTE_DATA=null;}
@@ -245,7 +246,7 @@ function renderFit(){
   h+='<div style="font-size:10px;color:#999;margin-bottom:6px">straight-line proxy — verify surface-street route (no highway/toll)</div>';
   if(v.blacklist.blocked){
     const bc=v.blacklist.scope==='both'?'#a00':'#7a5800';
-    h+='<div style="font-size:11px;font-weight:700;color:'+bc+';margin-bottom:6px">⛔ '+(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
+    h+='<div style="font-size:11px;font-weight:700;color:'+bc+';margin-bottom:6px">⛔ '+escHtml(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
   }
   if(v.routes&&v.routes.ranked.length){
     const top=v.routes.ranked.slice(0,3);
@@ -255,7 +256,7 @@ function renderFit(){
       const b=top[0];
       h+='<div style="font-size:12px;font-weight:700;color:#30471F;margin-bottom:2px">Best route: '+b.name+'</div>';
       h+='<div style="font-size:11px;color:#666;margin-bottom:4px">'+b.density+' stop'+(b.density===1?'':'s')+' within 1 mi · closest '+b.nearestMi+' mi</div>';
-      const rest=top.slice(1).filter(r=>r.density>0||r.nearestMi<3);
+      const rest=top.slice(1).filter(r=>r.density>0||r.nearestMi<3);/* show runner-up only if it has stops within 1mi OR its nearest stop is <3mi */
       rest.forEach(r=>{h+='<div style="font-size:11px;color:#888">Runner-up: '+r.name+' — '+r.density+' within 1 mi · '+r.nearestMi+' mi</div>';});
     }
   }else if(v.area.status==='out'){
