@@ -62,7 +62,10 @@ entry per active client:
 {
   "generatedAt": "2026-07-02",
   "base": { "address": "352 Roosevelt Rd, Glen Ellyn, IL 60137", "lat": null, "lng": null },
-  "blacklist": ["Villa Park"],
+  "blacklist": [
+    "Villa Park",
+    { "town": "Lombard", "scope": "mowing" }
+  ],
   "routes": [
     { "name": "Wheaton North", "stops": [
       { "address": "123 Main St, Wheaton IL", "lat": 41.87, "lng": -88.10 }
@@ -96,12 +99,22 @@ checkServiceArea(pin) -> { status: 'in' | 'borderline' | 'out',
   free tier or Google Directions) with **avoid highways + avoid tolls**, returning
   true surface-street `driveMin`. Same signature; only the internals change.
 
-### 3. Neighborhood blacklist (hard)
+### 3. Neighborhood blacklist (hard, service-scoped)
 
-- Editable `blacklist` array of town names in `routes.json`.
+- Editable `blacklist` array in `routes.json`. Each entry is either:
+  - a plain **string** (town name) → blocks **both** mowing and landscaping, or
+  - an **object** `{ "town": "Lombard", "scope": "mowing" | "landscaping" | "both" }`
+    → blocks only that service line (`scope` defaults to `"both"`).
 - Matched against the **town** the geocoder already returns for the address.
-- If the property's town is blacklisted → verdict is 🔴 regardless of other
-  signals, with reason "blacklisted area."
+- Rationale (from SOP): mowers are near capacity so a marginal town may be closed
+  to **new mowing** yet still worth **landscaping/project** work, which the crew
+  needs. The no-expressway/no-toll drive rule still applies regardless of scope.
+- Panel display, per matched town:
+  - scope `both` → 🔴 `out — mowing + landscaping`
+  - scope `mowing` → ⚠ `no new mowing · landscaping OK`
+  - scope `landscaping` → ⚠ `no new landscaping · mowing OK`
+- The tool does **not** auto-detect the service from the quote; it surfaces the
+  scoped status and the user applies judgment (suggestion, not enforcement).
 - Same machinery can be inverted to an allowlist of affluent towns later.
 
 ### 4. ICP soft fit (direction, not gate)
@@ -129,7 +142,9 @@ Runs only when the gate is not 🔴.
 
 ```
 1. Service-area gate  (hard)  → 🔴 out  ⇒ stop, show reason
-2. Neighborhood blacklist (hard) → 🔴 out ⇒ stop, show reason
+2. Neighborhood blacklist:
+     scope both        → 🔴 out ⇒ stop, show reason
+     scope mowing/landscaping → ⚠ warn on that line, continue to route match
 3. ICP soft fit (home value / simplicity / service) → badges
 4. Route match (Approach C) → best route + runners-up
 ```
