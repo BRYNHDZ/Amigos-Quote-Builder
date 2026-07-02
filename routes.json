@@ -1,7 +1,9 @@
 {
   "generatedAt": "2026-07-02",
   "base": {
-    "address": "352 Roosevelt Rd, Glen Ellyn, IL 60137"
+    "address": "352 Roosevelt Rd, Glen Ellyn, IL 60137",
+    "lat": 41.859261,
+    "lng": -88.0755496
   },
   "blacklist": [],
   "routes": [
@@ -12,61 +14,95 @@
           "address": "1N544 Bob O Link Dr, Winfield, IL"
         },
         {
-          "address": "202 South Lorraine Road, Wheaton, IL"
+          "address": "202 South Lorraine Road, Wheaton, IL",
+          "lat": 41.864317,
+          "lng": -88.0820032
         },
         {
-          "address": "404 Countryside Drive, Wheaton, IL"
+          "address": "404 Countryside Drive, Wheaton, IL",
+          "lat": 41.8826614,
+          "lng": -88.1009632
         },
         {
-          "address": "829 E. Indiana St, Wheaton, IL"
+          "address": "829 E. Indiana St, Wheaton, IL",
+          "lat": 41.8613036,
+          "lng": -88.0944537
         },
         {
           "address": "26W021 Quail Run Drive, Wheaton, IL"
         },
         {
-          "address": "222 Hillside Ct, Wheaton, IL"
+          "address": "222 Hillside Ct, Wheaton, IL",
+          "lat": 41.8640994,
+          "lng": -88.0996003
         },
         {
-          "address": "615 West Wesley Street, Wheaton, IL"
+          "address": "615 West Wesley Street, Wheaton, IL",
+          "lat": 41.8660669,
+          "lng": -88.1153017
         },
         {
-          "address": "300 N Carlton st, Wheaton, IL"
+          "address": "300 N Carlton st, Wheaton, IL",
+          "lat": 41.8715185,
+          "lng": -88.1166705
         },
         {
-          "address": "703 Childs Street, Wheaton, IL"
+          "address": "703 Childs Street, Wheaton, IL",
+          "lat": 41.8623218,
+          "lng": -88.1183421
         },
         {
-          "address": "1615 Stoddard Av, Wheaton, IL"
+          "address": "1615 Stoddard Av, Wheaton, IL",
+          "lat": 41.881828,
+          "lng": -88.089467
         },
         {
-          "address": "622 W WESLEY ST, Wheaton, IL"
+          "address": "622 W WESLEY ST, Wheaton, IL",
+          "lat": 41.8659005,
+          "lng": -88.1154236
         },
         {
-          "address": "509 Campbell Avenue, Wheaton, IL"
+          "address": "509 Campbell Avenue, Wheaton, IL",
+          "lat": 41.8609615,
+          "lng": -88.0985803
         },
         {
-          "address": "1606 East Liberty Drive, Wheaton, IL"
+          "address": "1606 East Liberty Drive, Wheaton, IL",
+          "lat": 41.8643497,
+          "lng": -88.0848064
         },
         {
-          "address": "919 Howard street, Wheaton, IL"
+          "address": "919 Howard street, Wheaton, IL",
+          "lat": 41.8739858,
+          "lng": -88.095498
         },
         {
-          "address": "1312 Manchester Road, Wheaton, IL"
+          "address": "1312 Manchester Road, Wheaton, IL",
+          "lat": 41.867384,
+          "lng": -88.1252422
         },
         {
           "address": "1228 Champion Forest Ct, Wheaton, IL"
         },
         {
-          "address": "906 n west st, Wheaton, IL"
+          "address": "906 n west st, Wheaton, IL",
+          "lat": 41.8734932,
+          "lng": -88.1117192
         },
         {
-          "address": "612 W. Wesley Street, Wheaton, IL"
+          "address": "612 W. Wesley Street, Wheaton, IL",
+          "lat": 41.8659034,
+          "lng": -88.1152638
         },
         {
-          "address": "1565 Stoddard Ave, Wheaton, IL"
+          "address": "1565 Stoddard Ave, Wheaton, IL",
+          "lat": 41.8809339,
+          "lng": -88.0894626
         },
         {
-          "address": "s41 Beverly St, Wheaton, IL"
+          "address": "s41 Beverly St, Wheaton, IL",
+          "lat": 41.873228,
+          "lng": -88.134537
         }
       ]
     },
@@ -74,55 +110,89 @@
       "name": "Route B",
       "stops": [
         {
-          "address": "85 N MAIN ST, Glen Ellyn, IL"
+          "address": "85 N MAIN ST, Glen Ellyn, IL",
+          "lat": 41.8623789,
+          "lng": -88.0667216
         },
         {
-          "address": "358 Center Street, Glen Ellyn, IL"
+          "address": "358 Center Street, Glen Ellyn, IL",
+          "lat": 41.8748561,
+          "lng": -88.0749267
         },
         {
-          "address": "185 Hill Avenue, Glen Ellyn, IL"
+          "address": "185 Hill Avenue, Glen Ellyn, IL",
+          "lat": 41.8691697,
+          "lng": -88.0830036
         },
         {
-          "address": "171 N. Ott Ave, Glen Ellyn, IL"
+          "address": "171 N. Ott Ave, Glen Ellyn, IL",
+          "lat": 41.8775293,
+          "lng": -88.0670118
         },
         {
-          "address": "1804 East Hawthorne Boulevard, Wheaton, IL"
+          "address": "1804 East Hawthorne Boulevard, Wheaton, IL",
+          "lat": 41.8806571,
+          "lng": -88.0810683
         },
         {
-          "address": "496 phillips Ave, Glen Ellyn, IL"
+          "address": "496 phillips Ave, Glen Ellyn, IL",
+          "lat": 41.8731868,
+          "lng": -88.0669629
         },
         {
-          "address": "246 Glenwood Av, Glen Ellyn, IL"
+          "address": "246 Glenwood Av, Glen Ellyn, IL",
+          "lat": 41.8684138,
+          "lng": -88.0681044
         },
         {
-          "address": "260 Kenilworth CT, Glen Ellyn, IL"
+          "address": "260 Kenilworth CT, Glen Ellyn, IL",
+          "lat": 41.8819798,
+          "lng": -88.0786289
         },
         {
-          "address": "428 Phillips Ave, Glen Ellyn, IL"
+          "address": "428 Phillips Ave, Glen Ellyn, IL",
+          "lat": 41.8731805,
+          "lng": -88.071039
         },
         {
-          "address": "310 Brandon Ave, Glen Ellyn, IL"
+          "address": "310 Brandon Ave, Glen Ellyn, IL",
+          "lat": 41.870913,
+          "lng": -88.072764
         },
         {
-          "address": "201 Hill Ave, Glen Ellyn, IL"
+          "address": "201 Hill Ave, Glen Ellyn, IL",
+          "lat": 41.869166,
+          "lng": -88.082528
         },
         {
-          "address": "100 N Kenilworth Ave, Glen Ellyn, IL"
+          "address": "100 N Kenilworth Ave, Glen Ellyn, IL",
+          "lat": 41.847097,
+          "lng": -88.0790207
         },
         {
-          "address": "750 Western Ave, Glen Ellyn, IL"
+          "address": "750 Western Ave, Glen Ellyn, IL",
+          "lat": 41.886745,
+          "lng": -88.072634
         },
         {
-          "address": "57 Brandon, Glen Ellyn, IL"
+          "address": "57 Brandon, Glen Ellyn, IL",
+          "lat": 41.8617835,
+          "lng": -88.0723938
         },
         {
-          "address": "90 Joyce Ct, Glen Ellyn, IL"
+          "address": "90 Joyce Ct, Glen Ellyn, IL",
+          "lat": 41.8620589,
+          "lng": -88.0680106
         },
         {
-          "address": "197 Hill Avenue, Glen Ellyn, IL"
+          "address": "197 Hill Avenue, Glen Ellyn, IL",
+          "lat": 41.8691691,
+          "lng": -88.0828788
         },
         {
-          "address": "61 Brandon Av, Glen Ellyn, IL"
+          "address": "61 Brandon Av, Glen Ellyn, IL",
+          "lat": 41.8618382,
+          "lng": -88.0723936
         }
       ]
     },
@@ -130,61 +200,99 @@
       "name": "Route C",
       "stops": [
         {
-          "address": "699 Revere Road, Glen Ellyn, IL"
+          "address": "699 Revere Road, Glen Ellyn, IL",
+          "lat": 41.865917,
+          "lng": -88.057718
         },
         {
-          "address": "416 Lawrence Avenue, Glen Ellyn, IL"
+          "address": "416 Lawrence Avenue, Glen Ellyn, IL",
+          "lat": 41.874309,
+          "lng": -88.0799096
         },
         {
-          "address": "771 Crescent Blvd, Glen Ellyn, IL"
+          "address": "771 Crescent Blvd, Glen Ellyn, IL",
+          "lat": 41.8825026,
+          "lng": -88.0548772
         },
         {
-          "address": "570 Phillips Ave, Glen Ellyn, IL"
+          "address": "570 Phillips Ave, Glen Ellyn, IL",
+          "lat": 41.8728556,
+          "lng": -88.0642498
         },
         {
-          "address": "436 Carleton Avenue, Glen Ellyn, IL"
+          "address": "436 Carleton Avenue, Glen Ellyn, IL",
+          "lat": 41.8757273,
+          "lng": -88.0544561
         },
         {
-          "address": "761 Highview Ave, Glen Ellyn, IL"
+          "address": "761 Highview Ave, Glen Ellyn, IL",
+          "lat": 41.8697104,
+          "lng": -88.0551198
         },
         {
-          "address": "682 Forest Avenue, Glen Ellyn, IL"
+          "address": "682 Forest Avenue, Glen Ellyn, IL",
+          "lat": 41.8844834,
+          "lng": -88.0640718
         },
         {
-          "address": "685 Forest Ave, Glen Ellyn, IL"
+          "address": "685 Forest Ave, Glen Ellyn, IL",
+          "lat": 41.8845077,
+          "lng": -88.0638353
         },
         {
-          "address": "442 Carleton Ave, Glen Ellyn, IL"
+          "address": "442 Carleton Ave, Glen Ellyn, IL",
+          "lat": 41.875916,
+          "lng": -88.0544582
         },
         {
-          "address": "67 Stephanie Lane, Glen Ellyn, IL"
+          "address": "67 Stephanie Lane, Glen Ellyn, IL",
+          "lat": 41.8623741,
+          "lng": -88.0620795
         },
         {
-          "address": "159 Forest Ave, Glen Ellyn, IL"
+          "address": "159 Forest Ave, Glen Ellyn, IL",
+          "lat": 41.8655342,
+          "lng": -88.0648163
         },
         {
-          "address": "318 Merton Ave, Glen Ellyn, IL"
+          "address": "318 Merton Ave, Glen Ellyn, IL",
+          "lat": 41.8702388,
+          "lng": -88.0570426
         },
         {
-          "address": "248 N. Montclair Ave, Glen Ellyn, IL"
+          "address": "248 N. Montclair Ave, Glen Ellyn, IL",
+          "lat": 41.8685642,
+          "lng": -88.058098
         },
         {
-          "address": "539 Fairview Ave, Glen Ellyn, IL"
+          "address": "539 Fairview Ave, Glen Ellyn, IL",
+          "lat": 41.8643808,
+          "lng": -88.0654148
         },
         {
-          "address": "319 Merton Ave, Glen Ellyn, IL"
+          "address": "319 Merton Ave, Glen Ellyn, IL",
+          "lat": 41.8704705,
+          "lng": -88.0568157
         },
         {
-          "address": "196 East Rd, Glen Ellyn, IL"
+          "address": "196 East Rd, Glen Ellyn, IL",
+          "lat": 41.8662003,
+          "lng": -88.06221
         },
         {
-          "address": "588 Hawthorne Blvd, Glen Ellyn, IL"
+          "address": "588 Hawthorne Blvd, Glen Ellyn, IL",
+          "lat": 41.8812718,
+          "lng": -88.0634234
         },
         {
-          "address": "585 Hawthorne Blvd, Glen Ellyn, IL"
+          "address": "585 Hawthorne Blvd, Glen Ellyn, IL",
+          "lat": 41.8811085,
+          "lng": -88.0633239
         },
         {
-          "address": "751 Highview Ave, Glen Ellyn, IL"
+          "address": "751 Highview Ave, Glen Ellyn, IL",
+          "lat": 41.8697092,
+          "lng": -88.0554375
         }
       ]
     },
@@ -192,64 +300,100 @@
       "name": "Route D",
       "stops": [
         {
-          "address": "1830 Golden Pond Ln, Wheaton, IL"
+          "address": "1830 Golden Pond Ln, Wheaton, IL",
+          "lat": 41.8379304,
+          "lng": -88.121733
         },
         {
           "address": "22W141 Arbor Lane, Glen Ellyn, IL"
         },
         {
-          "address": "1010 Brighton Drive, Wheaton, IL"
+          "address": "1010 Brighton Drive, Wheaton, IL",
+          "lat": 41.8359776,
+          "lng": -88.1207151
         },
         {
-          "address": "1008 Lodalia Ct, Wheaton, IL"
+          "address": "1008 Lodalia Ct, Wheaton, IL",
+          "lat": 41.8511732,
+          "lng": -88.1184695
         },
         {
           "address": "3S201 Sequoia Drive, Glen Ellyn, IL"
         },
         {
-          "address": "568 Brighton Dr, Wheaton, IL"
+          "address": "568 Brighton Dr, Wheaton, IL",
+          "lat": 41.836079,
+          "lng": -88.115086
         },
         {
-          "address": "2002 Sherwood Pl, Wheaton, IL"
+          "address": "2002 Sherwood Pl, Wheaton, IL",
+          "lat": 41.8317273,
+          "lng": -88.122987
         },
         {
-          "address": "1018 East Elm Street, Wheaton, IL"
+          "address": "1018 East Elm Street, Wheaton, IL",
+          "lat": 41.8550934,
+          "lng": -88.0915973
         },
         {
-          "address": "1974 Sherwood place, Wheaton, IL"
+          "address": "1974 Sherwood place, Wheaton, IL",
+          "lat": 41.8324993,
+          "lng": -88.1229888
         },
         {
-          "address": "328 W Elm st, Wheaton, IL"
+          "address": "328 W Elm st, Wheaton, IL",
+          "lat": 41.853799,
+          "lng": -88.1103858
         },
         {
-          "address": "350 South Lambert Road, Glen Ellyn, IL"
+          "address": "350 South Lambert Road, Glen Ellyn, IL",
+          "lat": 41.8463216,
+          "lng": -88.0774086
         },
         {
-          "address": "101 Christina Cir, Wheaton, IL"
+          "address": "101 Christina Cir, Wheaton, IL",
+          "lat": 41.8406906,
+          "lng": -88.0985834
         },
         {
-          "address": "1962 Chatham Drive, Wheaton, IL"
+          "address": "1962 Chatham Drive, Wheaton, IL",
+          "lat": 41.833942,
+          "lng": -88.1121667
         },
         {
-          "address": "2188 Blacksmith Dr, Wheaton, IL"
+          "address": "2188 Blacksmith Dr, Wheaton, IL",
+          "lat": 41.8275775,
+          "lng": -88.0763333
         },
         {
-          "address": "130 E Thompson Dr, Wheaton, IL"
+          "address": "130 E Thompson Dr, Wheaton, IL",
+          "lat": 41.8435567,
+          "lng": -88.106159
         },
         {
-          "address": "1318 Coolidge, Wheaton, IL"
+          "address": "1318 Coolidge, Wheaton, IL",
+          "lat": 41.8541493,
+          "lng": -88.0881176
         },
         {
-          "address": "1000 Lodalia Court, Wheaton, IL"
+          "address": "1000 Lodalia Court, Wheaton, IL",
+          "lat": 41.851242,
+          "lng": -88.118367
         },
         {
-          "address": "1305 Sussex lane, Wheaton, IL"
+          "address": "1305 Sussex lane, Wheaton, IL",
+          "lat": 41.8348147,
+          "lng": -88.0882753
         },
         {
-          "address": "105 Christina Circle, Wheaton, IL"
+          "address": "105 Christina Circle, Wheaton, IL",
+          "lat": 41.8407574,
+          "lng": -88.0983061
         },
         {
-          "address": "307 S. Arboretum Circle, Wheaton, IL"
+          "address": "307 S. Arboretum Circle, Wheaton, IL",
+          "lat": 41.8192159,
+          "lng": -88.0986526
         }
       ]
     },
@@ -257,67 +401,109 @@
       "name": "Route E",
       "stops": [
         {
-          "address": "215 Grandview Ave, Glen Ellyn, IL"
+          "address": "215 Grandview Ave, Glen Ellyn, IL",
+          "lat": 41.8673711,
+          "lng": -88.0492818
         },
         {
-          "address": "261 Spring Ave, Glen Ellyn, IL"
+          "address": "261 Spring Ave, Glen Ellyn, IL",
+          "lat": 41.8694508,
+          "lng": -88.0479292
         },
         {
-          "address": "2098 Valley Road, Lombard, IL"
+          "address": "2098 Valley Road, Lombard, IL",
+          "lat": 41.845342,
+          "lng": -88.040431
         },
         {
-          "address": "563 Lowden Avenue, Glen Ellyn, IL"
+          "address": "563 Lowden Avenue, Glen Ellyn, IL",
+          "lat": 41.8524583,
+          "lng": -88.0645849
         },
         {
-          "address": "567 Lowden Avenue, Glen Ellyn, IL"
+          "address": "567 Lowden Avenue, Glen Ellyn, IL",
+          "lat": 41.852459,
+          "lng": -88.0645107
         },
         {
-          "address": "2041 Valley Road, Lombard, IL"
+          "address": "2041 Valley Road, Lombard, IL",
+          "lat": 41.8466617,
+          "lng": -88.0402501
         },
         {
-          "address": "244 South Milton Avenue, Glen Ellyn, IL"
+          "address": "244 South Milton Avenue, Glen Ellyn, IL",
+          "lat": 41.8461147,
+          "lng": -88.0588631
         },
         {
-          "address": "243 Bryant Avenue, Glen Ellyn, IL"
+          "address": "243 Bryant Avenue, Glen Ellyn, IL",
+          "lat": 41.8683573,
+          "lng": -88.052733
         },
         {
-          "address": "2060 S Valley Road, Lombard, IL"
+          "address": "2060 S Valley Road, Lombard, IL",
+          "lat": 41.8461823,
+          "lng": -88.040588
         },
         {
-          "address": "287 spring Av, Glen Ellyn, IL"
+          "address": "287 spring Av, Glen Ellyn, IL",
+          "lat": 41.8701571,
+          "lng": -88.0479276
         },
         {
-          "address": "732 Glenbard Road, Glen Ellyn, IL"
+          "address": "732 Glenbard Road, Glen Ellyn, IL",
+          "lat": 41.8540519,
+          "lng": -88.0556126
         },
         {
-          "address": "167 Hedge Court, Glen Ellyn, IL"
+          "address": "167 Hedge Court, Glen Ellyn, IL",
+          "lat": 41.8535226,
+          "lng": -88.0545759
         },
         {
-          "address": "245 Spring Avenue, Glen Ellyn, IL"
+          "address": "245 Spring Avenue, Glen Ellyn, IL",
+          "lat": 41.8690162,
+          "lng": -88.0479303
         },
         {
-          "address": "160 S. Montclair Ave, Glen Ellyn, IL"
+          "address": "160 S. Montclair Ave, Glen Ellyn, IL",
+          "lat": 41.8537518,
+          "lng": -88.057293
         },
         {
-          "address": "264 Spring Ave, Glen Ellyn, IL"
+          "address": "264 Spring Ave, Glen Ellyn, IL",
+          "lat": 41.869102,
+          "lng": -88.0481501
         },
         {
-          "address": "254 Spring Avenue, Glen Ellyn, IL"
+          "address": "254 Spring Avenue, Glen Ellyn, IL",
+          "lat": 41.8687687,
+          "lng": -88.0481509
         },
         {
-          "address": "285 Milton ave, Glen Ellyn, IL"
+          "address": "285 Milton ave, Glen Ellyn, IL",
+          "lat": 41.8539045,
+          "lng": -88.0584715
         },
         {
-          "address": "888 Smith St, Glen Ellyn, IL"
+          "address": "888 Smith St, Glen Ellyn, IL",
+          "lat": 41.8723911,
+          "lng": -88.0487212
         },
         {
-          "address": "782 Amber Ridge Ave, Glen Ellyn, IL"
+          "address": "782 Amber Ridge Ave, Glen Ellyn, IL",
+          "lat": 41.8526918,
+          "lng": -88.0547475
         },
         {
-          "address": "714 Glenbard Rd, Glen Ellyn, IL"
+          "address": "714 Glenbard Rd, Glen Ellyn, IL",
+          "lat": 41.8540437,
+          "lng": -88.0565109
         },
         {
-          "address": "2040 Valley Rd, Lombard, IL"
+          "address": "2040 Valley Rd, Lombard, IL",
+          "lat": 41.8465995,
+          "lng": -88.040509
         }
       ]
     }
