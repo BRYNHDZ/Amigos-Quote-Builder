@@ -8,13 +8,17 @@ const data = JSON.parse(readFileSync(FILE, 'utf8'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function geocode(address) {
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
-    encodeURIComponent(address);
-  const res = await fetch(url, { headers: { 'User-Agent': 'AmigosQuoteBuilder/1.0 (route geocode)' } });
-  if (!res.ok) return null;
-  const j = await res.json();
-  if (!j || !j.length) return null;
-  return { lat: +j[0].lat, lng: +j[0].lon };
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
+      encodeURIComponent(address);
+    const res = await fetch(url, { headers: { 'User-Agent': 'AmigosQuoteBuilder/1.0 (route geocode)' } });
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!j || !j.length) return null;
+    return { lat: +j[0].lat, lng: +j[0].lon };
+  } catch (e) {
+    return null;
+  }
 }
 
 async function ensureCoords(obj, label) {
@@ -36,6 +40,5 @@ for (const route of data.routes) {
     if (!ok) miss++;
   }
 }
-data.generatedAt = data.generatedAt; // unchanged
 writeFileSync(FILE, JSON.stringify(data, null, 2) + '\n');
 console.log('\nDone. Missed geocodes:', miss);
