@@ -1,11 +1,12 @@
 // Compares every service price in /next-ui/ (design preview) against /legacy/ across many properties.
-// Expected: identical, except one-time fall cleanups (OD3, OD4), which must equal
-// legacy Leaf Care Standard (G1) and Leaf Care Pristine (G2).
+// Expected: identical, except one-time fall cleanups: OD3 must equal legacy Leaf Care Standard (G1);
+// OD4 (Removal, Bryan via Sam Oct 20) = b + (fb - b) x 1.35, i.e. x1.35 on the leaf extra only, then complexity and rate.
 // Clean Look Plan (C1) was removed from /next/ on purpose and must not appear.
 // Salt Treatment (H3) was removed on purpose (salt is included in the snow plans) and must not appear.
 // Snow plans (H1 Standard, H2 Premium, H4 Zero Tolerance) use the Oct 20 formula, not legacy:
 // Standard = $795 up to 2,000 paved sq ft + $0.30 per sq ft over; Premium x1.5; Zero Tolerance x2.7. No rate scaling, no trigger switch.
-// Usage: node next-ui/tests/next-vs-legacy-prices.mjs [baseUrl]   (default http://localhost:8765)
+// Usage: node next-ui/tests/next-ui-vs-legacy-prices.mjs [baseUrl]   (default http://localhost:8765)
+// PAGE=/ to check the root (main) builder instead of /next-ui/.
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_PATH || 'playwright-core');
@@ -13,7 +14,11 @@ const base = process.argv[2] || 'http://localhost:8765';
 const browser = await chromium.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', args: ['--no-sandbox'] });
 const errors = [];
 const open = async (path) => { const p = await browser.newPage(); p.on('pageerror', e => errors.push(path + ': ' + e.message)); await p.route(/nominatim|arcgis|dupage/i, r => r.abort()); await p.goto(base + path); return p; };
-const L = await open('/legacy/'), N = await open('/next-ui/');
+const L = await open('/legacy/'), N = await open(process.env.PAGE || '/next-ui/');
+const bOf = lot => lot <= 10000 ? 275 : lot <= 20000 ? 275 + (lot - 10000) * 0.011 : lot <= 43560 ? 385 + (lot - 20000) * 0.007 : 550 + (lot - 43560) * 0.006;
+const LM = [0, 0, 0.25, 0.5, 0.8, 1.2];
+const K = await N.evaluate(() => ({ CXM, RATE_BASE }));
+const od4Want = c => { if (!(c.lot > 0 && c.leaf > 0)) return 0; const b = bOf(c.lot), fb = b * (1 + LM[c.leaf]); let r = Math.round(b + (fb - b) * 1.35); const cx = K.CXM[c.complex] || 1; if (cx !== 1) r = Math.round(r * cx); const rm = c.rate / K.RATE_BASE; if (rm !== 1) r = Math.round(r * rm); return r; };
 const cases = [];
 for (const lot of [6000, 10890, 15000, 21780, 30000, 43560, 65000])
   for (const leaf of [0, 1, 2, 3, 4, 5])
@@ -35,14 +40,14 @@ const cleanup = { OD3: [], OD4: [] };
 for (const c of cases) {
   const lr = await L.evaluate(([c, f]) => (eval(f))(c, 'recurring'), [c, setup.toString()]);
   const lo = await L.evaluate(([c, f]) => (eval(f))(c, 'onetime'), [c, setup.toString()]);
-  const n = await N.evaluate(([c, f]) => (eval(f))(c, null), [c, setup.toString()]);
+  const n = await N.evaluate(([c, f]) => { delete ST.leafVisits; return (eval(f))(c, null); }, [c, setup.toString()]);
   const nIds = await N.evaluate(() => SEASONS.flatMap(s => s.cats.flatMap(k => k.items.map(i => i.id))));
   const nPaved = await N.evaluate(() => { const d = derive(); return ST.paved > 0 ? ST.paved : (d ? d.paved : 0); });
   if (nIds.includes('C1') || 'C1' in n) fails.push({ c, note: 'Clean Look (C1) should be removed from /next/' });
   if (nIds.includes('H3') || 'H3' in n) fails.push({ c, note: 'Salt Treatment (H3) should be removed' });
   for (const id of nIds) {
     let want;
-    if (id === 'OD3') want = lr.G1; else if (id === 'OD4') want = lr.G2;
+    if (id === 'OD3') want = lr.G1; else if (id === 'OD4') want = od4Want(c);
     else if (id in SNOW_M) want = snowWant(nPaved, id);
     else if (ONE_ONLY.includes(id)) want = lo[id];
     else want = lr[id];
@@ -97,6 +102,9 @@ for (const [paved, h1, h2, h4] of SNOW_SAMPLES) for (const rate of [80, 100]) fo
 { const px = await N.evaluate(() => { Object.assign(ST, { lot: 15000, paved: 3089, rate: 80, snow: null, complex: 'low' }); ST.ov = {}; render(); return ['H1', 'H2', 'H4'].map(id => { const el = document.querySelector('.svc[data-svc="' + id + '"] .pi, [data-id="' + id + '"]'); return el ? (el.value || el.placeholder) : null; }); });
   checked++; if (px.join() !== '1122,1683,3029') fails.push({ note: 'snow cards should show 1122/1683/3029', px });
   if (await N.evaluate(() => !!document.getElementById('snPg') || document.body.innerText.includes('Snow trigger'))) fails.push({ note: 'shared snow trigger switch should be gone' }); }
+// Sam's example (Oct 20): 11,326 sq ft, leaf 4 -> b $290, leaf $232 -> OD4 $602
+{ const r = await N.evaluate(() => { delete ST.leafVisits; Object.assign(ST, { lot: 11326, leaf: 4, complex: 'low', rate: 80, lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0 }); return getSug(); });
+  checked++; if (r.OD4 !== 602) fails.push({ note: "Sam's example OD4 should be 602", got: r.OD4 }); }
 console.log(`cases: ${cases.length}, comparisons: ${checked}, failures: ${fails.length}, page errors: ${errors.length}`);
 fails.slice(0, 15).forEach(f => console.log('FAIL', JSON.stringify(f)));
 errors.forEach(e => console.log('PAGE ERROR', e));
