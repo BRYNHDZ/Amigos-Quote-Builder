@@ -12,6 +12,7 @@ def one(s,old,new):
     return s.replace(old,new)
 
 head=src[:src.index('</style>')]
+head=re.sub(r"\n?\.test-tag\{[^}]*\}","",head,count=1)  # header tag removed (Bryan, Oct 20)
 body=src[src.index('<body>'):src.index('<script src="route-fit.js"></script>')]
 script=src[src.index('<script src="route-fit.js"></script>'):]
 
@@ -29,7 +30,7 @@ newBody=f'''<body>
 <header>
   <div style="display:flex;align-items:center;gap:8px">
     {logo}
-    <div><div class="h1t">{title} <span class="test-tag">Design preview</span></div></div>
+    <div><div class="h1t">{title}</div></div>
   </div>
 </header>
 <nav class="steps" id="steps">
@@ -79,7 +80,6 @@ css=r'''
 /* ---------- design preview ---------- */
 body{padding-bottom:90px}
 .wrap{max-width:860px}
-.test-tag{background:#30471F;color:#fff}
 .steps{position:sticky;top:0;z-index:20;display:flex;gap:6px;background:#F3F4F6;padding:6px 0 10px;margin-bottom:4px}
 .step{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 6px;border-radius:10px;background:#fff;border:1.5px solid #e0dfd8;color:#888;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap}
 .step .num,.step-hd .num{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#e0dfd8;color:#fff;font-size:11px;flex-shrink:0}
