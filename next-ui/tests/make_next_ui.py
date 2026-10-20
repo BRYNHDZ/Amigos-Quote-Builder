@@ -182,7 +182,7 @@ function renderSvc(){
         h+='<div class="chk '+(selected&&!dis?'on':'')+(dis?' dis':'')+'">'+chk+'</div>';
         h+='<div class="svc-name-col"><div class="svc-nm">'+item.name+'</div>';
         if(item.one||item.pop)h+='<div class="svc-tags">'+(item.one?'<span class="atag">One-time</span>':'')+(item.pop?'<span class="pop">Popular</span>':'')+'</div>';
-        if(disMow)h+='<div class="rule">Requires mowing. Add a Weekly Maintenance service first.</div>';
+        if(disMow)h+='<div class="rule">Requires mowing. Add Weekly Mowing first.</div>';
         if(disTrim)h+='<div class="rule">Requires a trimming service.</div>';
         if(disMulch&&!disMow)h+='<div class="rule">Requires mulch. <button class="rule-btn" id="mulchOvr" onclick="event.stopPropagation();setMulchOverride()">Allow without mulch</button></div>';
         if(MULCH_DEPS.includes(id)&&ST.mulchOverride&&!sel.has('F1')&&!disMow)h+='<div class="rule ovr-on">Mulch rule overridden. <button class="rule-btn" id="mulchOvr" onclick="event.stopPropagation();setMulchOverride()">Undo</button></div>';
@@ -213,9 +213,9 @@ function renderOut(){
   let h='';
   if(total<=0){h+='<div class="det-hint">Pick services in step 2 to see what they pay.</div>';}
   h+='<div class="pay-cards">';
-  h+='<button class="pay'+(ST.payView==='visit'?' on':'')+'" id="payVisit" onclick="setPay(\'visit\')"><div class="pay-t">Pay as you go</div><div class="amt">'+money(total)+'</div><div class="pay-s">'+(perCut>0?'Per cut: $'+perCut.toLocaleString()+' · ':'')+'Total: '+money(total)+'</div></button>';
+  h+='<button class="pay'+(ST.payView==='visit'?' on':'')+'" id="payVisit" onclick="setPay(\'visit\')"><div class="pay-t">Pay-As-You-Go</div><div class="amt">'+money(total)+'</div><div class="pay-s">'+(perCut>0?'Per cut: $'+perCut.toLocaleString()+' · ':'')+'Total: '+money(total)+'</div></button>';
   h+='<button class="pay'+(ST.payView==='monthly'?' on':'')+'" id="payMonthly" onclick="setPay(\'monthly\')"><div class="pay-t">Spread monthly</div><div class="amt">'+money(mo)+'/mo</div><div class="pay-s">'+n+' payment'+(n===1?'':'s')+' of $'+mo.toLocaleString()+'/mo · '+MONTH_NAMES[sm]+' through February</div></button>';
-  h+='<button class="pay'+(ST.payView==='annual'?' on':'')+'" id="payAnnual" onclick="setPay(\'annual\')"><div class="pay-t">Annual payment</div><div class="amt">'+money(ap.pay)+'</div><div class="pay-s'+(ap.save?'':' warn-t')+'">'+(ap.save?'1 month free, save $'+ap.save.toLocaleString()+' · paid up front':'No free month: 1 month free needs a 12 month plan (March start). This start month gives '+ap.n+' payment'+(ap.n===1?'':'s')+'.')+'</div></button>';
+  h+='<button class="pay'+(ST.payView==='annual'?' on':'')+'" id="payAnnual" onclick="setPay(\'annual\')"><div class="pay-t">Annual Payment</div><div class="amt">'+money(ap.pay)+'</div><div class="pay-s'+(ap.save?'':' warn-t')+'">'+(ap.save?'1 month free, save $'+ap.save.toLocaleString()+' · paid up front':'No free month: 1 month free needs a 12 month plan (March start). This start month gives '+ap.n+' payment'+(ap.n===1?'':'s')+'.')+'</div></button>';
   h+='</div>';
   if(total>0){
     if(ST.payView==='monthly'&&mo<PLAN_FLOOR){''' + planMinBar + r'''}
@@ -229,7 +229,7 @@ function renderOut(){
   document.querySelectorAll('.season-meta[data-season]').forEach(el=>{const s=SEASONS.find(x=>x.title===el.dataset.season);if(s)el.textContent=seasonMeta(s);});
   const cnt=ST.sel.size;
   const barAmt=ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):money(total);
-  const barLbl=ST.payView==='monthly'?n+' payment'+(n===1?'':'s'):ST.payView==='annual'?(ap.save?'Annual payment, 1 month free':'Annual payment'):'Pay as you go';
+  const barLbl=ST.payView==='monthly'?n+' payment'+(n===1?'':'s'):ST.payView==='annual'?(ap.save?'Annual Payment, 1 month free':'Annual Payment'):'Pay-As-You-Go';
   $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+cnt+' service'+(cnt===1?'':'s')+' · '+barLbl+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="#s3">How they pay</a></div>';
   $('st1').classList.toggle('done',ST.lot>0);$('st2').classList.toggle('done',cnt>0);$('st3').classList.toggle('done',!!ST.payPicked);
   markDefaults();

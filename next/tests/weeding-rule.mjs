@@ -1,4 +1,4 @@
-// Rule test: ongoing weeding (Estate Detail, C2; Clean Look C1 was removed) needs mulch (F1) unless "Override mulch rule" is ON.
+// Rule test: Ongoing Weeding (C2, was Estate Detail; Clean Look C1 was removed) needs mulch (F1) unless "Override mulch rule" is ON.
 // One-time weeding (OF2) is not affected. Usage: node next/tests/weeding-rule.mjs [baseUrl]
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -12,9 +12,10 @@ await p.fill('#iLt', '15000');
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); else console.log('pass:', msg); };
 const sel = () => p.evaluate(() => [...ST.sel]);
-const row = name => p.locator('.svc', { has: p.locator('.svc-nm', { hasText: name }) }).first();
+const exact = n => new RegExp('^' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$');
+const row = name => p.locator('.svc', { has: p.locator('.svc-nm', { hasText: exact(name) }) }).first();
 const click = async name => { await row(name).locator('.chk').click(); await p.waitForTimeout(50); };
-const ES = 'Garden Maintenance – Estate Detail Plan', MU = 'Mulch Installation & Flower Bed Edging', OW = 'One-Time Weeding', MOW = 'Weekly Maintenance – Nutrient Standard';
+const ES = 'Ongoing Weeding (Per Visit)', MU = 'Mulch Delivery & Installation and Flower Bed Edging', OW = 'Weeding', MOW = 'Weekly Mowing - Nutrient (Per Visit)';
 ok((await sel()).includes('A1'), 'mowing selected by default');
 ok(await p.locator('.svc-nm', { hasText: 'Clean Look' }).count() === 0 && !(await p.evaluate(() => document.body.innerText)).includes('Clean Look'), 'Clean Look Plan is gone from the page');
 ok(await p.evaluate(() => !SEASONS.some(s => s.cats.some(c => c.items.some(i => i.id === 'C1'))) && !('C1' in getSug())), 'Clean Look (C1) gone from catalog and prices');
