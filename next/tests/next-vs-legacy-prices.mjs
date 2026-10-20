@@ -1,6 +1,7 @@
 // Compares every service price in /next/ against /legacy/ across many properties.
 // Expected: identical, except one-time fall cleanups (OD3, OD4), which must equal
 // legacy Leaf Care Standard (G1) and Leaf Care Pristine (G2).
+// Clean Look Plan (C1) was removed from /next/ on purpose and must not appear.
 // Usage: node next/tests/next-vs-legacy-prices.mjs [baseUrl]   (default http://localhost:8765)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -31,6 +32,7 @@ for (const c of cases) {
   const lo = await L.evaluate(([c, f]) => (eval(f))(c, 'onetime'), [c, setup.toString()]);
   const n = await N.evaluate(([c, f]) => (eval(f))(c, null), [c, setup.toString()]);
   const nIds = await N.evaluate(() => SEASONS.flatMap(s => s.cats.flatMap(k => k.items.map(i => i.id))));
+  if (nIds.includes('C1') || 'C1' in n) fails.push({ c, note: 'Clean Look (C1) should be removed from /next/' });
   for (const id of nIds) {
     let want;
     if (id === 'OD3') want = lr.G1; else if (id === 'OD4') want = lr.G2;
@@ -46,7 +48,7 @@ for (const c of cases) {
   if (lr.G4 !== lo.OD3 || lr.G5 !== lo.OD4) fails.push({ c, note: 'legacy G4/G5 vs OD3/OD4 mismatch' });
   if (!c.manual && c.complex === 'low' && c.rate === 80) { cleanup.OD3.push([c.lot, c.leaf, lo.OD3, n.OD3]); cleanup.OD4.push([c.lot, c.leaf, lo.OD4, n.OD4]); }
   // monthly payment = legacy Property Plan monthly for the same selection and start month
-  const sel = ['A1', 'F1', 'C1', 'B1', 'D1', 'G1', 'E1', 'H1'];
+  const sel = ['A1', 'F1', 'C2', 'B1', 'D1', 'G1', 'E1', 'H1'];
   const lm = await L.evaluate(sel => { ST.recView = 'plan'; ST.mode = 'recurring'; ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   const nm = await N.evaluate(sel => { ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   checked++; if (lm !== nm) fails.push({ c, note: 'monthly mismatch', legacy: lm, next: nm });
@@ -60,6 +62,7 @@ for (const c of cases) {
 // render smoke test: every service selectable in both pay modes without errors
 await N.evaluate(() => { ST.lot = 15000; ST.mulch = 6; SEASONS.forEach(s => s.cats.forEach(k => k.items.forEach(i => ST.sel.add(i.id)))); ST.payView = 'visit'; render(); ST.payView = 'monthly'; render(); });
 const txt = await N.evaluate(() => document.getElementById('outCol').innerText);
+if (/Clean Look/.test(await N.evaluate(() => document.body.innerText))) fails.push({ note: 'Clean Look text still on page' });
 if (!/payments of \$/.test(txt)) fails.push({ note: 'monthly payment line missing' });
 // annual payment UI: March start shows the free month, June start shows full price + note
 for (const [start, free] of [[3, true], [6, false]]) {
