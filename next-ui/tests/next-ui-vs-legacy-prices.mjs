@@ -1,6 +1,7 @@
 // Compares every service price in /next-ui/ (design preview) against /legacy/ across many properties.
 // Expected: identical, except one-time fall cleanups: OD3 must equal legacy Leaf Care Standard (G1);
 // OD4 (Removal, Bryan via Sam Oct 20) = b + (fb - b) x 1.35, i.e. x1.35 on the leaf extra only, then complexity and rate.
+// G2 (Removal, During Mowing Visits) uses the same formula (Bryan approved Oct 20). G3 still matches legacy.
 // Clean Look Plan (C1) was removed from /next/ on purpose and must not appear.
 // Salt Treatment (H3) was removed on purpose (salt is included in the snow plans) and must not appear.
 // Snow plans (H1 Standard, H2 Premium, H4 Zero Tolerance) use the Oct 20 formula, not legacy:
@@ -47,7 +48,7 @@ for (const c of cases) {
   if (nIds.includes('H3') || 'H3' in n) fails.push({ c, note: 'Salt Treatment (H3) should be removed' });
   for (const id of nIds) {
     let want;
-    if (id === 'OD3') want = lr.G1; else if (id === 'OD4') want = od4Want(c);
+    if (id === 'OD3') want = lr.G1; else if (id === 'OD4' || id === 'G2') want = od4Want(c);
     else if (id in SNOW_M) want = snowWant(nPaved, id);
     else if (ONE_ONLY.includes(id)) want = lo[id];
     else want = lr[id];
@@ -104,7 +105,7 @@ for (const [paved, h1, h2, h4] of SNOW_SAMPLES) for (const rate of [80, 100]) fo
   if (await N.evaluate(() => !!document.getElementById('snPg') || document.body.innerText.includes('Snow trigger'))) fails.push({ note: 'shared snow trigger switch should be gone' }); }
 // Sam's example (Oct 20): 11,326 sq ft, leaf 4 -> b $290, leaf $232 -> OD4 $602
 { const r = await N.evaluate(() => { delete ST.leafVisits; Object.assign(ST, { lot: 11326, leaf: 4, complex: 'low', rate: 80, lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0 }); return getSug(); });
-  checked++; if (r.OD4 !== 602) fails.push({ note: "Sam's example OD4 should be 602", got: r.OD4 }); }
+  checked += 2; if (r.OD4 !== 602) fails.push({ note: "Sam's example OD4 should be 602", got: r.OD4 }); if (r.G2 !== 602) fails.push({ note: "Sam's example G2 should be 602", got: r.G2 }); }
 console.log(`cases: ${cases.length}, comparisons: ${checked}, failures: ${fails.length}, page errors: ${errors.length}`);
 fails.slice(0, 15).forEach(f => console.log('FAIL', JSON.stringify(f)));
 errors.forEach(e => console.log('PAGE ERROR', e));

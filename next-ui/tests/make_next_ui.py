@@ -248,6 +248,8 @@ script=script.replace(renSvc+renOut,newRender)
 # OD4 Removal (Bryan via Sam, Oct 20): haul-away only affects the leaves, so x1.35 applies to the leaf extra only:
 #   OD4 = b + (fb - b) x 1.35, and each extra visit adds plain b. G2/G3 unchanged.
 script=one(script,"OD4:Math.round(fb*1.35)","OD4:Math.round(fbB+(fb-fbB)*1.35)")
+# G2 Removal during mowing visits: same rule (Bryan approved, Oct 20). G3 unchanged.
+script=one(script,"G2:Math.round(fb*1.35)","G2:Math.round(fbB+(fb-fbB)*1.35)")
 script=one(script,"let fb=0;if(lot>0&&leaf>0){const b=","let fb=0,fbB=0;if(lot>0&&leaf>0){const b=")
 script=one(script,"fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}","fbB=b;fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}")
 script=one(script,"if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});return R;}",
