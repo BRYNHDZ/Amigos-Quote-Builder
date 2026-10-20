@@ -46,7 +46,7 @@ for (const c of cases) {
   if (lr.G4 !== lo.OD3 || lr.G5 !== lo.OD4) fails.push({ c, note: 'legacy G4/G5 vs OD3/OD4 mismatch' });
   if (!c.manual && c.complex === 'low' && c.rate === 80) { cleanup.OD3.push([c.lot, c.leaf, lo.OD3, n.OD3]); cleanup.OD4.push([c.lot, c.leaf, lo.OD4, n.OD4]); }
   // monthly payment = legacy Property Plan monthly for the same selection and start month
-  const sel = ['A1', 'C1', 'B1', 'D1', 'G1', 'E1', 'H1'];
+  const sel = ['A1', 'F1', 'C1', 'B1', 'D1', 'G1', 'E1', 'H1'];
   const lm = await L.evaluate(sel => { ST.recView = 'plan'; ST.mode = 'recurring'; ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   const nm = await N.evaluate(sel => { ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   checked++; if (lm !== nm) fails.push({ c, note: 'monthly mismatch', legacy: lm, next: nm });
