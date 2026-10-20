@@ -3,6 +3,8 @@
 // legacy Leaf Care Standard (G1) and Leaf Care Pristine (G2).
 // Clean Look Plan (C1) was removed from /next/ on purpose and must not appear.
 // Salt Treatment (H3) was removed on purpose (salt is included in the snow plans) and must not appear.
+// Snow plans (H1 Standard, H2 Premium, H4 Zero Tolerance) use the Oct 20 formula, not legacy:
+// Standard = $795 up to 2,000 paved sq ft + $0.30 per sq ft over; Premium x1.5; Zero Tolerance x2.7. No rate scaling, no trigger switch.
 // Usage: node next-ui/tests/next-vs-legacy-prices.mjs [baseUrl]   (default http://localhost:8765)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -26,6 +28,8 @@ const setup = (c, mode) => {
   return getSug();
 };
 const ONE_ONLY = ['OF2', 'OF3', 'OE1', 'OE3'];
+const SNOW_M = { H1: 1, H2: 1.5, H4: 2.7 };
+const snowWant = (paved, id) => paved > 0 ? Math.round((795 + Math.max(0, paved - 2000) * 0.30) * SNOW_M[id]) : 0;
 let checked = 0, fails = [];
 const cleanup = { OD3: [], OD4: [] };
 for (const c of cases) {
@@ -33,11 +37,13 @@ for (const c of cases) {
   const lo = await L.evaluate(([c, f]) => (eval(f))(c, 'onetime'), [c, setup.toString()]);
   const n = await N.evaluate(([c, f]) => (eval(f))(c, null), [c, setup.toString()]);
   const nIds = await N.evaluate(() => SEASONS.flatMap(s => s.cats.flatMap(k => k.items.map(i => i.id))));
+  const nPaved = await N.evaluate(() => { const d = derive(); return ST.paved > 0 ? ST.paved : (d ? d.paved : 0); });
   if (nIds.includes('C1') || 'C1' in n) fails.push({ c, note: 'Clean Look (C1) should be removed from /next/' });
   if (nIds.includes('H3') || 'H3' in n) fails.push({ c, note: 'Salt Treatment (H3) should be removed' });
   for (const id of nIds) {
     let want;
     if (id === 'OD3') want = lr.G1; else if (id === 'OD4') want = lr.G2;
+    else if (id in SNOW_M) want = snowWant(nPaved, id);
     else if (ONE_ONLY.includes(id)) want = lo[id];
     else want = lr[id];
     checked++;
@@ -51,11 +57,11 @@ for (const c of cases) {
   if (!c.manual && c.complex === 'low' && c.rate === 80) { cleanup.OD3.push([c.lot, c.leaf, lo.OD3, n.OD3]); cleanup.OD4.push([c.lot, c.leaf, lo.OD4, n.OD4]); }
   // monthly payment = legacy Property Plan monthly for the same selection and start month
   const sel = ['A1', 'F1', 'C2', 'B1', 'D1', 'G1', 'E1', 'H1'];
-  const lm = await L.evaluate(sel => { ST.recView = 'plan'; ST.mode = 'recurring'; ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
+  const lm = await L.evaluate(([sel, h1]) => { ST.recView = 'plan'; ST.mode = 'recurring'; ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += id === 'H1' ? h1 : (gp(id) || 0)); return Math.round(t / planMonths()); }, [sel, n.H1]);
   const nm = await N.evaluate(sel => { ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   checked++; if (lm !== nm) fails.push({ c, note: 'monthly mismatch', legacy: lm, next: nm });
   // annual payment: legacy yearly total, minus one monthly payment only on a 12 month plan
-  const la = await L.evaluate(sel => { let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return { t, n: planMonths() }; }, sel);
+  const la = await L.evaluate(([sel, h1]) => { let t = 0; ST.sel.forEach(id => t += id === 'H1' ? h1 : (gp(id) || 0)); return { t, n: planMonths() }; }, [sel, n.H1]);
   const na = await N.evaluate(sel => { let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return annualPay(t); }, sel);
   const wantSave = la.n === 12 ? Math.round(la.t / 12) : 0;
   checked++; if (na.pay !== la.t - wantSave || na.save !== wantSave || na.n !== la.n) fails.push({ c, note: 'annual mismatch', legacyTotal: la.t, months: la.n, next: na });
@@ -80,6 +86,17 @@ for (const [start, free] of [[3, true], [6, false]]) {
   const vamt = await N.evaluate(() => document.querySelector('#payVisit .amt').innerText);
   if (vamt !== `$${r.t.toLocaleString()}`) fails.push({ note: 'pay as you go card amount wrong', start, vamt });
 }
+// snow samples (Bryan, Oct 20): fixed dollars at any hourly rate and any old trigger setting
+const SNOW_SAMPLES = [[1000, 795, 1193, 2147], [2000, 795, 1193, 2147], [3089, 1122, 1683, 3029], [3800, 1335, 2003, 3605]];
+for (const [paved, h1, h2, h4] of SNOW_SAMPLES) for (const rate of [80, 100]) for (const snow of ['2plus', 'zero']) {
+  const r = await N.evaluate(([paved, rate, snow]) => { Object.assign(ST, { lot: 15000, paved, rate, snow, complex: 'high' }); return getSug(); }, [paved, rate, snow]);
+  checked += 3;
+  if (r.H1 !== h1 || r.H2 !== h2 || r.H4 !== h4) fails.push({ note: 'snow sample wrong', paved, rate, snow, got: [r.H1, r.H2, r.H4], want: [h1, h2, h4] });
+}
+// the three snow cards show three different prices
+{ const px = await N.evaluate(() => { Object.assign(ST, { lot: 15000, paved: 3089, rate: 80, snow: null, complex: 'low' }); ST.ov = {}; render(); return ['H1', 'H2', 'H4'].map(id => { const el = document.querySelector('.svc[data-svc="' + id + '"] .pi, [data-id="' + id + '"]'); return el ? (el.value || el.placeholder) : null; }); });
+  checked++; if (px.join() !== '1122,1683,3029') fails.push({ note: 'snow cards should show 1122/1683/3029', px });
+  if (await N.evaluate(() => !!document.getElementById('snPg') || document.body.innerText.includes('Snow trigger'))) fails.push({ note: 'shared snow trigger switch should be gone' }); }
 console.log(`cases: ${cases.length}, comparisons: ${checked}, failures: ${fails.length}, page errors: ${errors.length}`);
 fails.slice(0, 15).forEach(f => console.log('FAIL', JSON.stringify(f)));
 errors.forEach(e => console.log('PAGE ERROR', e));
