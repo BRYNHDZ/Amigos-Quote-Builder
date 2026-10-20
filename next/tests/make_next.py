@@ -140,6 +140,16 @@ rep("if(ST.mode==='recurring'&&ST.recView==='plan'){if(_psm===3)","{if(_psm===3)
 rep("}else{$('planStartHint').innerHTML='';}}","}}")
 s=re.sub(r"if\(!ST\.mode\)\{\$\('svcCol'\)\.innerHTML=.*?return;\}","",s,count=1)
 
+# ---------- rule: ongoing weeding (C1, C2) requires mulch (F1), with an override ----------
+rep("bufferOn:false,","bufferOn:false,mulchOverride:false,")
+rep("const MDEPS=['C1','C2','G1','G2','G3','E2'];","const MDEPS=['C1','C2','G1','G2','G3','E2'];\nconst MULCH_DEPS=['C1','C2'];\nfunction hasMulch(){return ST.sel.has('F1')||ST.mulchOverride;}\nfunction setMulchOverride(){ST.mulchOverride=!ST.mulchOverride;if(!hasMulch())MULCH_DEPS.forEach(d=>ST.sel.delete(d));render();}")
+rep("if(id==='E5'&&!hasTrim())return;","if(id==='E5'&&!hasTrim())return;if(MULCH_DEPS.includes(id)&&!hasMulch())return;")
+rep("if(cid==='E'&&!sel.has('E1')&&!sel.has('E2'))sel.delete('E5');","if(cid==='E'&&!sel.has('E1')&&!sel.has('E2'))sel.delete('E5');if(id==='F1'&&!hasMulch())MULCH_DEPS.forEach(d=>sel.delete(d));")
+rep("const disTrim=item.id==='E5'&&!hasTrim();\n      const dis=disMow||disTrim;","const disTrim=item.id==='E5'&&!hasTrim();\n      const disMulch=MULCH_DEPS.includes(item.id)&&!hasMulch();\n      const dis=disMow||disTrim||disMulch;")
+rep("(disTrim?'<span class=\"req\">· requires a trimming service</span>':'')","(disTrim?'<span class=\"req\">· requires a trimming service</span>':'')+(disMulch?'<span class=\"req\">· requires mulch</span>':'')")
+# override switch, same look as the "+20% buffer" ON/OFF switch, shown in the Flower Bed card while no mulch is selected
+rep("if((cat.id==='C'||cat.id==='OF')&&hasBeds()){","if(cat.id==='C'&&(!ST.sel.has('F1')||ST.mulchOverride)){const on=ST.mulchOverride;h+='<div style=\"display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;font-size:11px\"><span style=\"color:#888\">Override mulch rule</span><button id=\"mulchOvr\" onclick=\"setMulchOverride()\" style=\"padding:3px 10px;border:1.5px solid '+(on?'#FFB300':'#d8d8d0')+';border-radius:20px;background:'+(on?'#fffbec':'#fafaf8')+';color:'+(on?'#7a5800':'#888')+';font-weight:700;cursor:pointer;font-family:&apos;Nunito&apos;,sans-serif;font-size:11px\">'+(on?'ON':'OFF')+'</button></div>';}if((cat.id==='C'||cat.id==='OF')&&hasBeds()){")
+
 for bad in ['ST.mode','recView','selOne','ovOne','isRec?','PLAN_DISCOUNT','PLAN_SVCS','REC_CATS','ONE_CATS','iVr\'','visRow','setMode','setRecView',"'G4'","'G5'",'G4:','G5:']:
     if bad in s: print('LEFTOVER',bad, [m.start() for m in re.finditer(re.escape(bad),s)][:5])
 open('./next/index.html','w',encoding='utf-8').write(s)
