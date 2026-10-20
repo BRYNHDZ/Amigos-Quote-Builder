@@ -250,6 +250,20 @@ rep("if(['H1','H2','H4','H3'].some(id=>ST.sel.has(id)))","if(['H1','H2','H4'].so
 for gone in ["'H3'","H3:","Salt Treatment"]:
     assert gone not in s, gone
 
+# ---------- Bryan, Oct 20: snow pricing (salt included). Each plan has its own price; the plan sets the trigger ----------
+# Standard = $795 up to 2,000 paved sq ft + $0.30 per sq ft over 2,000. Premium = 1.5 x Standard, Zero Tolerance = 2.7 x Standard.
+# Fixed dollars: no hourly-rate scaling. Paved sq ft input and its auto guess are unchanged.
+rep("const RATE_BASE=80;","const RATE_BASE=80;\n// Snow (per season, salt included): $79.50 a visit up to 2,000 paved sq ft + $0.03 per extra sq ft, x 10 visits\nconst SNOW_BASE=795,SNOW_BASE_SQFT=2000,SNOW_PER_SQFT=0.30;\nconst SNOW_MULT={H1:1,H2:1.5,H4:2.7};")
+rep("let snb=paved>0?(paved<=600?695:695+(paved-600)*0.27):0;if(snow==='1plus')snb*=1.5;if(snow==='zero')snb*=2.7;","const snb=paved>0?SNOW_BASE+Math.max(0,paved-SNOW_BASE_SQFT)*SNOW_PER_SQFT:0;")
+rep("H1:Math.round(snb),H2:Math.round(snb),H4:Math.round(snb),","H1:Math.round(snb*SNOW_MULT.H1),H2:Math.round(snb*SNOW_MULT.H2),H4:Math.round(snb*SNOW_MULT.H4),")
+rep(",'OD3','OD4','H1','H2','H4'];",",'OD3','OD4'];")
+rep("const snow=effSnow();","")
+rep("if(['H1','H2','H4'].some(id=>ST.sel.has(id))){if(ST.snow===null)miss.push('<b>Snow trigger</b> <span style=\"color:#aaa\">(using 2\"+)</span>');}","")
+m=re.search(r'\n\s*<div id="snowRow">.*?\n\s*</div>\n\s*</div>(?=\n)',s,re.S); assert m and 'Zero tolerance' in m.group(0) and m.group(0).count('<div')==2
+s=s[:m.start()]+s[m.end():]
+for gone in ['snowRow','snPg','ST.snow===','effSnow()']:
+    assert gone not in s.split('function effSnow')[0]+s.split('function effSnow')[1].split('}',1)[1], gone
+
 for bad in ['ST.mode','recView','selOne','ovOne','isRec?','PLAN_DISCOUNT','PLAN_SVCS','REC_CATS','ONE_CATS','iVr\'','visRow','setMode','setRecView',"'G4'","'G5'",'G4:','G5:']:
     if bad in s: print('LEFTOVER',bad, [m.start() for m in re.finditer(re.escape(bad),s)][:5])
 open('./next/index.html','w',encoding='utf-8').write(s)

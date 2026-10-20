@@ -203,7 +203,7 @@ function renderSvc(){
   $('svcCol').innerHTML=h;
   if(focusId){const el=document.querySelector('.pi[data-id="'+focusId+'"]');if(el){el.focus();try{el.setSelectionRange(cursorPos,cursorPos);}catch(e){}}}
 }
-function markDefaults(){const d={rPg:ST.rate?null:0,lPg:ST.leaf==null?2:null,cxPg:ST.complex?null:0,bfPg:ST.bedFootprint?null:1,snPg:ST.snow?null:0};for(const g in d){document.querySelectorAll('#'+g+' button').forEach((b,i)=>b.classList.toggle('def',d[g]===i));}}
+function markDefaults(){const d={rPg:ST.rate?null:0,lPg:ST.leaf==null?2:null,cxPg:ST.complex?null:0,bfPg:ST.bedFootprint?null:1};for(const g in d){document.querySelectorAll('#'+g+' button').forEach((b,i)=>b.classList.toggle('def',d[g]===i));}}
 function money(n){return '$'+Math.round(n).toLocaleString();}
 function renderOut(){
   $('missBox').innerHTML=warnHTML();
