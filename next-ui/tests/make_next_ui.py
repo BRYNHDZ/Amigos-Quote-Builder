@@ -137,6 +137,9 @@ body{padding-bottom:90px}
 .bar-in{max-width:860px;margin:0 auto;width:100%;display:flex;align-items:center;gap:12px}
 .bar-l{font-size:11px;color:#c9dcad;line-height:1.3}
 .bar-amt{font-family:'Fredoka',sans-serif;font-size:22px;line-height:1.1}
+.vis-ctl{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:11px;font-weight:700;color:#555}
+.vis-ctl button{font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;min-width:30px;padding:5px 0;border-radius:7px;border:1.5px solid #d8d8d0;background:#fff;color:#555;cursor:pointer}
+.vis-ctl button.on{border-color:#30471F;background:#30471F;color:#fff}
 .bar-btn{margin-left:auto;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;padding:10px 14px;border-radius:10px;border:none;background:#FFB300;color:#18240F;cursor:pointer;text-decoration:none;white-space:nowrap}
 '''
 
@@ -182,6 +185,7 @@ function renderSvc(){
         h+='<div class="chk '+(selected&&!dis?'on':'')+(dis?' dis':'')+'">'+chk+'</div>';
         h+='<div class="svc-name-col"><div class="svc-nm">'+item.name+'</div>';
         if(item.one||item.pop)h+='<div class="svc-tags">'+(item.one?'<span class="atag">One-time</span>':'')+(item.pop?'<span class="pop">Popular</span>':'')+'</div>';
+        if(VISIT_SVCS.includes(id)&&selected&&!dis){const v=leafVisits(id);h+='<div class="vis-ctl" data-vis="'+id+'" onclick="event.stopPropagation()"><span>Visits</span>';for(let k=1;k<=4;k++)h+='<button class="'+(k===v?'on':'')+'" onclick="setLeafVisits(\''+id+'\','+k+')">'+k+'</button>';h+='</div>';}
         if(disMow)h+='<div class="rule">Requires mowing. Add Weekly Mowing first.</div>';
         if(disTrim)h+='<div class="rule">Requires a trimming service.</div>';
         if(disMulch&&!disMow)h+='<div class="rule">Requires mulch. <button class="rule-btn" id="mulchOvr" onclick="event.stopPropagation();setMulchOverride()">Allow without mulch</button></div>';
@@ -192,6 +196,7 @@ function renderSvc(){
         if(item.auto)h+='<div class="px-big" data-px="'+id+'">$'+Math.round(p).toLocaleString()+'</div><div class="px-sub">+25% auto</div>';
         else h+='<label class="px-edit"><span>$</span><input class="pi'+(isOvr?' ovr':'')+'" type="number" inputmode="decimal" data-id="'+id+'" value="'+(p>0?Math.round(p):'')+'" placeholder="'+(sp>0?Math.round(sp):'0')+'" oninput="ovr(\''+id+'\',this.value)"></label>';
         if(mo.v>0)h+='<div class="px-sub svc-mo" data-mo="'+id+'">$'+mo.v+mo.unit+'</div>';
+        if(VISIT_SVCS.includes(id)&&selected&&!dis&&leafVisits(id)>1)h+='<div class="px-sub">'+leafVisits(id)+' visits</div>';
         if(!item.auto&&isOvr)h+='<div class="px-sub">✎ manual price · <a onclick="resetOvr(\''+id+'\',event)">reset to auto</a></div>';
         h+='</div></div>';
       }
@@ -236,6 +241,15 @@ function renderOut(){
 }
 '''
 script=script.replace(renSvc+renOut,newRender)
+# ---------- leaf work split across visits (Bryan, Oct 20) ----------
+# Non-mowing end-of-season Leaf Work (OD3 Nutrient, OD4 Removal): every visit pays the full yard-pass part b,
+# the leaf-volume extra is charged once. price(v) = one-visit price + (v-1) x b x (1 | 1.35), with the same
+# complexity and rate multipliers. v=1 leaves every price exactly as before.
+script=one(script,"let fb=0;if(lot>0&&leaf>0){const b=","let fb=0,fbB=0;if(lot>0&&leaf>0){const b=")
+script=one(script,"fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}","fbB=b;fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}")
+script=one(script,"if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});return R;}",
+  "if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});for(const k in VISIT_SVCS_M){const v=leafVisits(k);if(v>1&&R[k])R[k]+=Math.round(fbB*VISIT_SVCS_M[k]*(v-1)*cxM*rateM);}return R;}")
+script=one(script,"function getSug(){","const VISIT_SVCS_M={OD3:1,OD4:1.35};const VISIT_SVCS=Object.keys(VISIT_SVCS_M);\nfunction leafVisits(id){const v=(ST.leafVisits||{})[id]||1;return Math.max(1,Math.min(4,v));}\nfunction setLeafVisits(id,v){ST.leafVisits=ST.leafVisits||{};ST.leafVisits[id]=v;render();}\nfunction getSug(){")
 script=one(script,"function setPay(v){ST.payView=v;render();}","function setPay(v){ST.payView=v;ST.payPicked=true;render();}")
 script=one(script,"function renderRef(){let h='<div class=\"card ref-section\"><div class=\"slbl\">","function renderRef(){let h='<div class=\"ref-section\"><div class=\"slbl\">")
 
