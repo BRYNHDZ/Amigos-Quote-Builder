@@ -50,11 +50,26 @@ for (const c of cases) {
   const lm = await L.evaluate(sel => { ST.recView = 'plan'; ST.mode = 'recurring'; ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   const nm = await N.evaluate(sel => { ST.sel = new Set(sel); ST.ov = {}; let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return Math.round(t / planMonths()); }, sel);
   checked++; if (lm !== nm) fails.push({ c, note: 'monthly mismatch', legacy: lm, next: nm });
+  // annual payment: legacy yearly total, minus one monthly payment only on a 12 month plan
+  const la = await L.evaluate(sel => { let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return { t, n: planMonths() }; }, sel);
+  const na = await N.evaluate(sel => { let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return annualPay(t); }, sel);
+  const wantSave = la.n === 12 ? Math.round(la.t / 12) : 0;
+  checked++; if (na.pay !== la.t - wantSave || na.save !== wantSave || na.n !== la.n) fails.push({ c, note: 'annual mismatch', legacyTotal: la.t, months: la.n, next: na });
+  if (la.n === 12 && !(na.save > 0)) fails.push({ c, note: '12 month plan should get a free month' });
 }
 // render smoke test: every service selectable in both pay modes without errors
 await N.evaluate(() => { ST.lot = 15000; ST.mulch = 6; SEASONS.forEach(s => s.cats.forEach(k => k.items.forEach(i => ST.sel.add(i.id)))); ST.payView = 'visit'; render(); ST.payView = 'monthly'; render(); });
 const txt = await N.evaluate(() => document.getElementById('outCol').innerText);
 if (!/payments of \$/.test(txt)) fails.push({ note: 'monthly payment line missing' });
+// annual payment UI: March start shows the free month, June start shows full price + note
+for (const [start, free] of [[3, true], [6, false]]) {
+  const r = await N.evaluate(([start]) => { ST.sel = new Set(['A1', 'G1', 'D1']); setPlanStart(start); ST.payView = 'annual'; render(); let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return { txt: document.getElementById('outCol').innerText, t, ap: annualPay(t) }; }, [start]);
+  const line = `Annual payment: $${r.ap.pay.toLocaleString()}`;
+  checked++;
+  if (!r.txt.includes(line)) fails.push({ note: 'annual line missing', start, line });
+  if (free && !r.txt.includes(`(1 month free, save $${Math.round(r.t / 12).toLocaleString()})`)) fails.push({ note: 'free month text missing', start });
+  if (!free && (r.ap.pay !== r.t || !r.txt.includes('1 month free needs a 12 month plan'))) fails.push({ note: 'no-discount note/total wrong', start });
+}
 console.log(`cases: ${cases.length}, comparisons: ${checked}, failures: ${fails.length}, page errors: ${errors.length}`);
 fails.slice(0, 15).forEach(f => console.log('FAIL', JSON.stringify(f)));
 errors.forEach(e => console.log('PAGE ERROR', e));
