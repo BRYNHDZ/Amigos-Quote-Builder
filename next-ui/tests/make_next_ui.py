@@ -243,13 +243,16 @@ function renderOut(){
 script=script.replace(renSvc+renOut,newRender)
 # ---------- leaf work split across visits (Bryan, Oct 20) ----------
 # Non-mowing end-of-season Leaf Work (OD3 Nutrient, OD4 Removal): every visit pays the full yard-pass part b,
-# the leaf-volume extra is charged once. price(v) = one-visit price + (v-1) x b x (1 | 1.35), with the same
+# the leaf-volume extra is charged once. price(v) = one-visit price + (v-1) x b, with the same
 # complexity and rate multipliers. v=1 leaves every price exactly as before.
+# OD4 Removal (Bryan via Sam, Oct 20): haul-away only affects the leaves, so x1.35 applies to the leaf extra only:
+#   OD4 = b + (fb - b) x 1.35, and each extra visit adds plain b. G2/G3 unchanged.
+script=one(script,"OD4:Math.round(fb*1.35)","OD4:Math.round(fbB+(fb-fbB)*1.35)")
 script=one(script,"let fb=0;if(lot>0&&leaf>0){const b=","let fb=0,fbB=0;if(lot>0&&leaf>0){const b=")
 script=one(script,"fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}","fbB=b;fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}")
 script=one(script,"if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});return R;}",
   "if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});for(const k in VISIT_SVCS_M){const v=leafVisits(k);if(v>1&&R[k])R[k]+=Math.round(fbB*VISIT_SVCS_M[k]*(v-1)*cxM*rateM);}return R;}")
-script=one(script,"function getSug(){","const VISIT_SVCS_M={OD3:1,OD4:1.35};const VISIT_SVCS=Object.keys(VISIT_SVCS_M);\nfunction leafVisits(id){const v=(ST.leafVisits||{})[id]||1;return Math.max(1,Math.min(4,v));}\nfunction setLeafVisits(id,v){ST.leafVisits=ST.leafVisits||{};ST.leafVisits[id]=v;render();}\nfunction getSug(){")
+script=one(script,"function getSug(){","const VISIT_SVCS_M={OD3:1,OD4:1};const VISIT_SVCS=Object.keys(VISIT_SVCS_M);\nfunction leafVisits(id){const v=(ST.leafVisits||{})[id]||1;return Math.max(1,Math.min(4,v));}\nfunction setLeafVisits(id,v){ST.leafVisits=ST.leafVisits||{};ST.leafVisits[id]=v;render();}\nfunction getSug(){")
 # OD3/OD4 descriptions: drop the "one time" sentence now that Leaf Work can be split across visits (Bryan approved, Oct 20)
 _SENT=" We come back one time at the end of the season for your Leaf Work."
 if script.count(_SENT)!=2: sys.exit(f'expected 2 got {script.count(_SENT)}: {_SENT!r}')
