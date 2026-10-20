@@ -1,4 +1,4 @@
-// Rule test: ongoing weeding (C1, C2) needs mulch (F1) unless "Override mulch rule" is ON.
+// Rule test: ongoing weeding (Estate Detail, C2; Clean Look C1 was removed) needs mulch (F1) unless "Override mulch rule" is ON.
 // One-time weeding (OF2) is not affected. Usage: node next/tests/weeding-rule.mjs [baseUrl]
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -14,26 +14,27 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); else console.log('pass:'
 const sel = () => p.evaluate(() => [...ST.sel]);
 const row = name => p.locator('.svc', { has: p.locator('.svc-nm', { hasText: name }) }).first();
 const click = async name => { await row(name).locator('.chk').click(); await p.waitForTimeout(50); };
-const CL = 'Garden Maintenance – Clean Look Plan', ES = 'Garden Maintenance – Estate Detail Plan', MU = 'Mulch Installation & Flower Bed Edging', OW = 'One-Time Weeding', MOW = 'Weekly Maintenance – Nutrient Standard';
+const ES = 'Garden Maintenance – Estate Detail Plan', MU = 'Mulch Installation & Flower Bed Edging', OW = 'One-Time Weeding', MOW = 'Weekly Maintenance – Nutrient Standard';
 ok((await sel()).includes('A1'), 'mowing selected by default');
-ok(await row(CL).locator('.chk.dis').count() === 1, 'Clean Look is disabled without mulch');
-ok((await row(CL).innerText()).includes('· requires mulch'), 'Clean Look shows "· requires mulch"');
+ok(await p.locator('.svc-nm', { hasText: 'Clean Look' }).count() === 0 && !(await p.evaluate(() => document.body.innerText)).includes('Clean Look'), 'Clean Look Plan is gone from the page');
+ok(await p.evaluate(() => !SEASONS.some(s => s.cats.some(c => c.items.some(i => i.id === 'C1'))) && !('C1' in getSug())), 'Clean Look (C1) gone from catalog and prices');
+ok(await row(ES).locator('.chk.dis').count() === 1, 'Estate Detail is disabled without mulch');
 ok((await row(ES).innerText()).includes('· requires mulch'), 'Estate Detail shows "· requires mulch"');
-await click(CL); ok(!(await sel()).includes('C1'), 'clicking Clean Look without mulch does nothing');
+await click(ES); ok(!(await sel()).includes('C2'), 'clicking Estate Detail without mulch does nothing');
 await click(OW); ok((await sel()).includes('OF2'), 'One-Time Weeding is selectable without mulch');
 ok(!(await row(OW).innerText()).includes('requires mulch'), 'One-Time Weeding has no mulch tag');
 ok(await p.locator('#mulchOvr').innerText() === 'OFF', 'override switch shows OFF');
 await click(MU); ok((await sel()).includes('F1'), 'mulch selected');
 ok(await p.locator('#mulchOvr').count() === 0, 'override switch hidden once mulch is selected');
-await click(CL); await click(ES); ok((await sel()).includes('C1') && (await sel()).includes('C2'), 'Clean Look and Estate selectable with mulch');
-await click(MU); ok(!(await sel()).includes('C1') && !(await sel()).includes('C2'), 'removing mulch removes ongoing weeding (same as mowing rule)');
+await click(ES); ok((await sel()).includes('C2'), 'Estate Detail selectable with mulch');
+await click(MU); ok(!(await sel()).includes('C2'), 'removing mulch removes Estate Detail (same as mowing rule)');
 ok((await sel()).includes('OF2'), 'removing mulch keeps One-Time Weeding');
 await p.locator('#mulchOvr').click(); ok(await p.locator('#mulchOvr').innerText() === 'ON', 'override switch ON');
-ok(!(await row(CL).innerText()).includes('requires mulch'), 'tag gone while override is ON');
-await click(CL); ok((await sel()).includes('C1') && !(await sel()).includes('F1'), 'override ON: Clean Look selectable without mulch');
-await click(MU); await click(MU); ok((await sel()).includes('C1'), 'override ON: toggling mulch off keeps Clean Look');
-await p.locator('#mulchOvr').click(); ok(!(await sel()).includes('C1'), 'override OFF with no mulch removes Clean Look');
-await click(MOW); await p.locator('#mulchOvr').click(); await click(CL); ok(!(await sel()).includes('C1'), 'mowing rule still applies with mulch override ON');
+ok(!(await row(ES).innerText()).includes('requires mulch'), 'tag gone while override is ON');
+await click(ES); ok((await sel()).includes('C2') && !(await sel()).includes('F1'), 'override ON: Estate Detail selectable without mulch');
+await click(MU); await click(MU); ok((await sel()).includes('C2'), 'override ON: toggling mulch off keeps Estate Detail');
+await p.locator('#mulchOvr').click(); ok(!(await sel()).includes('C2'), 'override OFF with no mulch removes Estate Detail');
+await click(MOW); await p.locator('#mulchOvr').click(); await click(ES); ok(!(await sel()).includes('C2'), 'mowing rule still applies with mulch override ON');
 const before = await p.evaluate(() => JSON.stringify(getSug())); await p.evaluate(() => { ST.mulchOverride = !ST.mulchOverride; });
 ok(before === await p.evaluate(() => JSON.stringify(getSug())), 'override does not change any price');
 ok(errs.length === 0, 'no page errors ' + errs.join('; '));

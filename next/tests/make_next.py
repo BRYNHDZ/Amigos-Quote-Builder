@@ -157,6 +157,24 @@ rep("onclick=\"setPay(\\'monthly\\')\">Spread monthly</button>","onclick=\"setPa
 rep("if(!isMow()){const floor=TIER_FLOOR","if(ST.payView==='annual'){const ap=annualPay(total);h+='<div class=\"info-bar\"><span style=\"font-weight:700;color:#30471F\">Annual payment: $'+ap.pay.toLocaleString()+'</span>'+(ap.save>0?'<span style=\"color:#30471F;font-weight:700\"> (1 month free, save $'+ap.save.toLocaleString()+')</span>':'')+'<span style=\"color:#888\"> · paid up front</span></div>';if(!ap.save){h+='<div class=\"info-bar\" style=\"background:#fffbec;border:1px solid #FFB300;margin-top:6px\"><span style=\"color:#7a5800;font-weight:700\">No free month:</span> <span style=\"color:#888\">1 month free needs a 12 month plan (March start). This start month gives '+ap.n+' payment'+(ap.n===1?'':'s')+'.</span></div>';}}if(!isMow()){const floor=TIER_FLOOR")
 rep("if(ST.payView==='monthly'||item.id==='A1'||item.id==='A2')h+='<div class=\"svc-mo\"","if(ST.payView==='monthly'||(ST.payView==='visit'&&(item.id==='A1'||item.id==='A2')))h+='<div class=\"svc-mo\"")
 
+# ---------- Bryan, Oct 20: no more Clean Look Plan (C1). Estate Detail (C2) is the only ongoing weeding service ----------
+rep("{id:'C1',name:'Garden Maintenance – Clean Look Plan',pop:true,dep:true},","")
+s=re.sub(r"C1:'Routine maintenance of garden beds[^']*',","",s,count=1)
+rep("const V=35,BCB=100,BCR1=38,BCR2=26,BEB=200","const V=35,BEB=200")
+rep("// Weed pressure multipliers — C1/C2/OF3","// Weed pressure multipliers — C2/OF3")
+rep("  C1: {none:0, light:1.0, mod:1.15, heavy:1.30},\n","")
+rep("const RATE_SVCS=['A1','A2','C1','C2',","const RATE_SVCS=['A1','A2','C2',")
+rep("const MDEPS=['C1','C2',","const MDEPS=['C2',")
+rep("const MULCH_DEPS=['C1','C2'];","const MULCH_DEPS=['C2'];")
+rep("return s.has('C1')||s.has('C2')||","return s.has('C2')||")
+rep("const c1=mulch>0?Math.round(bp(mulch,BCB,BCR1,BCR2)):mc>0?Math.round(mc*3):0;","")
+rep("C1:Math.round(c1*WEED_PRESSURE_MULT.C1[ST.weedPressure]),","")
+rep("['A1','A2','C1','C2','D1'","['A1','A2','C2','D1'")
+rep("h+='<div class=\"sm-hint\">Clean Look = $'+BCB+' + $'+BCR1+'/yd (first 8) + $'+BCR2+'/yd beyond · Estate = $'","h+='<div class=\"sm-hint\">Estate = $'")
+rep("const weedIds=['C1','C2','OF2','OF3'];","const weedIds=['C2','OF2','OF3'];")
+for gone in ["'C1'","C1:","Clean Look","BCB","BCR1","BCR2"]:
+    assert gone not in s, gone
+
 for bad in ['ST.mode','recView','selOne','ovOne','isRec?','PLAN_DISCOUNT','PLAN_SVCS','REC_CATS','ONE_CATS','iVr\'','visRow','setMode','setRecView',"'G4'","'G5'",'G4:','G5:']:
     if bad in s: print('LEFTOVER',bad, [m.start() for m in re.finditer(re.escape(bad),s)][:5])
 open('./next/index.html','w',encoding='utf-8').write(s)
