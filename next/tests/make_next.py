@@ -175,6 +175,72 @@ rep("const weedIds=['C1','C2','OF2','OF3'];","const weedIds=['C2','OF2','OF3'];"
 for gone in ["'C1'","C1:","Clean Look","BCB","BCR1","BCR2"]:
     assert gone not in s, gone
 
+# ---------- Bryan, Oct 20: names and descriptions match Jobber quote #1834 "master quote draft" ----------
+# Text only. Service ids, prices and math are unchanged. Wording is copied from the master quote; no em dashes.
+def js(t): return t.replace('\\','\\\\').replace("'","\\'").replace('\n','<br>')
+def setdesc(k,t):
+    global s
+    m=re.search(r"\b"+k+r":'(?:[^'\\]|\\.)*'",s[s.index('const DESCS='):s.index('const SEASONS=')])
+    assert m, k
+    a=s.index('const DESCS=')
+    s=s[:a+m.start()]+k+":'"+js(t)+"'"+s[a+m.end():]
+def rename(k,old,new):
+    rep("{id:'"+k+"',name:'"+old+"'","{id:'"+k+"',name:'"+js(new)+"'")
+def settitle(k,old,new):
+    rep(k+":{title:'"+old+"'",k+":{title:'"+new+"'")
+def setcatdesc(k,t):
+    global s
+    m=re.search(r"\b"+k+r":\{title:'(?:[^'\\]|\\.)*',desc:'(?:[^'\\]|\\.)*'\}",s); assert m, k
+    t0=re.match(r"("+k+r":\{title:'(?:[^'\\]|\\.)*',desc:')",m.group(0)).group(1)
+    s=s[:m.start()]+t0+js(t)+"'}"+s[m.end():]
+MOW_TAIL="Weekly mowing of all grass areas during the growing season. We cut at the optimal height for the time of year, so the lawn stays healthy through summer heat and seasonal changes."
+TRIM_TAIL="Includes string-trimming around edges, beds, and obstacles, plus blowing the clippings off all hard surfaces (driveway, walkways, patio)."
+LEAF_N="We shred the leaves into fine pieces and spread them over the lawn and beds, where they break down into natural feed. Sticks, twigs, and debris that can't be shredded, we haul away."
+LEAF_R="We collect the leaves, sticks, twigs, and dead debris from the lawn and flower beds and haul them away."
+DURING="During Mowing Visits: We keep coming every week through November and handle the leaves on the lawn each visit. Beds are cleaned on the final visit. You pay the Leaf Work charge plus each mowing visit, even on weeks we don't mow."
+ONCE="Once at the End of the Season: Mowing stops once your property gets leaf-heavy. We come back one time at the end of the season for your Leaf Work. This is the lower-cost option. You pay only the Leaf Work charge."
+OVERSEED="Overseeding is performed immediately after aeration, when the soil is open and best prepared for new seed to take root. Using a standard blend selected for Illinois lawns, our team applies seed with calibrated equipment to ensure even coverage across the property. This careful process promotes even germination, and develops a thicker, healthier lawn."
+rename('A1','Weekly Maintenance – Nutrient Standard','Weekly Mowing - Nutrient (Per Visit)')
+setdesc('A1',MOW_TAIL+"\n\nThe clippings are finely chopped by mulching blades and left on the lawn, where they break down into free, natural fertilizer that feeds the soil. It's what most lawns do best with, and what most of our clients are on.\n\n"+TRIM_TAIL)
+rename('A2','Weekly Maintenance – Pristine Standard','Weekly Mowing - Bagged (Per Visit)')
+setdesc('A2',MOW_TAIL+"\n\nGrass clippings are bagged and removed from the property for a consistently clean appearance.\n\n"+TRIM_TAIL)
+rename('C2','Garden Maintenance – Estate Detail Plan','Ongoing Weeding (Per Visit)')
+setdesc('C2',"Added to your regular mowing visit.\n\nEvery time we mow, the crew spends time in the beds hand-pulling the weeds that came up since the last visit. A small amount every week, so the beds hold the way they look right after a full weeding.\n\nThis is what keeps the beds from getting back to the point where they need a full weeding again.")
+rename('F1','Mulch Installation & Flower Bed Edging','Mulch Delivery & Installation and Flower Bed Edging')
+setdesc('F1',"Delivery and installation of dark brown mulch in flower beds and tree rings. Defining natural lines between lawn and flower beds with shovel and/or bedscaper machine if needed.\n\nComplimentary application of Preen weed preventer to flower beds. Treatment prevents new weeds from sprouting but does not eliminate existing ones.")
+rename('OF2','One-Time Weeding','Weeding')
+setdesc('OF2',"Pull and remove weeds by hand from all accessible flower beds, collecting debris for disposal.\n\nOccasionally, after we hand pull, we spray regular household vinegar on weeds in hard-to-reach spots, like cracks, gravel, sidewalks, driveways, and pavers. It's a natural option we like because it burns the weeds down and knocks them back where they're tough to pull, and it's nothing more than plain household vinegar.")
+rename('OE1','Bush & Shrub Shaping','Bush Trimming')
+setdesc('OE1',"Light trimming of small and medium bushes to keep them neat and well-shaped.\n\nThis is for maintaining shape, not for cutting back heavy overgrowth or shrinking a bush down in size.\n\nHand tools, from the ground only. No ladders.")
+setdesc('B3',OVERSEED)
+setdesc('B4',OVERSEED)
+rename('D2','Spring Cleanup – Pristine Standard','Spring Cleanup')
+setdesc('D2',"A full property cleanup after winter. We clear the matted leaves, fallen sticks, and dead growth off your lawn, flower beds, and hard surfaces, and haul all of it away.")
+rename('G1','Leaf Care – Standard','Leaf Work - Nutrient (Per Season), During Mowing Visits')
+setdesc('G1',LEAF_N+"\n\n"+DURING)
+rename('G2','Leaf Care – Pristine','Leaf Work - Removal (Per Season), During Mowing Visits')
+setdesc('G2',LEAF_R+"\n\n"+DURING)
+rename('OD3','Fall Cleanup – Nutrient Standard','Leaf Work - Nutrient (Per Season), Once at the End of the Season')
+setdesc('OD3',LEAF_N+"\n\n"+ONCE)
+rename('OD4','Fall Cleanup – Pristine Standard','Leaf Work - Removal (Per Season), Once at the End of the Season')
+setdesc('OD4',LEAF_R+"\n\n"+ONCE)
+rename('H1','Snow Removal – Standard','Standard Snow Plan (Per Season)')
+setdesc('H1',"Unlimited 24/7 snow-removal visits from November through March 31.\n\nWe clear your driveway and main walkways when snowfall reaches roughly 2\u2033, based on one weather source for consistency across all properties. If conditions are icy or unsafe before that point, we may come sooner.\n\nDuring longer storms, we may return roughly every 4\u20135 inches to make multiple passes so your property stays usable.\n\nThis plan also includes salt application as needed to help reduce slippery spots through winter.")
+settitle('A','🌿 Mowing Packages','🍃 Weekly Mowing')
+setcatdesc('A',"Two options below. 9 out of 10 clients pick Nutrient. The grass clippings are finely chopped and left on the lawn, where they break down and naturally feed the soil. It's healthier for the lawn and costs less.\n\nBagged is for clients who prefer the clippings collected and removed after every mow.")
+settitle('C','🌸 Flower Bed Care & Mulch','🌸 Flower Bed Care')
+settitle('B','🌱 Lawn Health Services','🌱 Aeration & Overseeding')
+settitle('G','🍂 Fall Leaf Care & Cleanups (Fall Only)','🍂 Leaves')
+setcatdesc('G',"Pick your Leaf Work below, then pick how we do it. Same Leaf Work charge either way.")
+settitle('H','❄️ Winter Services','❄️ Winter')
+setcatdesc('H',"Make winter easy. Once you\u2019re signed up, you\u2019re covered all season with unlimited snow removal, 24/7. If a storm ends at 3 AM, we\u2019ll be there")
+rep(">Pay as you go</button>",">Pay-As-You-Go</button>")
+rep("onclick=\"setPay(\\'annual\\')\">Annual payment</button>","onclick=\"setPay(\\'annual\\')\">Annual Payment</button>")
+rep("<span style=\"font-weight:700;color:#30471F\">Annual payment: $","<span style=\"font-weight:700;color:#30471F\">Annual Payment: $")
+rep("h+='<div class=\"sm-hint\">Estate = $'","h+='<div class=\"sm-hint\">Ongoing Weeding = $'")
+for gone in ['Weekly Maintenance','Estate Detail','Fall Cleanup –','Snow Removal – Standard','One-Time Weeding','not designed to restore']:
+    assert gone not in s[s.index('const DESCS='):s.index('function renderRef')], gone
+
 for bad in ['ST.mode','recView','selOne','ovOne','isRec?','PLAN_DISCOUNT','PLAN_SVCS','REC_CATS','ONE_CATS','iVr\'','visRow','setMode','setRecView',"'G4'","'G5'",'G4:','G5:']:
     if bad in s: print('LEFTOVER',bad, [m.start() for m in re.finditer(re.escape(bad),s)][:5])
 open('./next/index.html','w',encoding='utf-8').write(s)

@@ -67,7 +67,7 @@ if (!/payments of \$/.test(txt)) fails.push({ note: 'monthly payment line missin
 // annual payment UI: March start shows the free month, June start shows full price + note
 for (const [start, free] of [[3, true], [6, false]]) {
   const r = await N.evaluate(([start]) => { ST.sel = new Set(['A1', 'G1', 'D1']); setPlanStart(start); ST.payView = 'annual'; render(); let t = 0; ST.sel.forEach(id => t += gp(id) || 0); return { txt: document.getElementById('outCol').innerText, t, ap: annualPay(t) }; }, [start]);
-  const line = `Annual payment: $${r.ap.pay.toLocaleString()}`;
+  const line = `Annual Payment: $${r.ap.pay.toLocaleString()}`;
   checked++;
   if (!r.txt.includes(line)) fails.push({ note: 'annual line missing', start, line });
   if (free && !r.txt.includes(`(1 month free, save $${Math.round(r.t / 12).toLocaleString()})`)) fails.push({ note: 'free month text missing', start });
