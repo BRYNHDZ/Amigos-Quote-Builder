@@ -2,6 +2,7 @@
 // Expected: identical, except one-time fall cleanups (OD3, OD4), which must equal
 // legacy Leaf Care Standard (G1) and Leaf Care Pristine (G2).
 // Clean Look Plan (C1) was removed from /next/ on purpose and must not appear.
+// Salt Treatment (H3) was removed on purpose (salt is included in the snow plans) and must not appear.
 // Usage: node next-ui/tests/next-vs-legacy-prices.mjs [baseUrl]   (default http://localhost:8765)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -33,6 +34,7 @@ for (const c of cases) {
   const n = await N.evaluate(([c, f]) => (eval(f))(c, null), [c, setup.toString()]);
   const nIds = await N.evaluate(() => SEASONS.flatMap(s => s.cats.flatMap(k => k.items.map(i => i.id))));
   if (nIds.includes('C1') || 'C1' in n) fails.push({ c, note: 'Clean Look (C1) should be removed from /next/' });
+  if (nIds.includes('H3') || 'H3' in n) fails.push({ c, note: 'Salt Treatment (H3) should be removed' });
   for (const id of nIds) {
     let want;
     if (id === 'OD3') want = lr.G1; else if (id === 'OD4') want = lr.G2;

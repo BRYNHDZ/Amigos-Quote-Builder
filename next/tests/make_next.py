@@ -241,6 +241,15 @@ rep("h+='<div class=\"sm-hint\">Estate = $'","h+='<div class=\"sm-hint\">Ongoing
 for gone in ['Weekly Maintenance','Estate Detail','Fall Cleanup –','Snow Removal – Standard','One-Time Weeding','not designed to restore']:
     assert gone not in s[s.index('const DESCS='):s.index('function renderRef')], gone
 
+# ---------- Bryan, Oct 20: salt is included in the snow plans. Remove the separate Salt Treatment add-on (H3). Snow plan prices unchanged ----------
+rep(",{id:'H3',name:'Salt Treatment'}","")
+rep("H3:paved>0?Math.round(100+(paved>600?(paved-600)*0.05:0)):0,","")
+rep("H3:'Application of salt to walkways and driveways following snow removal.',","")
+rep(",'H1','H2','H4','H3'];",",'H1','H2','H4'];")
+rep("if(['H1','H2','H4','H3'].some(id=>ST.sel.has(id)))","if(['H1','H2','H4'].some(id=>ST.sel.has(id)))")
+for gone in ["'H3'","H3:","Salt Treatment"]:
+    assert gone not in s, gone
+
 for bad in ['ST.mode','recView','selOne','ovOne','isRec?','PLAN_DISCOUNT','PLAN_SVCS','REC_CATS','ONE_CATS','iVr\'','visRow','setMode','setRecView',"'G4'","'G5'",'G4:','G5:']:
     if bad in s: print('LEFTOVER',bad, [m.start() for m in re.finditer(re.escape(bad),s)][:5])
 open('./next/index.html','w',encoding='utf-8').write(s)
