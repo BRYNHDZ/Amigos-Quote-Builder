@@ -70,6 +70,13 @@ const ui = await N.evaluate(() => {
 checked++;
 const wantUi = { before: false, shown: true, px1: '413', px2: '688', label: true, go: '$688', mo: '$57/mo', an: '$631', bar: '$688', card: true };
 for (const k in wantUi) if (ui[k] !== wantUi[k]) fails.push({ note: 'ui', k, got: ui[k], want: wantUi[k] });
+// Fresh page (Bryan, Oct 21): default leaf level is 3 with no leaf input; Tara's lot 11,326 sq ft -> $434 / $485
+{ const F = await open(process.env.PAGE || '/next-ui/');
+  const r = await F.evaluate(() => { const st0 = ST.leaf; ST.lot = 11326; render(); const s = getSug();
+    const btns = [...document.querySelectorAll('#lPg button')]; return { st0, eff: effLeaf(), def: btns.findIndex(b => b.classList.contains('def')), on: btns.findIndex(b => b.classList.contains('on')), warn: document.getElementById('missBox').innerText.includes('Leaf volume (using 3)'), OD3: s.OD3, OD4: s.OD4, G1: s.G1, G2: s.G2 }; });
+  const want = { st0: null, eff: 3, def: 3, on: -1, warn: true, OD3: 434, OD4: 485, G1: 434, G2: 485 };
+  for (const k in want) { checked++; if (r[k] !== want[k]) fails.push({ note: 'fresh page default leaf', k, got: r[k], want: want[k] }); }
+  console.log('fresh page, 11,326 sq ft, no leaf input:', JSON.stringify(r)); }
 console.log(`leaf visits: comparisons ${checked}, failures ${fails.length}, page errors ${errors.length}`);
 fails.slice(0, 15).forEach(f => console.log('FAIL', JSON.stringify(f)));
 errors.forEach(e => console.log('PAGE ERROR', e));

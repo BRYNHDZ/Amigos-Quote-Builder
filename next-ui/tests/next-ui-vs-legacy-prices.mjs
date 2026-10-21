@@ -26,6 +26,7 @@ for (const lot of [6000, 10890, 15000, 21780, 30000, 43560, 65000])
     for (const [complex, rate, start, td, wp, bf, snow] of [['low', 80, 3, 'light', 'light', 'mod', '2plus'], ['med', 90, 6, 'std', 'mod', 'high', '1plus'], ['high', 100, 9, 'dense', 'heavy', 'low', 'zero'], ['low', 80, 11, 'light', 'none', 'mod', '2plus'], ['med', 80, 1, 'std', 'light', 'low', '2plus']])
       cases.push({ lot, leaf, complex, rate, start, td, wp, bf, snow, manual: false });
 cases.push({ lot: 12000, leaf: 3, complex: 'low', rate: 80, start: 3, td: 'light', wp: 'light', bf: 'mod', snow: '2plus', manual: { lawn: 7000, paved: 900, mulch: 8, trim: 1.5, peren: 0.5 } });
+// Every case sets ST.leaf explicitly (0-5), so the builders' different defaults (legacy 2, next-ui 3) never enter the comparison.
 const setup = (c, mode) => {
   Object.assign(ST, { lot: c.lot, leaf: c.leaf, complex: c.complex, rate: c.rate, trimDensity: c.td, weedPressure: c.wp, bedFootprint: c.bf, snow: c.snow, lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0 });
   if (c.manual) Object.assign(ST, c.manual);
