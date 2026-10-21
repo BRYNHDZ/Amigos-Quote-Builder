@@ -208,7 +208,7 @@ function renderSvc(){
   $('svcCol').innerHTML=h;
   if(focusId){const el=document.querySelector('.pi[data-id="'+focusId+'"]');if(el){el.focus();try{el.setSelectionRange(cursorPos,cursorPos);}catch(e){}}}
 }
-function markDefaults(){const d={rPg:ST.rate?null:0,lPg:ST.leaf==null?2:null,cxPg:ST.complex?null:0,bfPg:ST.bedFootprint?null:1};for(const g in d){document.querySelectorAll('#'+g+' button').forEach((b,i)=>b.classList.toggle('def',d[g]===i));}}
+function markDefaults(){const d={rPg:ST.rate?null:0,lPg:ST.leaf==null?LEAF_DEFAULT:null,cxPg:ST.complex?null:0,bfPg:ST.bedFootprint?null:1};for(const g in d){document.querySelectorAll('#'+g+' button').forEach((b,i)=>b.classList.toggle('def',d[g]===i));}}
 function money(n){return '$'+Math.round(n).toLocaleString();}
 function renderOut(){
   $('missBox').innerHTML=warnHTML();
@@ -255,6 +255,8 @@ script=one(script,"fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}","fbB=b;fb=b*(1+[0,0,
 script=one(script,"if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});return R;}",
   "if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});for(const k in VISIT_SVCS_M){const v=leafVisits(k);if(v>1&&R[k])R[k]+=Math.round(fbB*VISIT_SVCS_M[k]*(v-1)*cxM*rateM);}return R;}")
 script=one(script,"function getSug(){","const VISIT_SVCS_M={OD3:1,OD4:1};const VISIT_SVCS=Object.keys(VISIT_SVCS_M);\nfunction leafVisits(id){const v=(ST.leafVisits||{})[id]||1;return Math.max(1,Math.min(4,v));}\nfunction setLeafVisits(id,v){ST.leafVisits=ST.leafVisits||{};ST.leafVisits[id]=v;render();}\nfunction getSug(){")
+# Default leaf level is 3 (Bryan, Oct 21: average leaf level is 3). Only the default; no price formula changes.
+script=one(script,"function effLeaf(){return ST.leaf==null?2:ST.leaf;}","const LEAF_DEFAULT=3;\nfunction effLeaf(){return ST.leaf==null?LEAF_DEFAULT:ST.leaf;}")
 # OD3/OD4 descriptions: drop the "one time" sentence now that Leaf Work can be split across visits (Bryan approved, Oct 20)
 _SENT=" We come back one time at the end of the season for your Leaf Work."
 if script.count(_SENT)!=2: sys.exit(f'expected 2 got {script.count(_SENT)}: {_SENT!r}')
@@ -262,6 +264,7 @@ script=script.replace(_SENT,"")
 script=one(script,"function setPay(v){ST.payView=v;render();}","function setPay(v){ST.payView=v;ST.payPicked=true;render();}")
 script=one(script,"function renderRef(){let h='<div class=\"card ref-section\"><div class=\"slbl\">","function renderRef(){let h='<div class=\"ref-section\"><div class=\"slbl\">")
 
+script=one(script,"<b>Leaf volume</b> <span style=\"color:#aaa\">(using 2)</span>","<b>Leaf volume</b> <span style=\"color:#aaa\">(using '+LEAF_DEFAULT+')</span>")
 out=head+css+'</style>\n</head>\n'+newBody+script
 for bad in ['Clean Look','\u2014 ']:
     pass
