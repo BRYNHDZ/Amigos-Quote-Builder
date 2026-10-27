@@ -1,6 +1,6 @@
-// Request-first builder (preview): filtered view must price exactly like the full view and like the live root builder.
+// Request-first builder (now the main builder at the root): filtered view must price exactly like the full view and like the previous builder at /previous/ (only one-time weeding OF2 is allowed to differ: exactly 2x).
 // Also checks the screens, Spanish toggle, tap-target size and that "Everything" is the same page as the current builder.
-// Usage: node request-first/tests/request-first.mjs [baseUrl]   (default http://localhost:8765)
+// Usage: node request-first/tests/request-first.mjs [baseUrl]   (default http://localhost:8765, repo root served)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_PATH || 'playwright-core');
@@ -17,8 +17,9 @@ const MOBILE = { width: 390, height: 844 };
 const click = (p, sel) => p.locator(sel).first().click();
 
 // ---------- 1. same answers -> same price (focus view vs full view vs live root builder) ----------
-const full = await open('/request-first/?view=all');
-const live = await open('/');
+const full = await open('/?view=all');
+// 'live' = the PREVIOUS builder kept at /previous/ (the old root). It is the price baseline: only one-time weeding (OF2) may differ, and must be exactly 2x.
+const live = await open('/previous/');
 const setDials = (p, c) => p.evaluate(c => { Object.assign(ST, { lot: c.lot, leaf: c.leaf, complex: c.complex, rate: c.rate, lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {} }); render(); }, c);
 const readFocus = p => p.evaluate(() => {
   const ids = [...ST.sel].sort(); const px = {};
@@ -35,9 +36,9 @@ const readFull = (p, snap, x2) => p.evaluate(([s, x2]) => {
 }, [snap, !!x2]);
 const cases = [];
 for (const lot of [6000, 10890, 21780, 43560, 65000]) for (const leaf of [0, 1, 3, 5]) for (const [complex, rate] of [['low', 80], ['high', 100]]) cases.push({ lot, leaf, complex, rate });
-const both = await open('/request-first/?view=focus&req=mow,leaf');
-const leafOnly = await open('/request-first/?view=focus&req=leaf');
-const mowOnly = await open('/request-first/?view=focus&req=mow');
+const both = await open('/?view=focus&req=mow,leaf');
+const leafOnly = await open('/?view=focus&req=leaf');
+const mowOnly = await open('/?view=focus&req=mow');
 let compared = 0;
 for (const c of process.env.QUICK ? [] : cases) {
   for (const p of [both, leafOnly, mowOnly, full, live]) await setDials(p, c);
@@ -98,12 +99,12 @@ const cases2 = [
   { lot: 0, complex: 'low', rate: 80, weed: 'light', dens: 'light', bed: null }
 ];
 const P = {
-  snow: await open('/request-first/?view=focus&req=snow'),
-  mulch: await open('/request-first/?view=focus&req=mulch'),
-  bush: await open('/request-first/?view=focus&req=bush'),
-  bushMulch: await open('/request-first/?view=focus&req=bush,mulch'),
-  big: await open('/request-first/?view=focus&req=mow,bush,mulch,snow'),
-  estate: await open('/request-first/?view=focus&req=mow,leaf')
+  snow: await open('/?view=focus&req=snow'),
+  mulch: await open('/?view=focus&req=mulch'),
+  bush: await open('/?view=focus&req=bush'),
+  bushMulch: await open('/?view=focus&req=bush,mulch'),
+  big: await open('/?view=focus&req=mow,bush,mulch,snow'),
+  estate: await open('/?view=focus&req=mow,leaf')
 };
 const paths = [
   ['snow', [[], ['H1'], ['H2'], ['H4']]],
@@ -138,7 +139,7 @@ for (const c of process.env.QUICK ? [] : cases2) {
 console.log('price parity (snow, mulch, bushes and garden, Estate): ' + compared2 + ' focus-vs-full-vs-live comparisons');
 
 // ---------- 2. screens and flow (phone size) ----------
-const p = await open('/request-first/', MOBILE);
+const p = await open('/', MOBILE);
 const vis = sel => p.evaluate(s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.offsetParent !== null; }, sel);
 ok(await vis('#pickScreen'), 'first screen shows the pick screen');
 ok(!(await vis('#s1')) && !(await vis('#s2')) && !(await vis('#bar')), 'full builder hidden on first screen');
@@ -182,7 +183,7 @@ ok(await p.evaluate(() => document.documentElement.scrollWidth <= 390), 'no side
 
 
 // ---------- 2b. new service screens (phone size): snow, bushes and garden, mulch, Estate ----------
-const shot = async (qs, vp) => open('/request-first/?' + qs, vp || MOBILE);
+const shot = async (qs, vp) => open('/?' + qs, vp || MOBILE);
 const vis2 = (pg, sel) => pg.evaluate(s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.offsetParent !== null; }, sel);
 const tapSmall = pg => pg.evaluate(() => [...document.querySelectorAll('.lang button,.pk-tile,.choice,.f-add,.f-all,.strip-btn,.more-btn,.f-info,.f-rule button,.f-x,.vis-ctl button,.fprice input.pi,.v-focus .seg button,#lkBtn,#iAddr,#iLt,#iPv,#iMu,#iTr,#iPe,.unit-btn')].filter(e => e.offsetParent).map(e => ({ c: e.className || e.id, h: Math.round(e.getBoundingClientRect().height), w: Math.round(e.getBoundingClientRect().width) })).filter(x => x.h < 48 || x.w < 48));
 // snow
@@ -313,6 +314,18 @@ ok(norm(a.bar) === norm(b.bar), 'Everything: price bar identical to current buil
   const [x, y] = [await full.evaluate(() => getSug()), await live.evaluate(() => getSug())];
   ok(x.OF3 === y.OF3 && x.C2 === y.C2 && x.OF1 === y.OF1 && x.OF2 === 2 * y.OF2, 'bed cleanup (OF3), ongoing weeding (C2) and mulch (OF1) unchanged; OF2 doubled', { x: [x.OF2, x.OF3, x.C2], y: [y.OF2, y.OF3, y.C2] });
   console.log('weeding doubling: ' + n + ' dial combinations (' + nonzero + ' with a price)');
+}
+
+// ---------- 4. go-live checks: no preview tag, old links still work, backup builder present ----------
+{
+  const r = await open('/');
+  ok(!(await r.evaluate(() => document.body.innerText)).includes('PREVIEW') && (await r.evaluate(() => document.title)) === 'Amigo Landscaping — Quote Builder', 'root: no PREVIEW tag, plain title');
+  ok(await r.evaluate(() => !!document.querySelector('.pk-tile')), 'root: first screen shows the pick tiles');
+  const o = await open('/request-first/?view=focus&req=snow&lang=es');
+  await o.waitForURL(u => !u.pathname.includes('request-first'), { timeout: 5000 }).catch(() => {});
+  ok(new URL(o.url()).pathname === '/' && o.url().includes('req=snow') && o.url().includes('lang=es'), 'old /request-first/ link redirects to the root and keeps its options', { url: o.url() });
+  const pv = await open('/previous/');
+  ok(await pv.evaluate(() => typeof getSug === 'function' && !document.querySelector('.pk-tile')), '/previous/ still loads the old builder');
 }
 
 console.log('checks: ' + checks + ', failures: ' + fails.length + ', page errors: ' + errors.length);

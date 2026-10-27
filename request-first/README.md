@@ -1,8 +1,8 @@
-# Request-first quote builder (preview, Phase 2)
+# Request-first quote builder (LIVE as the main builder since Oct 27, 2026)
 
-A preview of the quote builder that starts with **"What did they ask for?"**.
+The main quote builder (root `index.html`) now starts with **"What did they ask for?"**.
 
-- Open `request-first/` — first screen has big picture buttons: **Weekly mowing, Leaf work, Snow, Bushes and garden, Mulch**, and **Everything**.
+- Open the root page — first screen has big picture buttons: **Weekly mowing, Leaf work, Snow, Bushes and garden, Mulch**, and **Everything**.
 - Pick one or more, tap **Continue**: only those questions show, and the price updates as you go.
   - **Mowing**: leave clippings or bag them.
   - **Leaf work**: shred, haul away, or **Full clear (Estate)**; every visit or once at the end. Estate and "every visit" need mowing (a button adds it).
@@ -15,7 +15,13 @@ A preview of the quote builder that starts with **"What did they ask for?"**.
   - Example, 10,890 sq ft lot, medium bed size (6 yd of mulch), $80/hr, low complexity: light weeds $60 → $120; medium $120 → $240; heavy $180 → $360.
 - Optional links for testing: `?view=focus&req=mow,leaf,snow,bush,mulch`, `?view=all`, `?lang=es`.
 
-Live `index.html`, `next/`, `next-ui/` and `legacy/` are not touched.
+## Go-live (Oct 27, 2026) and rollback
 
-Test (needs the repo served on :8765 and playwright-core):
-`node request-first/tests/request-first.mjs` — checks every service path prices exactly like the full view and like the live builder (except one-time weeding, which must be exactly 2x), the screens and flow, Spanish, 48px tap targets, and that Everything matches today's builder. (`QUICK=1` skips the long price matrix.)
+- Root `index.html` (plus `route-fit.js`, `routes.json`) is this builder. The old Oct 20 builder is kept at **`/previous/`** (exact copy of the old root) and tagged **`legacy-2026-10-27`**. `/legacy/` (older builder), `/next/` and `/next-ui/` are unchanged.
+- Old links to `/request-first/…` redirect to the root and keep their `?view=` / `?req=` / `?lang=` options. This folder now only holds this README, the redirect page and the tests.
+- **One-time weeding (OF2) is 2x the previous builder's price** (Bryan, Oct 27). `/previous/` still has the old price. Every other price is identical to `/previous/`.
+- **Rollback:** revert the go-live merge commit on `main` (`git revert -m 1 <merge commit>`), or copy `previous/index.html`, `previous/route-fit.js`, `previous/routes.json` over the root files and push. Pages redeploys in about a minute.
+- Edit the root `index.html` directly from now on (it is no longer generated).
+
+Test (needs the repo served on :8765 and playwright-core; the comparison baseline is `/previous/`):
+`node request-first/tests/request-first.mjs` — checks every service path prices exactly like the full view and like the previous builder (except one-time weeding, which must be exactly 2x), the screens and flow, Spanish, 48px tap targets, and that Everything matches today's builder. (`QUICK=1` skips the long price matrix.)
