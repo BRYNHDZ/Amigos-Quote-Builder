@@ -25,11 +25,14 @@ const readFocus = p => p.evaluate(() => {
   ids.forEach(id => { const r = document.querySelector('.fprice[data-svc="' + id + '"]'); const i = r && r.querySelector('input.pi'); px[id] = i ? i.value : (r && r.querySelector('[data-px]') || {}).textContent; });
   return { ids, px, bar: document.querySelector('#bar .bar-amt').textContent, vis: JSON.stringify(ST.leafVisits || {}) };
 });
-const readFull = (p, snap) => p.evaluate(s => {
+// x2: the live root builder keeps the old one-time weeding price (OF2); the request-first page doubles it. To compare everything else
+// (totals, monthly, annual, bar) exactly, the live page is given OF2 typed in as exactly 2x its own suggested price. Nothing else is touched.
+const readFull = (p, snap, x2) => p.evaluate(([s, x2]) => {
+  delete ST.ov.OF2; if (x2 && s.ids.includes('OF2')) { const b = getSug().OF2; if (b > 0) ST.ov.OF2 = 2 * b; }
   ST.sel = new Set(s.ids); ST.leafVisits = JSON.parse(s.vis); render();
   const px = {}; s.ids.forEach(id => { const r = [...document.querySelectorAll('.svc')].find(x => x.querySelector('[data-id="' + id + '"],[data-px="' + id + '"]')); const i = r && r.querySelector('input.pi'); px[id] = i ? i.value : (r && r.querySelector('[data-px]') || {}).textContent; });
   return { px, bar: document.querySelector('#bar .bar-amt').textContent };
-}, snap);
+}, [snap, !!x2]);
 const cases = [];
 for (const lot of [6000, 10890, 21780, 43560, 65000]) for (const leaf of [0, 1, 3, 5]) for (const [complex, rate] of [['low', 80], ['high', 100]]) cases.push({ lot, leaf, complex, rate });
 const both = await open('/request-first/?view=focus&req=mow,leaf');
@@ -116,7 +119,7 @@ for (const c of process.env.QUICK ? [] : cases2) {
   for (const [k, wants] of paths) for (const want of wants) {
     await drive(P[k], want, k);
     const f = await readFocus(P[k]);
-    const a1 = await readFull(full, f); const a2 = await readFull(live, f);
+    const a1 = await readFull(full, f); const a2 = await readFull(live, f, true);
     compared2++;
     ok(JSON.stringify(f.px) === JSON.stringify(a1.px) && f.bar === a1.bar, k + ': focus != full view', { c, want, f, a1 });
     ok(JSON.stringify(f.px) === JSON.stringify(a2.px) && f.bar === a2.bar, k + ': focus != live root builder', { c, want, f, a2 });
@@ -128,7 +131,7 @@ for (const c of process.env.QUICK ? [] : cases2) {
   await click(E, `button.choice[onclick="setLeaf('est',null)"]`);
   const fe = await readFocus(E);
   ok(fe.ids.includes('G3') && !fe.ids.includes('G1') && !fe.ids.includes('OD3'), 'Estate picked in the leaf card selects only G3', { fe });
-  const e1 = await readFull(full, fe), e2 = await readFull(live, fe); compared2++;
+  const e1 = await readFull(full, fe), e2 = await readFull(live, fe, true); compared2++;
   ok(JSON.stringify(fe.px) === JSON.stringify(e1.px) && fe.bar === e1.bar, 'Estate: focus != full view', { c, fe, e1 });
   ok(JSON.stringify(fe.px) === JSON.stringify(e2.px) && fe.bar === e2.bar, 'Estate: focus != live root builder', { c, fe, e2 });
 }
@@ -278,14 +281,39 @@ await q.evaluate(() => { UI.lang = 'en'; });
 const sameDials = { lot: 14000, leaf: 4, complex: 'med', rate: 90 };
 for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'G1', 'OD3', 'F1', 'H1']) }); render(); }, sameDials);
 const norm = h => h.replace(/\s+/g, ' ');
-for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'heavy', trimDensity: 'dense', bedFootprint: 'high', lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'E2', 'E5', 'E3', 'C2', 'F1', 'OF2', 'OF3', 'G3', 'H2', 'D2', 'B1']) }); render(); }, sameDials);
+// One-time weeding (OF2) is listed with its price even when not picked and is exactly 2x in the request-first page, so halve that one number before comparing; every other character must match.
+const halveOF2 = h => h.replace(/data-id="OF2" value="(\d+)" placeholder="(\d+)"/, (m, v, ph) => { ok(Number(v) % 2 === 0 && v === ph, 'OF2 price on the request-first page is an exact 2x', { v, ph }); return 'data-id="OF2" value="' + v / 2 + '" placeholder="' + ph / 2 + '"'; });
+for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'heavy', trimDensity: 'dense', bedFootprint: 'high', lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'E2', 'E5', 'E3', 'C2', 'F1', 'OF3', 'G3', 'H2', 'D2', 'B1']) }); render(); }, sameDials);
 const [a0, b0] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML, bar: document.getElementById('bar').innerHTML, s1: document.getElementById('s1').innerText }))));
-ok(norm(a0.svc) === norm(b0.svc) && norm(a0.out) === norm(b0.out) && norm(a0.bar) === norm(b0.bar) && norm(a0.s1) === norm(b0.s1), 'Everything: identical to the current builder with every new service and dial in use (services, payment cards, bar, property step)');
+ok(norm(halveOF2(a0.svc)) === norm(b0.svc) && norm(a0.out) === norm(b0.out) && norm(a0.bar) === norm(b0.bar) && norm(a0.s1) === norm(b0.s1), 'Everything: identical to the current builder with every new service and dial in use, except one-time weeding which is checked below (services, payment cards, bar, property step)');
 for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'light', trimDensity: 'light', bedFootprint: null, sel: new Set(['A1', 'G1', 'OD3', 'F1', 'H1']) }); render(); }, sameDials);
 const [a, b] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML, bar: document.getElementById('bar').innerHTML, s1: document.getElementById('s1').innerHTML.length }))));
-ok(norm(a.svc) === norm(b.svc), 'Everything: services list identical to current builder');
+ok(norm(halveOF2(a.svc)) === norm(b.svc), 'Everything: services list identical to current builder (OF2 price halved back)');
 ok(norm(a.out) === norm(b.out), 'Everything: payment cards identical to current builder');
 ok(norm(a.bar) === norm(b.bar), 'Everything: price bar identical to current builder');
+
+// ---------- 3b. One-time weeding (OF2) is exactly double the current builder's price; nothing else moves ----------
+{
+  let n = 0, nonzero = 0;
+  const grab = (pg, c) => pg.evaluate(c => { Object.assign(ST, c, { lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {} }); return getSug(); }, c);
+  for (const lot of [0, 6000, 10890, 21780, 43560, 65000]) for (const weedPressure of ['none', 'light', 'mod', 'heavy']) for (const bedFootprint of [null, 'low', 'mod', 'high'])
+    for (const [complex, rate] of [['low', 80], ['med', 90], ['high', 100], ['low', 65]]) for (const leaf of [0, 3]) {
+      const c = { lot, weedPressure, bedFootprint, complex, rate, leaf };
+      const [a, b] = [await grab(full, c), await grab(live, c)]; n++;
+      const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+      const others = [...keys].filter(k => k !== 'OF2' && a[k] !== b[k]);
+      ok(others.length === 0, 'doubling touches only OF2; other prices changed: ' + others.join(','), { c });
+      ok((a.OF2 || 0) === 2 * (b.OF2 || 0), 'OF2 is exactly 2x the current builder price (' + a.OF2 + ' vs ' + b.OF2 + ')', { c });
+      if (b.OF2 > 0) nonzero++;
+    }
+  ok(nonzero > 300, 'weeding doubling was checked on many non-zero prices', { nonzero });
+  // OF3 (bed cleanup) and C2 (every-visit weeding) explicitly unchanged at a typical bed size
+  await full.evaluate(() => Object.assign(ST, { lot: 10890, weedPressure: 'mod', bedFootprint: 'mod', complex: 'low', rate: 80, ov: {} }));
+  await live.evaluate(() => Object.assign(ST, { lot: 10890, weedPressure: 'mod', bedFootprint: 'mod', complex: 'low', rate: 80, ov: {} }));
+  const [x, y] = [await full.evaluate(() => getSug()), await live.evaluate(() => getSug())];
+  ok(x.OF3 === y.OF3 && x.C2 === y.C2 && x.OF1 === y.OF1 && x.OF2 === 2 * y.OF2, 'bed cleanup (OF3), ongoing weeding (C2) and mulch (OF1) unchanged; OF2 doubled', { x: [x.OF2, x.OF3, x.C2], y: [y.OF2, y.OF3, y.C2] });
+  console.log('weeding doubling: ' + n + ' dial combinations (' + nonzero + ' with a price)');
+}
 
 console.log('checks: ' + checks + ', failures: ' + fails.length + ', page errors: ' + errors.length);
 fails.slice(0, 6).forEach(f => console.log(JSON.stringify(f).slice(0, 600)));
