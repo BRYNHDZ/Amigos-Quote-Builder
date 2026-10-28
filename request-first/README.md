@@ -23,5 +23,15 @@ The main quote builder (root `index.html`) now starts with **"What did they ask 
 - **Rollback:** revert the go-live merge commit on `main` (`git revert -m 1 <merge commit>`), or copy `previous/index.html`, `previous/route-fit.js`, `previous/routes.json` over the root files and push. Pages redeploys in about a minute.
 - Edit the root `index.html` directly from now on (it is no longer generated).
 
+## Usability pass 1 (Oct 28, 2026) — UI only, no price changes
+
+- **Quote ready** card at the end: lists each service with its price, the total, and the three ways to pay, with **Copy quote** (and Share on phones that have it). It only shows once there is a lot size and a service. Text follows the screen language.
+- **Start over** button (asks twice, so no accidental wipe) in the top strip and under the quote.
+- Step bubbles show a check only when that step is really done (no check on Services while there is no lot size).
+- The bottom bar says what to do next: "Type the lot size", "Pick a service ↓", "See quote ↓".
+- Office words replaced with plain ones on the phone screens (buffer, floor, auto defaults, rate, complexity, tier). Warnings say what to do.
+- Smaller header and strip so the first screen shows the form; office-only details are tucked into "Details for the office".
+- Same pricing code. Tests compare every dollar amount with `/previous/` (only one-time weeding may differ, exactly 2x).
+
 Test (needs the repo served on :8765 and playwright-core; the comparison baseline is `/previous/`):
 `node request-first/tests/request-first.mjs` — checks every service path prices exactly like the full view and like the previous builder (except one-time weeding, which must be exactly 2x), the screens and flow, Spanish, 48px tap targets, and that Everything matches today's builder. (`QUICK=1` skips the long price matrix.)
