@@ -206,6 +206,22 @@ body{padding-bottom:90px}
 .choice.dis{opacity:.45;cursor:default}
 .ch-t{font-size:16px;font-weight:700;line-height:1.2}
 .ch-s{font-size:12px;color:#777}
+.opts{display:grid;gap:8px}
+.opt{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border:2px solid #d8d8d0;border-radius:12px;background:#fff;color:#18240F;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;width:100%}
+.opt.on{border-color:#30471F;background:#eef5e8;box-shadow:0 0 0 2px rgba(48,71,31,.18)}
+.opt.dis{opacity:.45;cursor:default}
+.opt .ob{width:26px;height:26px;border:2px solid #9aa08f;border-radius:7px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;line-height:1}
+.opt.on .ob{background:#30471F;border-color:#30471F}
+.opt .ot{display:flex;flex-direction:column;gap:1px;min-width:0}
+.opt .ot b{font-size:16px;font-weight:700;line-height:1.2}
+.opt .ot i{font-style:normal;font-size:12px;color:#5d6356}
+.opt .op{font-family:'Fredoka',sans-serif;font-size:22px;font-weight:400;white-space:nowrap}
+.o-hint{font-size:13px;color:#5d6356;margin:-2px 0 8px;line-height:1.3}
+.qr-grp{padding:8px 0;border-bottom:1px solid #d9e4cc}
+.qr-gh{font-size:13px;font-weight:800;color:#5d6356;margin-bottom:2px}
+.qr-opt{display:flex;justify-content:space-between;gap:10px;padding:5px 0 5px 12px;font-size:16px;line-height:1.3}
+.qr-opt b{white-space:nowrap;font-family:'Fredoka',sans-serif;font-weight:400}
+.qr-note{font-size:12px;color:#5d6356;margin:2px 0 4px}
 .ch-pop{font-size:11px;font-weight:700;background:#FFB300;color:#18240F;border-radius:20px;padding:1px 8px;margin-top:2px}
 .fprice{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px;border:1.5px solid #30471F;border-radius:12px;background:#f5f9f4}
 .fprice.extra{border-color:#e0dfd8;background:#fff}
@@ -287,6 +303,28 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 @media (hover:none){.desk-only{display:none}}
 .addr-msg{display:none;margin:2px 0 8px;padding:10px 12px;border-radius:10px;background:#fff5f5;border:1.5px solid #cc0000;color:#a00;font-size:14px;font-weight:700;line-height:1.35}
 .addr-msg.show{display:block}
+
+/* ===== address-first (focus view): just the address + the quote; everything else behind "Change details" ===== */
+#iAddr{scroll-margin-top:90px}
+#detToggle,#addrNote{display:none}
+body.v-focus #detToggle{display:block}
+.det-link{min-height:48px;margin:6px 0 0;padding:0 4px;border:none;background:none;color:#30471F;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;text-decoration:underline;cursor:pointer;text-align:left}
+#addrNote.show{display:block;margin:2px 0 4px;padding:10px 12px;border-radius:10px;background:#eef5e8;border:1.5px solid #30471F;color:#18240F;font-size:14px;font-weight:700;line-height:1.35}
+body.simple #steps,body.simple #s1 .step-hd,body.simple #dials,body.simple #s1 .sub-hd,body.simple #moreBtn,body.simple #estW,body.simple .miss-std,body.simple #s3,body.simple #detBox,body.simple #focusStrip .f-all,body.simple #lotRow,body.simple #iLtH{display:none!important}
+body.simple.manual #lotRow{display:grid!important}
+body.simple.manual #openIn{display:block!important}
+/* the map stays (like the live builder); the choices a worker naturally picks stay; the price rows, mulch card and extras live in the quote card / Change details */
+body.simple #mapBox{height:280px!important}
+body.simple #s2 .step-hd,body.simple .f-note,body.simple .fprice,body.simple #svcCol .fs-b,body.simple .f-h,body.simple #fcMulch,body.simple #fcFlo,body.simple #fcBed{display:none!important}
+body.simple #s2{margin-bottom:6px}
+body.simple #svcCol .fcard{margin-bottom:10px}
+/* measurement boxes: none unless a lookup failed; mulch yards is the mulch choice, so it stays for mulch */
+body.simple:not(.manual) #measDet{display:none!important}
+body.simple:not(.manual).f-mulch #measDet{display:block!important}
+body.simple:not(.manual) #measDet .mf:not(.mf-mulch){display:none!important}
+body.simple:not(.manual):not(.f-mulch) #measDet .mf-mulch{display:none!important}
+body.simple.manual:not(.f-snow) #measDet .mf-snow{display:none!important}
+body.simple #s1{margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -322,18 +360,19 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 <section class="card step-card" id="s1">
   <div class="step-hd"><span class="num">1</span><span data-i18n="st.prop">Property</span></div>
   <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:6px;flex-wrap:wrap">
-    <div style="flex:1;min-width:180px"><label class="lbl" data-i18n="l.addr">Property address</label><input type="text" id="iAddr" placeholder="e.g. 303 W Wesley St, Wheaton, IL 60187" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupAddr();}" style="width:100%;font-size:13px;padding:7px 9px;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;outline:none;font-family:'Nunito',sans-serif"></div>
+    <div style="flex:1;min-width:180px"><label class="lbl" for="iAddr" data-i18n="l.addr">Property address</label><input type="text" id="iAddr" enterkeyhint="search" placeholder="e.g. 303 W Wesley St, Wheaton, IL 60187" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupAddr();}" style="width:100%;font-size:13px;padding:7px 9px;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;outline:none;font-family:'Nunito',sans-serif"></div>
     <button class="addr-btn" onclick="lookupAddr()" id="lkBtn" data-i18n="b.look">📍 Look up</button>
   </div>
   <div id="addrMsg" class="addr-msg" role="alert"></div>
+  <div id="addrNote" role="status" aria-live="polite"></div>
   <div id="openIn" style="font-size:12px;color:#5d6356;margin-bottom:10px">Open in:
     <a href="#" onclick="openEarth();return false" class="ext-lnk">🌍 Earth (3D)</a> <span class="desk-only" style="color:#777;font-weight:400">— ctrl+drag to rotate</span> ·
     <a href="#" onclick="openLotSearch();return false" class="ext-lnk">🏠 Zillow/Redfin</a>
   </div>
   <div id="mapBox" style="display:none;height:380px;border-radius:10px;overflow:hidden;border:1.5px solid #d8d8d0;margin-bottom:6px"></div>
-  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
+  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa" id="mapTip">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
   
-  <div class="g2" style="margin-bottom:6px">
+  <div class="g2" id="lotRow" style="margin-bottom:6px">
     <div><label class="lbl" data-i18n="l.lot">Lot size</label><div style="display:flex;gap:4px"><input type="number" id="iLt" placeholder="e.g. 10890" step="any" oninput="upd()" style="flex:1;min-width:0"><button type="button" id="iLtU" class="unit-btn" onclick="toggleLotUnit()">sqft</button></div><div class="hint" id="iLtH" data-i18n="h.lot0">Enter this alone → all services auto-estimate</div></div>
   </div>
   <details class="more-det" id="measDet"><summary data-i18n="l.meas">Measurements (auto-filled from lot size)</summary>
@@ -406,6 +445,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
   <button type="button" class="more-btn" id="moreBtn" onclick="toggleMore()"></button>
   <div id="estW" style="display:none" class="warn"></div>
   <div id="missBox"></div>
+  <button type="button" class="det-link" id="detToggle" onclick="toggleDet()"></button>
 </section>
 
 <section class="step-card" id="s2">
@@ -598,14 +638,18 @@ function getAddr(){return ($('iAddr').value||'').trim();}
 function openEarth(){const a=getAddr();if(!a)return;window.open('https://earth.google.com/web/search/'+encodeURIComponent(a),'_blank');}
 function openLotSearch(){const a=getAddr();if(!a)return;window.open('https://www.google.com/search?q='+encodeURIComponent(a+' Zillow OR Realtor OR Redfin lot size'),'_blank');}
 function lookupAddr(){
-  const a=getAddr();if(!a)return;
+  const a=getAddr();
+  if(!a){const m=$('addrMsg');if(m){m.textContent=tx('Type the address first.','Escribe primero la dirección.');m.classList.add('show');}return;}
+  if(UI.lk==='busy'&&UI.lastAddr===a)return;
+  {const m=$('addrMsg');if(m)m.classList.remove('show');}
   const box=$('mapBox'),meta=$('mapMeta');
   const url='https://maps.google.com/maps?q='+encodeURIComponent(a)+'&t=k&z=19&output=embed';
   box.innerHTML='<iframe width="100%" height="100%" frameborder="0" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'+url+'"></iframe>';
   box.style.display='block';meta.style.display='flex';
   $('mapAddr').textContent=a;
-  lookupLot(a);
+  const pr=lookupLot(a);
   geocodeForFit(a);
+  return pr;
 }
 const DUPAGE_GIS='https://gis.dupageco.org/arcgis/rest/services/DuPage_County_IL/ParcelsWithRealEstateCC/MapServer/0/query';
 function addrTokens(a){
@@ -659,7 +703,7 @@ function cp(t,btn){navigator.clipboard.writeText(t).then(()=>{if(btn){const o=bt
 function cpMo(val,el){if(!val)return;navigator.clipboard.writeText(String(val)).then(()=>{el.classList.add('copied');const o=el.textContent;el.textContent='✓ Copied';setTimeout(()=>{el.textContent=o;el.classList.remove('copied');},1400);}).catch(()=>{});}
 const SEASON_CLOSED=new Set();
 function seasonToggle(t,open){if(open)SEASON_CLOSED.delete(t);else SEASON_CLOSED.add(t);}
-function warnHTML(){let h='';const miss=[];if(ST.rate===0)miss.push('<b>'+tx('Crew price per hour','Precio por hora de la cuadrilla')+'</b> <span style="color:#7a5800">'+tx('$80/hr','$80/h')+'</span>');if(ST.complex===null)miss.push('<b>'+tx('Yard difficulty','Dificultad del terreno')+'</b> <span style="color:#7a5800">'+tx('Easy','Fácil')+'</span>');if(reqOn('bed')&&ST.bedFootprint===null&&ST.mulch<=0)miss.push('<b>'+tx('Bed size','Tamaño de jardineras')+'</b> <span style="color:#7a5800">'+tx('Medium','Mediano')+'</span>');if(reqOn('leaf')&&ST.leaf===null)miss.push('<b>'+tx('Leaf level','Nivel de hojas')+'</b> <span style="color:#7a5800">'+LEAF_DEFAULT+'</span>');if(miss.length){h+='<div class="card" style="background:#fffbec;border-color:#FFB300;margin-bottom:10px;padding:10px 14px"><div style="font-size:13px;font-weight:700;color:#7a5800;margin-bottom:4px">'+tx('Standard settings are used. Change them above if this yard is different:','Se usan valores estándar. Cámbialos arriba si este jardín es diferente:')+'</div><div style="font-size:13px;color:#7a5800;line-height:1.7">'+miss.map(m=>'• '+m).join('<br>')+'</div></div>';}if(ST.lot>ICP_LOT_CAP&&hasTrim()){const ac=(ST.lot/43560).toFixed(2);h+='<div class="card" style="background:#fff5f5;border-color:#cc0000;margin-bottom:10px;padding:10px 14px"><div style="font-size:13px;font-weight:700;color:#a00;margin-bottom:4px">'+tx('⚠ Big lot — walk it before you quote the trimming','⚠ Terreno grande — recórrelo antes de cotizar el recorte')+'</div><div style="font-size:13px;color:#a00;line-height:1.5">'+tx('The lot is '+ac+' acres (over 0.75). The trimming price stops at one full day. Big lots often take longer, so walk it first.','El terreno es de '+ac+' acres (más de 0.75). El precio del recorte llega hasta un día completo. Los terrenos grandes suelen tardar más, recórrelo primero.')+'</div></div>';}return h;}
+function warnHTML(){let h='';const miss=[];if(ST.rate===0)miss.push('<b>'+tx('Crew price per hour','Precio por hora de la cuadrilla')+'</b> <span style="color:#7a5800">'+tx('$80/hr','$80/h')+'</span>');if(ST.complex===null)miss.push('<b>'+tx('Yard difficulty','Dificultad del terreno')+'</b> <span style="color:#7a5800">'+tx('Easy','Fácil')+'</span>');if(reqOn('bed')&&ST.bedFootprint===null&&ST.mulch<=0)miss.push('<b>'+tx('Bed size','Tamaño de jardineras')+'</b> <span style="color:#7a5800">'+tx('Medium','Mediano')+'</span>');if(reqOn('leaf')&&ST.leaf===null)miss.push('<b>'+tx('Leaf level','Nivel de hojas')+'</b> <span style="color:#7a5800">'+LEAF_DEFAULT+'</span>');if(miss.length){h+='<div class="card miss-std" style="background:#fffbec;border-color:#FFB300;margin-bottom:10px;padding:10px 14px"><div style="font-size:13px;font-weight:700;color:#7a5800;margin-bottom:4px">'+tx('Standard settings are used. Change them above if this yard is different:','Se usan valores estándar. Cámbialos arriba si este jardín es diferente:')+'</div><div style="font-size:13px;color:#7a5800;line-height:1.7">'+miss.map(m=>'• '+m).join('<br>')+'</div></div>';}if(ST.lot>ICP_LOT_CAP&&hasTrim()){const ac=(ST.lot/43560).toFixed(2);h+='<div class="card" style="background:#fff5f5;border-color:#cc0000;margin-bottom:10px;padding:10px 14px"><div style="font-size:13px;font-weight:700;color:#a00;margin-bottom:4px">'+tx('⚠ Big lot — walk it before you quote the trimming','⚠ Terreno grande — recórrelo antes de cotizar el recorte')+'</div><div style="font-size:13px;color:#a00;line-height:1.5">'+tx('The lot is '+ac+' acres (over 0.75). The trimming price stops at one full day. Big lots often take longer, so walk it first.','El terreno es de '+ac+' acres (más de 0.75). El precio del recorte llega hasta un día completo. Los terrenos grandes suelen tardar más, recórrelo primero.')+'</div></div>';}return h;}
 function breakdownHTML(){let h='';const trimSel=['E1','E2'].filter(id=>ST.sel.has(id));if(trimSel.length){const vM={E1:2,E2:12};const dD=derive();const eT=ST.trim>0?ST.trim:(dD?dD.trim:0);let tT=0,tH=0;trimSel.forEach(id=>{tT+=gp(id);tH+=eT*(vM[id]||1);});const ir=tH>0?Math.round(tT/tH):0;const tgt=Math.round(effRate()*2*1.2);const ok=Math.abs(ir-tgt)<20,lo=ir<tgt-20;const cl=ok?'#30471F':lo?'#cc0000':'#7a5800';h+='<div class="info-bar"><span style="color:#888">Trim $/man-hr: </span><span style="font-weight:700;color:'+cl+'">$'+ir+' · '+(lo?'below target':ok?'on target':'premium')+'</span><span style="color:#888"> (target $'+tgt+'/man-hr incl. 2-person crew + liability premium)</span></div>';}if(ST.visitsRemain&&ST.visitsRemain<35){h+='<div class="info-bar"><span style="color:#888">Mid-season join: mowing prorated ×</span><span style="font-weight:700;color:#30471F"> '+(ST.visitsRemain/35).toFixed(2)+'</span><span style="color:#888"> ('+ST.visitsRemain+' of 35 visits)</span></div>';}if(ST.mulch>0&&ST.sel.has('F1')){const id='F1';const p=gp(id);const yds=ST.mulch;const perYd=yds>0?(p/yds):MULCH_PRICE_PER_YD;const mulchMat=Math.round(yds*MULCH_RAW_PER_YD);const delivery=Math.round(yds*MULCH_DELIVERY_PER_YD);const preen=Math.round(yds*PREEN_PER_YD);const laborGP=p-mulchMat-delivery-preen;const perYdLbl=Number.isInteger(perYd)?perYd:perYd.toFixed(2);h+='<div class="info-bar" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="font-weight:700;color:#30471F">Mulch breakdown · $'+Math.round(p).toLocaleString()+' ('+yds+' yd × $'+perYdLbl+')</div><div style="font-size:11px;color:#666;line-height:1.6">Mulch material: <b>$'+mulchMat+'</b> ($'+MULCH_RAW_PER_YD+'/yd) · Delivery & markup: <b>$'+delivery+'</b> ($'+MULCH_DELIVERY_PER_YD+'/yd) · Preen material: <b>$'+preen+'</b> ($'+PREEN_PER_YD+'/yd) · <span style="color:#30471F;font-weight:700">Labor + GP: $'+laborGP+'</span></div></div>';const weedIds=['C2','OF2','OF3'];const sel=ST.sel;const weeds=weedIds.filter(w=>sel.has(w));if(weeds.length){let weedSum=0;weeds.forEach(w=>{weedSum+=gp(w)||0;});const refresh=Math.round(p+weedSum);const bundle=weeds.map(w=>w+' $'+Math.round(gp(w)).toLocaleString()).join(' + ');h+='<div class="info-bar" style="background:#f5f9f4;border:1px solid #30471F"><span style="color:#30471F;font-weight:700">🌸 Flower Bed Refresh: $'+refresh.toLocaleString()+'</span><span style="color:#888"> · mulch $'+Math.round(p).toLocaleString()+' + '+bundle+' · </span><span style="color:#30471F;font-weight:700">one total to customer</span></div>';}}['B1','B2'].forEach(id=>{const sel=ST.sel;if(sel.has(id)){const p=gp(id);if(!p)return;const equipment=10;const labor=p-equipment;h+='<div class="info-bar"><span style="color:#888">'+id+' Aeration: </span><span style="font-weight:700">$'+Math.round(p).toLocaleString()+'</span><span style="color:#888"> · ~$'+equipment+' equipment · </span><span style="color:#30471F;font-weight:700">$'+labor+' labor</span></div>';}});['B3','B4'].forEach(id=>{const sel=ST.sel;if(sel.has(id)){const p=gp(id);if(!p)return;const seed=Math.round(ST.lawn*0.02);const labor=p-seed;h+='<div class="info-bar"><span style="color:#888">'+id+' Overseed: </span><span style="font-weight:700">$'+Math.round(p).toLocaleString()+'</span><span style="color:#888"> · $'+seed+' seed · </span><span style="color:#30471F;font-weight:700">$'+labor+' labor</span></div>';}});return h;}
 function seasonStats(season){let cnt=0,sub=0;season.cats.forEach(c=>c.items.forEach(i=>{if(ST.sel.has(i.id)){cnt++;sub+=gp(i.id)||0;}}));return{cnt:cnt,sub:Math.round(sub)};}
 function seasonMeta(season){const x=seasonStats(season);return x.cnt?x.cnt+tx(' selected',x.cnt===1?' seleccionado':' seleccionados')+' · $'+x.sub.toLocaleString():'';}
@@ -736,10 +780,11 @@ function renderOut(){
   $('bdBox').innerHTML=breakdownHTML();
   $('refBox').innerHTML=renderRef();
   document.querySelectorAll('.season-meta[data-season]').forEach(el=>{const s=SEASONS.find(x=>x.title===el.dataset.season);if(s)el.textContent=seasonMeta(s);});
-  const cnt=ST.sel.size;const noLot=cnt>0&&total<=0&&ST.lot<=0;
-  const barAmt=ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):money(total);
+  const cnt=ST.sel.size;const noLot=cnt>0&&total<=0&&ST.lot<=0;const askAddr=noLot&&UI.view==='focus'&&!UI.det&&UI.lk!=='fail';
+  const multi=qrData().multi;
+  const barAmt=(multi?t('op.from'):'')+(ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):money(total));
   const barLbl=ST.payView==='monthly'?n+tx(' payment'+(n===1?'':'s'),' pago'+(n===1?'':'s')):ST.payView==='annual'?(ap.save?tx('Annual Payment, 1 month free','Pago anual, 1 mes gratis'):tx('Annual Payment','Pago anual')):tx('Pay-As-You-Go','Pago por servicio');
-  $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+(noLot?tx('Type the lot size to see the price','Escribe el tamaño del terreno para ver el precio'):cnt>0?cnt+tx(' service'+(cnt===1?'':'s'),' servicio'+(cnt===1?'':'s'))+' · '+barLbl:tx('Nothing picked yet','Nada escogido todavía'))+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="'+(noLot?'#iLt':cnt>0?'#qrCard':'#s2')+'">'+(noLot?tx('Add lot size ↑','Pon el terreno ↑'):cnt>0?tx('See quote ↓','Ver cotización ↓'):tx('Pick a service ↓','Escoge un servicio ↓'))+'</a></div>';
+  $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+(askAddr?tx('Type the address to see the price','Escribe la dirección para ver el precio'):noLot?tx('Type the lot size to see the price','Escribe el tamaño del terreno para ver el precio'):cnt>0?cnt+tx(' service'+(cnt===1?'':'s'),' servicio'+(cnt===1?'':'s'))+' · '+barLbl:tx('Nothing picked yet','Nada escogido todavía'))+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="'+(askAddr?'#iAddr':noLot?'#iLt':cnt>0?'#qrCard':'#s2')+'">'+(askAddr?tx('Type the address ↑','Escribe la dirección ↑'):noLot?tx('Add lot size ↑','Pon el terreno ↑'):cnt>0?tx('See quote ↓','Ver cotización ↓'):tx('Pick a service ↓','Escoge un servicio ↓'))+'</a></div>';
   $('st1').classList.toggle('done',ST.lot>0);$('st2').classList.toggle('done',cnt>0);$('st3').classList.toggle('done',!!ST.payPicked);
   markDefaults();
 }
@@ -833,9 +878,11 @@ Object.assign(I18N.en,{"d.show": "What is included", "d.hide": "Hide", "f.reset"
 Object.assign(I18N.es,{"d.show": "Qué incluye", "d.hide": "Ocultar", "f.reset": "quitar", "c.est": "Limpieza total", "c.ests": "Césped, caminos y jardineras · necesita corte", "c.snow": "Nieve", "q.snow": "¿Qué tan rápido la quitamos?", "c.H1": "Estándar", "c.H1s": "Limpiamos con unas 2 pulgadas", "c.H2": "Premium", "c.H2s": "Con ~1 pulgada · prioridad", "c.H4": "Cero tolerancia", "c.H4s": "Limpio con cualquier nieve", "n.H1": "Plan estándar de nieve", "n.H2": "Plan premium de nieve", "n.H4": "Plan cero tolerancia de nieve", "c.bush": "Arbustos", "q.trim": "¿Recortamos los arbustos?", "c.E1": "Una vez al año", "c.E1s": "Una visita de recorte", "c.E2": "Toda la temporada", "c.E2s": "Necesita corte", "c.E2d": "Necesita corte", "c.OE1": "Una sola vez", "c.OE1s": "Recorte ligero, a mano", "c.E5": "Arbustos altos: usar escalera", "c.E5s": "Cuesta extra", "c.E5d": "Primero escoge un recorte", "q.dens": "¿Qué tan espesos están los arbustos?", "o.light": "Poco", "o.std": "Normal", "o.dense": "Mucho", "n.E1": "Recorte de arbustos, una vez al año", "n.E2": "Recorte de arbustos, toda la temporada", "n.OE1": "Recorte de arbustos, una vez", "n.E5": "Escalera para arbustos altos", "c.flo": "Flores", "q.flo": "¿Podamos las flores?", "c.E3": "Toda la temporada", "c.E3s": "Se podan cuando toca", "c.OE3": "Una sola vez", "c.OE3s": "Una visita de poda", "n.E3": "Poda de flores, toda la temporada", "n.OE3": "Poda de flores, una vez", "c.bed": "Jardineras", "q.bed": "¿Qué necesitan las jardineras?", "c.C2": "Deshierbe en cada visita", "c.C2s": "Necesita corte y mantillo", "c.OF2": "Deshierbe una vez", "c.OF2s": "Se arranca a mano", "c.OF3": "Limpieza de jardineras", "c.OF3s": "Una limpieza grande", "n.C2": "Deshierbe, cada visita", "n.OF2": "Deshierbe, una vez", "n.OF3": "Limpieza de jardineras, una vez", "q.weed": "¿Cuánta hierba mala hay?", "w.none": "Nada", "w.light": "Poca", "w.mod": "Regular", "w.heavy": "Mucha", "f.needmow3": "Algunas opciones necesitan el corte.", "f.needmulch": "El deshierbe en cada visita necesita mantillo.", "f.addmulch": "+ Agregar mantillo", "c.mulch": "Mantillo", "q.mulch": "¿Ponemos mantillo en las jardineras?", "c.F1": "Mantillo y bordes", "c.F1s": "Entregado y esparcido", "n.F1": "Mantillo y bordes de jardineras", "l.bed": "Tamaño de jardineras (% del terreno)", "l.bed.f": "¿Qué tan grandes son las jardineras?", "o.bl": "Poco", "o.bm": "Regular", "o.bh": "Mucho", "o.bl.f": "Chicas", "o.bm.f": "Medianas", "o.bh.f": "Grandes", "l.pv": "Área pavimentada: entrada y banquetas (pies²)", "l.pv.f": "Entrada y banquetas (pies²)", "l.mu": "Mantillo: a ojo (yardas)", "l.mu.f": "¿Cuánto mantillo? (yardas)"});
 Object.assign(I18N.en,{'l.hf':'Home footprint (sq ft)','h.hf':'Subtracts home from lot. Zillow "building area" ÷ stories.','l.ln':'Lawn / turf (sq ft)','h.mu':'Drives bed maintenance + mulch pricing','l.tr':'Bush trim time per visit (hrs)','l.pe':'Perennial pruning per session (hrs)','l.hv':'Home value (~$K)','h.hv':'Rough eyeball (Zillow/Redfin). Drives avatar fit.','l.start':'Start month','l.tier':'Quote effort (sets floor)','o.remote':'Remote','o.driveby':'Drive-by','o.appt':'Appt','b.look':'📍 Look up','h.lot0':'Enter this alone → all services auto-estimate'});
 Object.assign(I18N.es,{'l.hf':'Superficie de la casa (pies²)','h.hf':'Se resta la casa del terreno. "Área construida" de Zillow ÷ pisos.','l.ln':'Césped (pies²)','h.mu':'Define el precio del mantillo y del cuidado de jardineras','l.tr':'Tiempo de recorte de arbustos por visita (horas)','l.pe':'Poda de perennes por sesión (horas)','l.hv':'Valor de la casa (~miles de $)','h.hv':'Cálculo a ojo (Zillow/Redfin). Define el perfil del cliente.','l.start':'Mes de inicio','l.tier':'Esfuerzo de cotización (define el mínimo)','o.remote':'Remoto','o.driveby':'Desde la calle','o.appt':'Con cita','b.look':'📍 Buscar','h.lot0':'Escribe solo esto → todos los servicios se calculan solos'});
-Object.assign(I18N.en,{"l.rate": "Crew price per hour", "l.cx": "Yard difficulty", "l.tier": "How was the property checked? (sets the lowest price)", "l.pe": "Flower pruning time per visit (hrs)", "so.btn": "↺ Start over", "so.sure": "Tap again to erase everything"});
-Object.assign(I18N.es,{"l.rate": "Precio por hora de la cuadrilla", "l.cx": "Dificultad del terreno", "l.tier": "¿Cómo se revisó la propiedad? (define el precio mínimo)", "l.pe": "Tiempo para podar flores por visita (h)", "so.btn": "↺ Empezar de nuevo", "so.sure": "Toca otra vez para borrar todo"});
-const UI={view:'all',pick:new Set(),focus:new Set(),lang:'en',more:false,touched:false,prev:null,desc:new Set(),measOpen:false};
+Object.assign(I18N.en,{'l.mu.f':'How many yards of mulch?','h.mu.f':'Leave it blank and we guess from the lot size.','l.addr.f':'Type the address','det.show':'Change details','det.hide':'Fewer details',"l.rate": "Crew price per hour", "l.cx": "Yard difficulty", "l.tier": "How was the property checked? (sets the lowest price)", "l.pe": "Flower pruning time per visit (hrs)", "so.btn": "↺ Start over", "so.sure": "Tap again to erase everything"});
+Object.assign(I18N.es,{'l.mu.f':'¿Cuántas yardas de mantillo?','h.mu.f':'Déjalo vacío y lo calculamos con el tamaño del terreno.','l.addr.f':'Escribe la dirección','det.show':'Cambiar detalles','det.hide':'Menos detalles',"l.rate": "Precio por hora de la cuadrilla", "l.cx": "Dificultad del terreno", "l.tier": "¿Cómo se revisó la propiedad? (define el precio mínimo)", "l.pe": "Tiempo para podar flores por visita (h)", "so.btn": "↺ Empezar de nuevo", "so.sure": "Toca otra vez para borrar todo"});
+Object.assign(I18N.en,{'op.hint':'Tap the options to offer. The customer picks one.','op.pick':'customer picks one','op.from':'From ','op.low':'Total (lowest option of each)','op.pnote':'Payment plans use the lowest option of each service.','op.opt':'Option '});
+Object.assign(I18N.es,{'op.hint':'Toca las opciones que ofreces. El cliente escoge una.','op.pick':'el cliente escoge una','op.from':'Desde ','op.low':'Total (la opción más baja de cada una)','op.pnote':'Los pagos usan la opción más baja de cada servicio.','op.opt':'Opción '});
+const UI={opts:{},optsSel:{},view:'all',pick:new Set(),focus:new Set(),lang:'en',more:false,touched:false,prev:null,desc:new Set(),measOpen:false,det:false,lk:'none',lastAddr:'',lotTyped:false};
 function t(k){const d=I18N[UI.lang];const fk=k+'.f';if(UI.view==='focus'&&d[fk]!=null)return d[fk];return d[k]!=null?d[k]:(I18N.en[k]!=null?I18N.en[k]:k);}
 function tx(en,es){return UI.lang==='es'?es:en;}
 function reqOn(r){if(UI.view!=='focus')return true;if(r==='bed')return UI.focus.has('bush')||UI.focus.has('mulch');return UI.focus.has(r);}
@@ -856,9 +903,10 @@ function enterFocus(){
   if(UI.focus.has('leaf')&&!LEAF_IDS.some(i=>ST.sel.has(i)))ST.sel.add(isMow()?'G1':'OD3');
   if(UI.focus.has('snow')&&!['H1','H2','H4'].some(i=>ST.sel.has(i)))ST.sel.add('H1');
   if(UI.focus.has('mulch')&&!ST.sel.has('F1'))ST.sel.add('F1');
+  if(UI.focus.has('bush')&&!UI.det&&!['E1','E2','OE1'].some(i=>ST.sel.has(i)))ST.sel.add('E1');
   UI.view='focus';UI.more=false;
 }
-function pickContinue(){if(!UI.pick.size)return;enterFocus();render();window.scrollTo(0,0);}
+function pickContinue(){if(!UI.pick.size)return;enterFocus();render();window.scrollTo(0,0);if(!(ST.lot>0)&&!UI.det){setTimeout(()=>{try{$('iAddr').focus({preventScroll:true});}catch(e){}},60);}}
 function toggleMore(){UI.more=!UI.more;applyUI();}
 function pickMow(id){const o=id==='A1'?'A2':'A1';ST.sel.delete(o);ST.sel.add(id);render();}
 function setLeaf(k,w){const cur=leafState();k=k||(cur?cur.k:'nut');w=w||(cur?cur.w:(isMow()?'during':'once'));if(k==='est'){if(!isMow())return;w='during';}if(w==='once'&&!LEAFMAP[k].once)return;if(w==='during'&&!isMow())return;LEAF_IDS.forEach(i=>ST.sel.delete(i));ST.sel.add(LEAFMAP[k][w]);render();}
@@ -885,21 +933,89 @@ function fprice(id,extra){
   if(extra)h+='<button type="button" class="f-x" aria-label="'+t('f.rm')+'" onclick="toggle(\''+id+'\',\''+CATOF[id].cat+'\')">✕</button>';
   return h+'</div>';
 }
+function simpleView(){return UI.view==='focus'&&!UI.det;}
+/* ===== options: show a service's choices together, each with its own price (customer picks one) ===== */
+const OPT_SVCS=['mow','leaf','snow','bush'];
+const OPT_ALL={mow:['A1','A2'],leaf:LEAF_IDS,snow:['H1','H2','H4'],bush:['E1','E2','OE1']};
+function leafW(){const c=leafState();let w=c?c.w:(isMow()?'during':'once');if(!isMow())w='once';return w;}
+function optList(svc){
+  const mow=isMow();
+  if(svc==='mow')return [{key:'A1',id:'A1'},{key:'A2',id:'A2'}];
+  if(svc==='snow')return [{key:'H1',id:'H1'},{key:'H2',id:'H2'},{key:'H4',id:'H4'}];
+  if(svc==='bush')return [{key:'E1',id:'E1'},{key:'E2',id:'E2',dis:!mow},{key:'OE1',id:'OE1'}];
+  const w=leafW();
+  const l=[{key:'nut',id:LEAFMAP.nut[w]},{key:'rem',id:LEAFMAP.rem[w]}];
+  if(mow)l.push({key:'est',id:'G3'});
+  return l;
+}
+function optDefault(svc){return new Set(optList(svc).filter(o=>!o.dis&&o.key!=='est').map(o=>o.key));}
+function optCur(svc){return OPT_ALL[svc].filter(i=>ST.sel.has(i));}
+function optKeyOf(svc,id){
+  if(svc==='leaf'){for(const k of ['nut','rem','est'])if(LEAFMAP[k].during===id||LEAFMAP[k].once===id)return k;return null;}
+  return id;
+}
+function optCheapest(ids){let best=ids[0],bp=gp(best)||0;ids.forEach(i=>{const v=gp(i)||0;if(v<bp||(bp<=0&&v>0)){best=i;bp=v;}});return best;}
+/* keeps ST.sel at one service per group (the lowest checked option), so every price and rule works as before */
+function optSync(){
+  if(!simpleView())return;
+  OPT_SVCS.forEach(svc=>{
+    if(!UI.focus.has(svc))return;
+    const cur=optCur(svc);
+    let set=UI.opts[svc];
+    if(!set||!set.size){set=optDefault(svc);}
+    else if(cur.length===1&&cur[0]!==UI.optsSel[svc]){const k=optKeyOf(svc,cur[0]);set=new Set(k?[k]:[]);}   /* changed under "Change details" */
+    else if(cur.length>1)set=optDefault(svc);
+    const list=optList(svc);
+    set=new Set([...set].filter(k=>list.some(o=>o.key===k&&!o.dis)));
+    if(!set.size)set=optDefault(svc);
+    if(!set.size)return;
+    const ids=list.filter(o=>set.has(o.key)).map(o=>o.id);
+    const pick=optCheapest(ids);
+    OPT_ALL[svc].forEach(i=>ST.sel.delete(i));ST.sel.add(pick);
+    UI.opts[svc]=set;UI.optsSel[svc]=pick;
+  });
+}
+/* the options a quote offers for one service, or null when it is a single price */
+function optGroup(svc){
+  if(UI.view!=='focus'||!UI.focus.has(svc)||!UI.opts[svc])return null;
+  const cur=optCur(svc);if(cur.length!==1||cur[0]!==UI.optsSel[svc])return null;
+  const list=optList(svc).filter(o=>UI.opts[svc].has(o.key)&&!o.dis);
+  if(list.length<2)return null;
+  return list.map(o=>o.id);
+}
+function optSvcOfId(id){return OPT_SVCS.find(s=>OPT_ALL[s].includes(id))||null;}
+function togOpt(svc,key){
+  const set=UI.opts[svc]||optDefault(svc);const o=optList(svc).find(x=>x.key===key);if(!o||o.dis)return;
+  if(set.has(key)){if(set.size<2)return;set.delete(key);}else set.add(key);
+  UI.opts[svc]=set;render();
+}
+function optHTML(svc){
+  const set=UI.opts[svc]||optDefault(svc);
+  const nm={A1:['c.A1','c.A1s'],A2:['c.A2','c.A2s'],nut:['c.nut','c.nuts'],rem:['c.rem','c.rems'],est:['c.est','c.ests'],H1:['c.H1','c.H1s'],H2:['c.H2','c.H2s'],H4:['c.H4','c.H4s'],E1:['c.E1','c.E1s'],E2:['c.E2','c.E2s'],OE1:['c.OE1','c.OE1s']};
+  const n=[...set].length;
+  return '<div class="o-hint">'+t('op.hint')+'</div><div class="opts" data-opts="'+svc+'">'+optList(svc).map(o=>{
+    const on=set.has(o.key)&&!o.dis,p=gp(o.id)||0,k=nm[o.key];
+    const sub=o.dis?t('c.'+o.key+'d'):(o.key==='est'?t('c.ests').split(' · ')[0]:t(k[1]));
+    return '<button type="button" class="opt'+(on?' on':'')+(o.dis?' dis':'')+'" role="checkbox" aria-checked="'+(on?'true':'false')+'"'+(o.dis?' aria-disabled="true"':'')+' data-opt="'+o.key+'" data-id="'+o.id+'" onclick="'+(o.dis?'':"togOpt('"+svc+"','"+o.key+"')")+'"><span class="ob">'+(on?'✓':'')+'</span><span class="ot"><b>'+t(k[0])+'</b><i>'+sub+'</i></span><span class="op">'+(p>0?'$'+Math.round(p).toLocaleString():'–')+'</span></button>';
+  }).join('')+'</div>';
+}
 function mowCard(){
-  let h='<div class="fcard" id="fcMow"><div class="fcard-hd">'+IC.mow+'<span>'+t('c.mow')+'</span></div><div class="f-q">'+t('q.clip')+'</div><div class="choices">'
-   +choice(t('c.A1'),t('c.A1s'),"pickMow('A1')",ST.sel.has('A1'),false,true)+choice(t('c.A2'),t('c.A2s'),"pickMow('A2')",ST.sel.has('A2'),false,false)+'</div>';
-  ['A1','A2'].forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
+  let h='<div class="fcard" id="fcMow"><div class="fcard-hd">'+IC.mow+'<span>'+t('c.mow')+'</span></div><div class="f-q">'+t('q.clip')+'</div>'
+   +(simpleView()?optHTML('mow'):'<div class="choices">'+choice(t('c.A1'),t('c.A1s'),"pickMow('A1')",ST.sel.has('A1'),false,true)+choice(t('c.A2'),t('c.A2s'),"pickMow('A2')",ST.sel.has('A2'),false,false)+'</div>');
+  if(!simpleView())['A1','A2'].forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
   return h+'</div>';
 }
 function leafCard(){
-  const cur=leafState(),mow=isMow();
-  let h='<div class="fcard" id="fcLeaf"><div class="fcard-hd">'+IC.leaf+'<span>'+t('c.leaf')+'</span></div><div class="f-q">'+t('q.kind')+'</div><div class="choices">'
+  const cur=leafState(),mow=isMow(),sm=simpleView();
+  let h='<div class="fcard" id="fcLeaf"><div class="fcard-hd">'+IC.leaf+'<span>'+t('c.leaf')+'</span></div><div class="f-q">'+t('q.kind')+'</div>'+(sm?optHTML('leaf'):'<div class="choices">'
    +choice(t('c.nut'),t('c.nuts'),"setLeaf('nut',null)",!!cur&&cur.k==='nut',false,true)+choice(t('c.rem'),t('c.rems'),"setLeaf('rem',null)",!!cur&&cur.k==='rem',false,false)
-   +choice(t('c.est'),mow?t('c.ests').split(' · ')[0]:t('c.ests'),"setLeaf('est',null)",!!cur&&cur.k==='est',!mow,false,true)+'</div>'
-   +'<div class="f-q">'+t('q.when')+'</div><div class="choices">'
+   +(sm?'':choice(t('c.est'),mow?t('c.ests').split(' · ')[0]:t('c.ests'),"setLeaf('est',null)",!!cur&&cur.k==='est',!mow,false,true))+'</div>');
+  if(!sm){
+   h+='<div class="f-q">'+t('q.when')+'</div><div class="choices">'
    +choice(t('c.dur'),mow?'':t('c.durs'),"setLeaf(null,'during')",!!cur&&cur.w==='during',!mow,false)+choice(t('c.once'),t('c.onces'),"setLeaf(null,'once')",!!cur&&cur.w==='once',!!cur&&cur.k==='est',false)+'</div>';
-  if(!mow)h+='<div class="f-rule"><span>'+t('f.needmow')+'</span><button type="button" onclick="addMowToLeaf()">'+t('f.addmow')+'</button></div>';
-  LEAF_IDS.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
+   if(!mow)h+='<div class="f-rule"><span>'+t('f.needmow')+'</span><button type="button" onclick="addMowToLeaf()">'+t('f.addmow')+'</button></div>';
+   LEAF_IDS.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
+  }
   return h+'</div>';
 }
 
@@ -910,19 +1026,21 @@ function rowsFor(ids){let h='';ids.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);
 function snowCard(){
   const ids=['H1','H2','H4'];
   return '<div class="fcard" id="fcSnow"><div class="fcard-hd">'+IC.snow+'<span>'+t('c.snow')+'</span></div><div class="f-q">'+t('q.snow')+'</div>'
-   +grpHTML(ids,[{id:'H1',wide:0},{id:'H2'},{id:'H4',wide:1}],true)+rowsFor(ids)+'</div>';
+   +(simpleView()?optHTML('snow'):grpHTML(ids,[{id:'H1',wide:0},{id:'H2'},{id:'H4',wide:1}],true)+rowsFor(ids))+'</div>';
 }
 function segHTML(id,dial,vals,labelKeys,icons){
   return '<div class="seg'+(icons?' visual':'')+'" id="'+id+'">'+vals.map((v,i)=>'<button type="button" class="'+(ST[dial]===v?'on':'')+'" aria-pressed="'+(ST[dial]===v)+'" onclick="setDial(\''+dial+'\',\''+v+'\')">'+(icons?icons[v]:'')+'<span class="seg-lbl">'+t(labelKeys[i])+'</span></button>').join('')+'</div>';
 }
 function bushCard(){
-  const mow=isMow(),ids=['E1','E2','OE1'],trim=hasTrim();
+  const mow=isMow(),ids=['E1','E2','OE1'],trim=hasTrim(),sm=simpleView();
   let h='<div class="fcard" id="fcBush"><div class="fcard-hd">'+IC.bush+'<span>'+t('c.bush')+'</span></div><div class="f-q">'+t('q.trim')+'</div>'
-   +grpHTML(ids,[{id:'E1'},{id:'E2',dis:!mow},{id:'OE1',wide:1}],true)
-   +'<div class="choices one">'+choice(t('c.E5'),trim?t('c.E5s'):t('c.E5d'),"tgl('E5')",ST.sel.has('E5'),!trim,false,true)+'</div>';
-  if(trim)h+='<div class="f-q">'+t('q.dens')+'</div>'+segHTML('tdF','trimDensity',['light','std','dense'],['o.light','o.std','o.dense']);
+   +(sm?optHTML('bush'):grpHTML(ids,[{id:'E1'},{id:'E2',dis:!mow},{id:'OE1',wide:1}],true));
+  if(!sm){
+   h+='<div class="choices one">'+choice(t('c.E5'),trim?t('c.E5s'):t('c.E5d'),"tgl('E5')",ST.sel.has('E5'),!trim,false,true)+'</div>';
+   if(trim)h+='<div class="f-q">'+t('q.dens')+'</div>'+segHTML('tdF','trimDensity',['light','std','dense'],['o.light','o.std','o.dense']);
+  }
   if(!mow)h+='<div class="f-rule"><span>'+t('f.needmow3')+'</span><button type="button" onclick="addMowToLeaf()">'+t('f.addmow')+'</button></div>';
-  return h+rowsFor(['E1','E2','OE1','E5'])+'</div>';
+  return h+(sm?'':rowsFor(['E1','E2','OE1','E5']))+'</div>';
 }
 function floCard(){
   const ids=['E3','OE3'];
@@ -968,6 +1086,7 @@ function applyUI(){
   const b=document.body;
   ['pick','focus','all'].forEach(v=>b.classList.toggle('v-'+v,UI.view===v));
   b.classList.toggle('more',UI.more);
+  const simple=UI.view==='focus'&&!UI.det;b.classList.toggle('simple',simple);b.classList.toggle('manual',simple&&UI.lk==='fail');
   b.classList.toggle('f-mow',UI.view==='focus'&&UI.focus.has('mow'));
   const fo=r=>UI.view==='focus'&&UI.focus.has(r);
   b.classList.toggle('f-leaf',fo('leaf'));b.classList.toggle('f-snow',fo('snow'));b.classList.toggle('f-bush',fo('bush'));b.classList.toggle('f-mulch',fo('mulch'));
@@ -977,7 +1096,8 @@ function applyUI(){
   document.documentElement.lang=UI.lang;
   $('lgEn').classList.toggle('on',UI.lang==='en');$('lgEs').classList.toggle('on',UI.lang==='es');
   $('lgEn').setAttribute('aria-pressed',UI.lang==='en');$('lgEs').setAttribute('aria-pressed',UI.lang==='es');
-  document.querySelectorAll('[data-i18n]').forEach(el=>{const v=t(el.dataset.i18n);if(el.textContent!==v)el.textContent=v;});
+  document.querySelectorAll('[data-i18n]').forEach(el=>{if(el.id==='lkBtn'&&el.disabled)return;const v=t(el.dataset.i18n);if(el.textContent!==v)el.textContent=v;});
+  addrUI(simple);
   if(UI.view==='pick'){renderPick();$('pickGo').disabled=!UI.pick.size;$('pickBack').style.display=UI.prev?'':'none';}
   if(UI.view==='focus'){
     $('fsChips').innerHTML=[...UI.focus].map(r=>'<span class="chip">'+IC[r]+t('r.'+r)+'</span>').join('');
@@ -988,7 +1108,7 @@ function initUI(){
   const q=new URLSearchParams(location.search);
   try{const l=localStorage.getItem('qb_lang');if(l==='es'||l==='en')UI.lang=l;}catch(e){}
   if(q.get('lang')==='es'||q.get('lang')==='en')UI.lang=q.get('lang');
-  const v=q.get('view');
+  const v=q.get('view');if(q.get('details')==='1')UI.det=true;
   if(v==='all'){UI.view='all';UI.touched=true;}
   else{
     UI.view='pick';
@@ -999,7 +1119,11 @@ function initUI(){
 /* ===== usability pass 1: quote summary, copy/share, start over, plain address errors ===== */
 UI.arm=false;
 function qrData(){
-  let total=0;const rows=[];ST.sel.forEach(id=>{const v=gp(id)||0;total+=v;rows.push([itemName(id),v]);});
+  let total=0;const rows=[];let multi=false;const done={};
+  ST.sel.forEach(id=>{const v=gp(id)||0;total+=v;
+    const svc=optSvcOfId(id),g=svc?optGroup(svc):null;
+    if(g){multi=true;if(!done[svc]){done[svc]=1;rows.push([t('c.'+svc),v,g.map(i=>[itemName(i),gp(i)||0])]);}}
+    else rows.push([itemName(id),v]);});
   const n=planMonths(),mo=Math.round(total/n),ap=annualPay(total),sm=ST.planStartMonth||3;
   const mowA=(ST.sel.has('A1')?gp('A1'):0)+(ST.sel.has('A2')?gp('A2'):0);const perCut=mowA>0?Math.round(mowA/effVisits()):0;
   const mname=UI.lang==='es'?ES_MONTH[sm]:MONTH_NAMES[sm];
@@ -1009,16 +1133,18 @@ function qrData(){
     {k:'annual',t:tx('Annual Payment','Pago anual'),d:money(ap.pay)+(ap.save?tx(', paid at the start, 1 month free (save $'+ap.save.toLocaleString()+')',', se paga al inicio, 1 mes gratis (ahorra $'+ap.save.toLocaleString()+')'):tx(', paid at the start',', se paga al inicio'))}
   ];
   const buf=ST.bufferOn&&total>0?Math.round(total*1.2):0;
-  return {rows,total,plans,buf};
+  return {rows,total,plans,buf,multi};
 }
 function quoteText(){
   const d=qrData();const a=(typeof getAddr==='function'&&getAddr())||'';
   let x=tx('Amigo Landscaping — Quote','Amigo Landscaping — Cotización')+'\n';
   if(a)x+=a+'\n';
-  x+='\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+money(r[1])+'\n';});
-  x+='\n'+tx('Total: ','Total: ')+money(d.total)+'\n';
+  x+='\n';d.rows.forEach(r=>{
+    if(r[2]){x+=r[0]+' ('+t('op.pick')+'):\n';r[2].forEach((o,i)=>{x+='  '+t('op.opt')+(i+1)+' – '+o[0]+': '+money(o[1])+'\n';});}
+    else x+='• '+r[0]+': '+money(r[1])+'\n';});
+  x+='\n'+(d.multi?t('op.low')+': ':tx('Total: ','Total: '))+(d.multi?t('op.from'):'')+money(d.total)+'\n';
   if(d.buf)x+=tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'\n';
-  x+='\n'+tx('Ways to pay:','Formas de pago:')+'\n';
+  x+='\n'+tx('Ways to pay:','Formas de pago:')+(d.multi?' ('+t('op.pnote').replace(/\.$/,'')+')':'')+'\n';
   d.plans.forEach(p=>{x+='• '+p.t+': '+p.d+'\n';});
   return x.trim();
 }
@@ -1032,10 +1158,13 @@ function renderQR(){
   const cur=d.plans.find(p=>p.k===ST.payView)||d.plans[0];
   let h='<div class="step-hd"><span class="num">✓</span><span>'+tx('Quote ready','Cotización lista')+'</span></div>';
   if(a)h+='<div class="qr-addr">'+esc(a)+'</div>';
-  d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});
-  h+='<div class="qr-tot"><span>'+tx('Total','Total')+'</span><span class="qr-big">'+money(d.total)+'</span></div>';
+  d.rows.forEach(r=>{
+    if(r[2]){h+='<div class="qr-grp" data-grp="1"><div class="qr-gh">'+esc(r[0])+' · '+t('op.pick')+'</div>'+r[2].map((o,i)=>'<div class="qr-opt"><span>'+t('op.opt')+(i+1)+' – '+esc(o[0])+'</span><b>'+money(o[1])+'</b></div>').join('')+'</div>';}
+    else h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});
+  h+='<div class="qr-tot"><span>'+(d.multi?t('op.low'):tx('Total','Total'))+'</span><span class="qr-big">'+(d.multi?'<small style="font-size:16px">'+t('op.from')+'</small>':'')+money(d.total)+'</span></div>';
   if(d.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'</div>';
   h+='<div class="qr-addr" style="margin:10px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
+  if(d.multi)h+='<div class="qr-note">'+t('op.pnote')+'</div>';
   d.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===cur.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});
   h+='<button type="button" class="qr-btn" id="qrCopy" onclick="copyQuote(this)">'+tx('📋 Copy quote','📋 Copiar cotización')+'</button>';
   if(navigator.share)h+='<button type="button" class="qr-btn sec" onclick="shareQuote()">'+tx('Share…','Compartir…')+'</button>';
@@ -1062,23 +1191,58 @@ function uxPass(){
   const ia=$('iAddr');if(ia)ia.placeholder=tx('e.g. 303 W Wesley St','Ej.: 303 W Wesley St');const ds=$('detSum');if(ds)ds.textContent=tx('Office details (optional)','Detalles de oficina (opcional)');
 }
 {const _r=render;render=function(){_r.apply(this,arguments);uxPass();};}
+{const _r2=render;render=function(){optSync();_r2.apply(this,arguments);};}
 {const _ll=lookupLot;
  lookupLot=async function(a){
   const btn=$('lkBtn'),hint=$('iLtH'),msg=$('addrMsg');if(msg)msg.classList.remove('show');
+  UI.lk='busy';UI.lastAddr=a;UI.lotTyped=false;applyUI();
   const pr=_ll(a);
   if(btn&&btn.disabled)btn.textContent=tx('⏳ Finding lot…','⏳ Buscando…');
   if(hint&&UI.lang==='es')hint.innerHTML='<span class="spinner"></span> Buscando el tamaño del terreno…';
-  await pr;
+  await Promise.race([pr,new Promise(r=>setTimeout(r,20000))]);
+  if(btn&&btn.disabled&&!(ST.lot>0)){btn.disabled=false;btn.textContent=tx('📍 Look up','📍 Buscar');}
+  const failed=!(ST.lot>0);
+  UI.lk=failed?'fail':'ok';render();
   if(btn&&btn.textContent.indexOf('Lot found')>-1)btn.textContent=tx('✓ Lot found','✓ Terreno encontrado');
-  const failed=hint&&hint.textContent.trim().charAt(0)==='✕';
   if(failed){
-    const m=tx("We couldn't find this address. Check the spelling, or type the lot size below.","No encontramos esta dirección. Revisa cómo está escrita, o escribe el tamaño del terreno abajo.");
-    hint.innerHTML=tx("✕ Type the lot size here","✕ Escribe aquí el tamaño del terreno");
+    const m=tx("We couldn't find that address. Type the lot size.","No encontramos esa dirección. Escribe el tamaño del terreno.");
+    if(hint)hint.innerHTML=tx("✕ Type the lot size here","✕ Escribe aquí el tamaño del terreno");
     if(msg){msg.textContent=m;msg.classList.add('show');}
-    const mb=$('mapBox');if(mb){mb.style.display='none';}const mm=$('mapMeta');if(mm)mm.style.display='none';
+    if(UI.view!=='focus'){const mb=$('mapBox');if(mb){mb.style.display='none';}const mm=$('mapMeta');if(mm)mm.style.display='none';}
     const li=$('iLt');if(li&&li.scrollIntoView)li.scrollIntoView({block:'center',behavior:'smooth'});
+    {const ae=document.activeElement;if(li&&li.offsetParent&&(!ae||ae===document.body||ae.id==='iAddr'||ae.id==='lkBtn')){try{li.focus({preventScroll:true});}catch(e){}}}
   }
  };}
+
+/* ===== address-first: type the address, get the quote. Other fields only if the lookup finds nothing, or on "Change details" ===== */
+function addrUI(simple){
+  const n=$('addrNote'),dt=$('detToggle');
+  if(dt){const v=UI.det?t('det.hide'):t('det.show');if(dt.textContent!==v)dt.textContent=v;dt.setAttribute('aria-expanded',UI.det?'true':'false');}
+  {const li=$('iLt');if(li){const ph=tx('e.g. 10890','ej. 10890');if(li.placeholder!==ph)li.placeholder=ph;}}
+  if(!n)return;
+  let h='';
+  if(simple&&UI.lk==='busy')h='<span class="spinner"></span> '+tx('Finding the lot…','Buscando el terreno…');
+  else if(simple&&UI.lk==='ok'&&ST.lot>0)h='✓ '+tx('Found it: ','Listo: ')+ST.lot.toLocaleString()+tx(' sq ft lot (',' pies² de terreno (')+(ST.lot/43560).toFixed(2)+tx(' acre). Prices are estimated from the lot size. Not right? Tap Change details.',' acres). Los precios se calculan con el tamaño del terreno. ¿No es correcto? Toca Cambiar detalles.');
+  if(n.innerHTML!==h)n.innerHTML=h;
+  n.classList.toggle('show',!!h);
+  {const tip=$('mapTip'),ma=$('mapAddr');
+   if(tip){const v=tx('Use the layer button on the map to switch between Map and Satellite','Usa el botón de capas del mapa para cambiar entre Mapa y Satélite');if(tip.textContent!==v)tip.textContent=v;}
+   if(ma&&simple&&UI.lastAddr){let v=null;
+    if(UI.lk==='ok'&&ST.lot>0)v=UI.lastAddr+' · '+ST.lot.toLocaleString()+tx(' sq ft (',' pies² (')+(ST.lot/43560).toFixed(2)+tx(' acre)',' acres)');
+    else if(UI.lk==='fail')v=UI.lastAddr+' · '+tx('not found. Look at the map, then type the lot size','no encontrada. Mira el mapa y escribe el tamaño del terreno');
+    if(v!==null&&ma.textContent!==v)ma.textContent=v;}}
+}
+function toggleDet(){UI.det=!UI.det;UI.more=false;render();}
+function setDetails(v){UI.det=!!v;render();}
+(function(){
+  const ia=document.getElementById('iAddr'),il=document.getElementById('iLt');
+  il.addEventListener('input',()=>{UI.lotTyped=true;});
+  ia.addEventListener('input',()=>{
+    /* the lot size came from the old address: forget it so a stale price never stays on screen */
+    if(UI.lk==='ok'&&!UI.lotTyped&&getAddr()!==UI.lastAddr){UI.lk='none';il.value='';const m=$('addrMsg');if(m)m.classList.remove('show');upd();}
+  });
+  ia.addEventListener('change',()=>{const a=getAddr();if(a&&a!==UI.lastAddr)lookupAddr();});
+})();
 uxPass();
 
 initUI();render();loadRouteData();

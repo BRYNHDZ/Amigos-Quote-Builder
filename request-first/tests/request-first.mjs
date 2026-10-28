@@ -8,7 +8,10 @@ const base = process.argv[2] || 'http://localhost:8765';
 const browser = await chromium.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', args: ['--no-sandbox'] });
 const errors = [], fails = []; let checks = 0;
 const ok = (cond, msg, extra) => { checks++; if (!cond) fails.push({ msg, ...extra }); };
+// Old-flow tests open the focus view with all the fields showing (details=1). The new address-first flow is tested in section 8 with details=0.
+const withDet = path => (/view=focus/.test(path) && !/details=/.test(path)) ? path + '&details=1' : path;
 const open = async (path, vp) => {
+  path = withDet(path);
   const ctx = await browser.newContext({ viewport: vp || { width: 390, height: 844 }, hasTouch: !!vp });
   const p = await ctx.newPage(); p.setDefaultTimeout(6000); p.on('pageerror', e => errors.push(path + ': ' + e.message));
   await p.route(/nominatim|arcgis|dupage/i, r => r.abort()); await p.goto(base + path); return p;
@@ -150,6 +153,9 @@ ok(await p.locator('#pickGo').isDisabled(), 'continue disabled until something p
 await p.evaluate(() => document.querySelectorAll('.pk-tile')[0].scrollIntoView());
 await p.locator('.pk-tile').nth(1).click(); // leaf only
 await p.locator('#pickGo').click();
+ok(await vis('#iAddr') && !(await vis('#iLt')) && !(await vis('#dials')) && !(await vis('#s3')) && !(await vis('#moreBtn')), 'picker path lands on address-first: only the address is shown');
+await p.evaluate(() => setDetails(true)); // the older checks below look at the full-fields screen
+
 ok(await vis('#focusStrip') && await vis('#s1') && !(await vis('#pickScreen')), 'leaf path shows focus view');
 ok(await p.evaluate(() => !ST.sel.has('A1') && ST.sel.has('OD3') && document.querySelectorAll('#svcCol .season').length === 0), 'leaf only: no mowing, no season clutter, once-leaf preselected');
 ok(await p.locator('#fcLeaf').count() === 1 && await p.locator('#fcMow').count() === 0, 'only the leaf card shows');
@@ -336,7 +342,7 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
   const ctx = await browser.newContext({ viewport: MOBILE, hasTouch: true, isMobile: true, permissions: ['clipboard-read', 'clipboard-write'] });
   const u = await ctx.newPage(); u.setDefaultTimeout(6000); u.on('pageerror', e => errors.push('usability: ' + e.message));
   await u.route(/nominatim|arcgis|dupage/i, r => r.abort());
-  const goto = async qs => { await u.goto(base + '/?' + qs); await u.waitForTimeout(250); };
+  const goto = async qs => { await u.goto(base + withDet('/?' + qs)); await u.waitForTimeout(250); };
   const txt = () => u.evaluate(() => document.body.innerText);
   const barBtn = () => u.evaluate(() => document.querySelector('#bar .bar-btn').textContent.trim());
 
@@ -407,11 +413,215 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
     await goto('view=focus&lang=' + lang + '&req=mow'); await u.fill('#iAddr', 'zzzz qqq nowhere'); await u.locator('#lkBtn').click(); await u.waitForTimeout(2500);
     const m = await u.evaluate(() => { const e = document.getElementById('addrMsg'); const r = e.getBoundingClientRect(); return { show: e.classList.contains('show'), text: e.textContent, top: r.top + scrollY, addrTop: document.getElementById('iAddr').getBoundingClientRect().top + scrollY, btn: document.getElementById('lkBtn').textContent }; });
     ok(m.show && m.text.length > 20 && m.top - m.addrTop < 150, lang + ': bad address shows a plain message right under the address', { m });
-    ok(lang === 'es' ? /No encontramos/.test(m.text) : /couldn't find this address/.test(m.text), lang + ': address message language');
-    ok(await u.evaluate(() => document.getElementById('mapBox').style.display === 'none'), lang + ': no misleading map after a failed lookup');
+    ok(lang === 'es' ? /No encontramos esa dirección/.test(m.text) : /couldn't find that address/.test(m.text), lang + ': address message language');
+    ok(await u.evaluate(() => document.getElementById('mapBox').style.display !== 'none'), lang + ': map stays after a failed lookup (worker can eyeball the lot)');
   }
   await ctx.close();
   console.log('usability pass: checked quote summary on ' + paths.length * 2 + ' views');
+}
+
+
+// ---------- 8. address-first: one service = address + map + the one choice that matters; other fields only if the lookup finds nothing, or on "Change details" ----------
+{
+  const modes = {
+    found: async c => { await c.route(/nominatim/i, r => r.fulfill({ json: [{ lat: '41.85', lon: '-88.0', address: { town: 'Wheaton' } }] })); await c.route(/arcgis|dupage/i, r => r.fulfill({ json: { features: [{ attributes: { ACREAGE: 0.25, PIN: '0000' } }] } })); },
+    fail: async c => { await c.route(/nominatim|arcgis|dupage/i, r => r.abort()); },
+    empty: async c => { await c.route(/nominatim/i, r => r.fulfill({ json: [] })); await c.route(/arcgis|dupage/i, r => r.fulfill({ json: { features: [] } })); },
+  };
+  const mk = async (mode, qs) => {
+    const ctx = await browser.newContext({ viewport: MOBILE, hasTouch: true, isMobile: true });
+    const u = await ctx.newPage(); u.setDefaultTimeout(6000); u.on('pageerror', e => errors.push('address-first: ' + e.message));
+    await modes[mode](ctx); await u.goto(base + '/?' + qs); await u.waitForTimeout(250); u.ctx = ctx; return u;
+  };
+  const vis = (u, sel) => u.evaluate(sel => { const e = document.querySelector(sel); if (!e) return false; const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0; }, sel);
+  const lookup = async (u, a = '303 W Wesley St, Wheaton, IL') => { await u.fill('#iAddr', a); await u.locator('#lkBtn').click(); await u.waitForTimeout(1500); };
+  const money0 = n => '$' + Math.round(n).toLocaleString();
+  const barAmt = u => u.evaluate(() => document.querySelector('#bar .bar-amt').textContent);
+  const barTxt = u => u.evaluate(() => document.querySelector('#bar').innerText);
+  const FIELDS = ['#iLt', '#dials', '#moreBtn', '#measDet', '#s3', '#mapBox', '#estW'];
+  const HID = ['#iLt', '#dials', '#moreBtn', '#measDet', '#s3', '#estW']; // never on the simple screen once the address is found (mowing)
+  for (const lang of ['en', 'es']) {
+    const es = lang === 'es';
+    // before typing: ONLY the address box is there, no quote yet, the bar asks for the address
+    let u = await mk('found', 'view=focus&lang=' + lang + '&req=mow');
+    ok(await vis(u, '#iAddr'), lang + ': address box shown');
+    for (const f of FIELDS) ok(!(await vis(u, f)), lang + ': hidden before the address is typed: ' + f);
+    ok(!(await vis(u, '#qrCard')), lang + ': no quote yet');
+    ok((es ? /Escribe la dirección/ : /Type the address/).test(await barTxt(u)), lang + ': bar asks for the address');
+    // the options are already there before the address: Leave on lawn AND Bag and take, side by side, both ticked
+    ok(await vis(u, '#svcCol') && (await u.locator('#svcCol .opt').count()) === 2, lang + ': mowing shows both options (leave or bag)');
+    ok(await u.evaluate(() => document.querySelectorAll('#svcCol .opt.on').length === 2 && UI.opts.mow.size === 2), lang + ': both mowing options are ticked by default');
+    // address found: the map shows up + the quote; still no lot size box etc.
+    await lookup(u);
+    ok(await vis(u, '#mapBox') && await u.evaluate(() => document.getElementById('mapBox').offsetHeight) >= 200, lang + ': map shows after the address is found');
+    ok((await u.evaluate(() => document.querySelector('#mapBox iframe') && document.querySelector('#mapBox iframe').src)) !== null, lang + ': map is the same embed as the full builder');
+    ok(await vis(u, '#qrCard'), lang + ': Quote ready card shows after the address is found');
+    for (const f of HID) ok(!(await vis(u, f)), lang + ': fields stay hidden after a successful lookup: ' + f);
+    const mowBoth = await barAmt(u);
+    ok(/^(From|Desde) \$[1-9]/.test(mowBoth), lang + ': two options -> the bar says From $lowest', { mowBoth });
+    const qrBoth = await u.evaluate(() => document.getElementById('qrCard').innerText);
+    ok(await u.evaluate(() => document.querySelectorAll('#qrCard .qr-opt').length === 2), lang + ': Quote ready lists both options');
+    ok(await u.evaluate(() => { const o = [...document.querySelectorAll('#svcCol .opt')].map(e => Number(e.querySelector('.op').textContent.replace(/\D/g, ''))); const q = [...document.querySelectorAll('#qrCard .qr-opt b')].map(e => Number(e.textContent.replace(/\D/g, ''))); return o.length === 2 && o[1] > o[0] && JSON.stringify(o) === JSON.stringify(q) && o[0] === gp('A1') && o[1] === gp('A2'); }), lang + ': each option shows its own price, same on the card and in the quote');
+    // untick Leave on lawn -> only Bag and take stays: ONE price
+    await u.locator('#svcCol .opt').nth(0).click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => ST.sel.has('A2') && !ST.sel.has('A1') && document.querySelectorAll('#qrCard .qr-opt').length === 0 && document.querySelectorAll('#qrCard .qr-row').length === 1), lang + ': unticking Leave on lawn leaves a single bagged price');
+    ok(await barAmt(u) !== mowBoth && /^\$/.test(await barAmt(u)), lang + ': single option -> plain price, no From');
+    await u.locator('#svcCol .opt').nth(1).click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => ST.sel.has('A2') && document.querySelectorAll('#svcCol .opt.on').length === 1), lang + ': the last ticked option cannot be unticked (a quote needs one)');
+    await u.locator('#svcCol .opt').nth(0).click(); await u.waitForTimeout(100); await u.locator('#svcCol .opt').nth(1).click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => ST.sel.has('A1') && !ST.sel.has('A2')), lang + ': back to Leave on lawn only');
+    ok(!(await vis(u, '#addrMsg')), lang + ': no error after a successful lookup');
+    ok(/10,890/.test(await u.locator('#addrNote').innerText()), lang + ': says what lot size it found');
+    ok(await u.evaluate(() => ST.lot) === 10890, lang + ': lot size filled from the lookup');
+    const mowPrice = await barAmt(u);
+    ok(/^\$[1-9]/.test(mowPrice), lang + ': price shows', { mowPrice });
+    ok(mowPrice === money0(await u.evaluate(() => gp('A1'))), lang + ': one option = the full-screen price for that option');
+    const tgt = await u.evaluate(() => [...document.querySelectorAll('#detToggle,#lkBtn,.qr-btn,.so-btn,.f-add,#bar .bar-btn')].filter(e => e.offsetParent).map(e => [e.id || e.className, Math.round(e.getBoundingClientRect().height)]).filter(x => x[1] < 48));
+    ok(tgt.length === 0, lang + ': address-first buttons are at least 48px tall', { tgt });
+    // price is the same as the old full-fields screen with the same lot size (auto values, leaf level default)
+    const old = await open('/?view=focus&lang=' + lang + '&req=mow'); await old.fill('#iLt', '10890'); await old.waitForTimeout(250);
+    ok(mowPrice === await barAmt(old), lang + ': same price as the full-fields screen with the same lot size', { mowPrice, old: await barAmt(old) });
+    // Change details: shows the lot size / dials, change a value, the quote follows; tap again to put them away
+    ok(/detalles/.test(await u.locator('#detToggle').innerText()) === es, lang + ': "Change details" link in the right language');
+    await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+    ok(await vis(u, '#iLt') && await vis(u, '#dials'), lang + ': Change details reveals the fields');
+    ok(await u.evaluate(() => document.getElementById('iLt').value) === '10890', lang + ': the looked-up lot size is in the field');
+    await u.fill('#iLt', '21780'); await u.waitForTimeout(250);
+    ok(await barAmt(u) !== mowPrice, lang + ': changing a field changes the quote', { now: await barAmt(u), mowPrice });
+    await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+    ok(!(await vis(u, '#iLt')), lang + ': second tap puts the fields away again');
+    ok(await u.evaluate(() => ST.lot) === 21780, lang + ': the changed value is kept');
+    await u.ctx.close();
+
+    // a different address must not keep the old lot size / quote
+    u = await mk('found', 'view=focus&lang=' + lang + '&req=mow');
+    await lookup(u); await u.fill('#iAddr', '12 Other Ave'); await u.waitForTimeout(300);
+    ok(await u.evaluate(() => ST.lot) === 0 && !(await vis(u, '#qrCard')), lang + ': new address clears the old lot size and quote (no stale price)');
+    await u.locator('#addrMsg').count();
+    await u.ctx.close();
+    // blank address: plain message, nothing breaks
+    u = await mk('found', 'view=focus&lang=' + lang + '&req=mow');
+    await u.locator('#lkBtn').click(); await u.waitForTimeout(300);
+    ok(await vis(u, '#addrMsg') && (es ? /Escribe primero/ : /Type the address first/).test(await u.locator('#addrMsg').innerText()), lang + ': blank address gets a plain message');
+    await u.ctx.close();
+
+    // address not found (network down, or nothing matched): plain message + only the fields this service needs
+    for (const mode of ['fail', 'empty']) {
+      u = await mk(mode, 'view=focus&lang=' + lang + '&req=mow');
+      await lookup(u);
+      ok(await vis(u, '#addrMsg'), lang + '/' + mode + ': plain message shown');
+      ok((es ? /No encontramos esa dirección\. Escribe el tamaño del terreno\./ : /We couldn't find that address\. Type the lot size\./).test(await u.locator('#addrMsg').innerText()), lang + '/' + mode + ': message text');
+      ok(await vis(u, '#iLt'), lang + '/' + mode + ': lot size box is revealed');
+      ok(await vis(u, '#mapBox'), lang + '/' + mode + ': the map stays so the lot can be eyeballed');
+      ok(!(await vis(u, '#dials')) && !(await vis(u, '#s3')) && !(await vis(u, '#moreBtn')) && !(await vis(u, '#measDet')), lang + '/' + mode + ': nothing else is revealed for mowing');
+      ok(!(await vis(u, '#qrCard')), lang + '/' + mode + ': no quote until the lot size is typed');
+      ok(/lot size|tamaño/i.test(await barTxt(u)), lang + '/' + mode + ': bar asks for the lot size');
+      await u.fill('#iLt', '10890'); await u.waitForTimeout(250);
+      ok(await vis(u, '#qrCard') && (await barAmt(u)).endsWith(mowPrice), lang + '/' + mode + ': typing the lot size gives the same lowest price as a found address', { got: await barAmt(u), mowPrice });
+      // Change details also works from the not-found state
+      await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+      ok(await vis(u, '#dials'), lang + '/' + mode + ': Change details works after a failed lookup too');
+      await u.ctx.close();
+    }
+  }
+  // each service: found = map + its key choice, no other fields; not found = map stays + only the fields THAT service needs
+  const needs = { mow: false, leaf: false, snow: true, mulch: true, bush: true }; // true = measurement box is revealed when the lookup fails
+  const keyChoice = { mow: ['A1', 'A2'], leaf: ['nut', 'rem'], snow: ['H1', 'H2', 'H4'], bush: ['E1', 'E2', 'OE1'] }; // the buttons on the simple screen
+  for (const [svc, meas] of Object.entries(needs)) {
+    let u = await mk('found', 'view=focus&req=' + svc); await lookup(u);
+    ok(await vis(u, '#mapBox'), svc + ': map shown after address found');
+    for (const f of ['#dials', '#moreBtn', '#s3', '#estW']) ok(!(await vis(u, f)), svc + ': hidden after address found: ' + f);
+    ok(await vis(u, '#measDet') === (svc === 'mulch'), svc + ': yards box ' + (svc === 'mulch' ? 'shown (it is the mulch choice)' : 'hidden'));
+    ok(!(await vis(u, '#iLt')) && await u.evaluate(() => ST.lot) === 10890, svc + ': lot size hidden but filled');
+    if (svc === 'mulch') {
+      ok(await vis(u, '#iMu'), 'mulch: yards field visible');
+    } else {
+      ok(await u.evaluate(ids => { const o = [...document.querySelectorAll('#svcCol .opt')].filter(e => e.offsetParent); return o.length === ids.length && ids.every(i => o.some(e => e.dataset.opt === i)); }, keyChoice[svc]), svc + ': the service\'s options are all on screen together: ' + keyChoice[svc].join('/'));
+    }
+    if (svc === 'leaf') ok(await u.evaluate(() => effLeaf() === 3 && ![...document.querySelectorAll('#svcCol .opt')].some(e => e.dataset.opt === 'est') && document.querySelectorAll('#svcCol .f-q').length === 1), 'leaf: level stays at 3; Full clear and "When?" are under Change details');
+    if (svc === 'bush') ok(await u.evaluate(() => UI.opts.bush.has('E1') && UI.opts.bush.has('OE1') && !UI.opts.bush.has('E2') && document.querySelector('#svcCol .opt[data-opt=E2]').getAttribute('aria-disabled') === 'true'), 'bush: Once a year + One time are ticked; All season waits for mowing');
+    ok(await u.evaluate(() => { const t = document.getElementById('qrCard'); return !!t && t.offsetParent !== null; }), svc + ': quote ready');
+    const tiny = await u.evaluate(() => [...document.querySelectorAll('#svcCol .choice,#svcCol .opt,#svcCol .f-add,#iMu,#detToggle')].filter(e => e.offsetParent).map(e => Math.round(e.getBoundingClientRect().height)).filter(h => h < 48));
+    ok(tiny.length === 0, svc + ': choices are at least 48px tall', { tiny });
+    await u.ctx.close();
+    u = await mk('fail', 'view=focus&req=' + svc); await lookup(u);
+    ok(await vis(u, '#iLt') && await vis(u, '#addrMsg'), svc + ': not found reveals lot size + message');
+    ok(await vis(u, '#mapBox'), svc + ': map stays when not found');
+    ok(await vis(u, '#measDet') === meas, svc + ': measurement box ' + (meas ? 'revealed' : 'stays hidden') + ' when not found');
+    ok(!(await vis(u, '#dials')) && !(await vis(u, '#s3')), svc + ': dials and payment stay hidden when not found');
+    await u.ctx.close();
+  }
+  // several services: still only the address; "Everything" is still the full screen
+  { const u = await mk('found', 'view=focus&req=mow,leaf,snow,mulch'); await lookup(u);
+    for (const f of ['#iLt', '#dials', '#s3']) ok(!(await vis(u, f)), 'several services: hidden after address found: ' + f);
+    ok(await vis(u, '#qrCard'), 'several services: quote ready'); await u.ctx.close(); }
+  for (const url of ['view=all', 'view=focus&req=mow&details=1']) {
+    const u = await mk('found', url);
+    ok(!(await u.evaluate(() => document.body.classList.contains('simple'))), url + ': full screen, not address-first');
+    for (const f of ['#iLt', '#dials', '#s3']) ok(await vis(u, f), url + ': shown: ' + f);
+    await u.ctx.close();
+  }
+  { const u = await mk('found', 'view=focus&req=mow'); await u.locator('#focusStrip .f-all').count();
+    await u.evaluate(() => goAll()); await u.waitForTimeout(150);
+    ok(await vis(u, '#iLt') && await vis(u, '#dials') && await vis(u, '#s3'), 'Everything from the focus screen shows all the fields'); await u.ctx.close(); }
+  console.log('address-first flow checked');
+}
+
+// ---------- 9. options: a service's choices shown together, each with its own price; the customer picks one ----------
+{
+  const MODE = async c => { await c.route(/nominatim/i, r => r.fulfill({ json: [{ lat: '41.85', lon: '-88.0', address: { town: 'Wheaton' } }] })); await c.route(/arcgis|dupage/i, r => r.fulfill({ json: { features: [{ attributes: { ACREAGE: 0.25, PIN: '0000' } }] } })); };
+  const mk = async (qs, lang) => {
+    const ctx = await browser.newContext({ viewport: MOBILE, hasTouch: true, isMobile: true });
+    const u = await ctx.newPage(); u.setDefaultTimeout(6000); u.on('pageerror', e => errors.push('options: ' + e.message));
+    await MODE(ctx); await u.goto(base + '/?view=focus&lang=' + (lang || 'en') + '&req=' + qs); await u.waitForTimeout(250);
+    await u.fill('#iAddr', '303 W Wesley St, Wheaton, IL'); await u.locator('#lkBtn').click(); await u.waitForTimeout(1500); u.ctx = ctx; return u;
+  };
+  const fullPg = await open('/?view=all'); await fullPg.fill('#iLt', '10890'); await fullPg.waitForTimeout(250);
+  // the price the FULL screen gives when only that one option is picked
+  const fullPrice = id => fullPg.evaluate(id => { ST.sel = new Set([id]); render(); return document.querySelector('#bar .bar-amt').textContent; }, id);
+  const OPTS = { 'mow': ['A1', 'A2'], 'leaf': ['OD3', 'OD4'], 'snow': ['H1', 'H2', 'H4'], 'bush': ['E1', 'OE1'], 'mow,leaf': ['A1', 'A2', 'G1', 'G2'], 'mow,bush': ['A1', 'A2', 'E1', 'E2', 'OE1'] };
+  for (const [req, ids] of Object.entries(OPTS)) {
+    const u = await mk(req);
+    const shown = await u.evaluate(() => Object.fromEntries([...document.querySelectorAll('#svcCol .opt.on')].map(e => [e.dataset.id, e.querySelector('.op').textContent])));
+    ok(JSON.stringify(Object.keys(shown).sort()) === JSON.stringify([...ids].sort()), req + ': default ticked options are ' + ids.join('/'), { shown });
+    for (const id of ids) ok(shown[id] === await fullPrice(id), req + ': option ' + id + ' shows the full-screen price for it', { id, shown: shown[id], full: await fullPrice(id) });
+    // the quote card: one row per option with the same price; total = lowest option of each service
+    const q = await u.evaluate(() => ({ opts: [...document.querySelectorAll('#qrCard .qr-opt b')].map(e => e.textContent), tot: document.querySelector('#qrCard .qr-big').textContent, bar: document.querySelector('#bar .bar-amt').textContent, text: quoteText(), low: (() => { let t = 0; OPT_SVCS.forEach(s => { const g = optGroup(s); if (g) t += Math.min(...g.map(gp)); }); [...ST.sel].filter(i => !optSvcOfId(i)).forEach(i => t += gp(i)); return t; })() }));
+    ok(q.opts.length === ids.length && ids.every(i => q.opts.includes(shown[i])), req + ': Quote ready lists every option with its price', { q });
+    ok(q.tot.replace(/\D/g, '') === String(Math.round(q.low)) && /^(From|Desde)/.test(q.bar), req + ': total is the lowest option of each service, labeled From', { tot: q.tot, low: q.low });
+    ok(ids.every(i => q.text.includes(shown[i])) && /Option 1/.test(q.text) && /customer picks one/.test(q.text) && !/undefined|NaN/.test(q.text), req + ': copied text lists each option with its price, labeled for the customer', { text: q.text });
+    // toggle every option off but one: single price, plain total, nothing to choose from
+    for (const svc of req.split(',')) {
+      const keys = await u.evaluate(s => [...document.querySelectorAll('#fc' + { mow: 'Mow', leaf: 'Leaf', snow: 'Snow', bush: 'Bush' }[s] + ' .opt.on')].map(e => e.dataset.opt), svc);
+      for (const k of keys.slice(1)) { await u.locator('#fc' + { mow: 'Mow', leaf: 'Leaf', snow: 'Snow', bush: 'Bush' }[svc] + ' .opt[data-opt=' + k + ']').click(); await u.waitForTimeout(80); }
+    }
+    const one = await u.evaluate(() => ({ grp: document.querySelectorAll('#qrCard .qr-opt').length, bar: document.querySelector('#bar .bar-amt').textContent, tot: document.querySelector('#qrCard .qr-big').textContent, sum: [...ST.sel].reduce((a, i) => a + gp(i), 0), text: quoteText() }));
+    ok(one.grp === 0 && /^\$/.test(one.bar) && one.tot.replace(/\D/g, '') === String(Math.round(one.sum)) && !/Option 1|customer picks/.test(one.text), req + ': one option each = a single-price quote', { one });
+    await u.ctx.close();
+  }
+  // snow: all three side by side, leaf with mowing can also offer Full clear
+  { const u = await mk('mow,leaf');
+    ok(await u.evaluate(() => !!document.querySelector('#fcLeaf .opt[data-opt=est]') && !document.querySelector('#fcLeaf .opt[data-opt=est]').classList.contains('on')), 'leaf with mowing: Full clear is offered, not ticked');
+    await u.locator('#fcLeaf .opt[data-opt=est]').click(); await u.waitForTimeout(100);
+    ok(await u.evaluate(() => optGroup('leaf').length === 3 && document.querySelectorAll('#qrCard .qr-grp').length === 2), 'ticking Full clear adds it as a third leaf option');
+    ok(await u.evaluate(() => { const o = document.querySelector('#fcLeaf .opt[data-opt=est] .op').textContent; return o === '$' + Math.round(gp('G3')).toLocaleString(); }), 'Full clear shows its own price');
+    // Change details: options survive, and a different pick there wins when you come back
+    await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => document.querySelectorAll('#qrCard .qr-grp').length === 2), 'Change details: the quote still shows the options');
+    await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => UI.opts.mow.size === 2 && UI.opts.leaf.size === 3), 'back from Change details: the ticked options are kept');
+    await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+    await u.evaluate(() => pickMow('A2')); await u.waitForTimeout(100);
+    await u.locator('#detToggle').click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => UI.opts.mow.size === 1 && UI.opts.mow.has('A2') && !optGroup('mow')), 'a pick made under Change details becomes the single mowing option');
+    await u.ctx.close(); }
+  // Spanish
+  { const u = await mk('mow,leaf', 'es');
+    const tx = await u.evaluate(() => quoteText());
+    ok(/Opción 1/.test(tx) && /el cliente escoge una/.test(tx) && /Desde/.test(tx) && !/customer picks|Option 1/.test(tx), 'es: copied text is in Spanish with the options labeled');
+    ok(await u.evaluate(() => /Opción 1/.test(document.getElementById('qrCard').innerText) && /Desde/.test(document.querySelector('#bar .bar-amt').textContent) && /Toca las opciones/.test(document.querySelector('#svcCol .o-hint').textContent)), 'es: Quote ready and the bar are in Spanish');
+    await u.ctx.close(); }
+  console.log('options flow checked');
 }
 
 console.log('checks: ' + checks + ', failures: ' + fails.length + ', page errors: ' + errors.length);
