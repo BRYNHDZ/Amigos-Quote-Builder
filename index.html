@@ -206,6 +206,22 @@ body{padding-bottom:90px}
 .choice.dis{opacity:.45;cursor:default}
 .ch-t{font-size:16px;font-weight:700;line-height:1.2}
 .ch-s{font-size:12px;color:#777}
+.opts{display:grid;gap:8px}
+.opt{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border:2px solid #d8d8d0;border-radius:12px;background:#fff;color:#18240F;font-family:'Nunito',sans-serif;cursor:pointer;text-align:left;width:100%}
+.opt.on{border-color:#30471F;background:#eef5e8;box-shadow:0 0 0 2px rgba(48,71,31,.18)}
+.opt.dis{opacity:.45;cursor:default}
+.opt .ob{width:26px;height:26px;border:2px solid #9aa08f;border-radius:7px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;line-height:1}
+.opt.on .ob{background:#30471F;border-color:#30471F}
+.opt .ot{display:flex;flex-direction:column;gap:1px;min-width:0}
+.opt .ot b{font-size:16px;font-weight:700;line-height:1.2}
+.opt .ot i{font-style:normal;font-size:12px;color:#5d6356}
+.opt .op{font-family:'Fredoka',sans-serif;font-size:22px;font-weight:400;white-space:nowrap}
+.o-hint{font-size:13px;color:#5d6356;margin:-2px 0 8px;line-height:1.3}
+.qr-grp{padding:8px 0;border-bottom:1px solid #d9e4cc}
+.qr-gh{font-size:13px;font-weight:800;color:#5d6356;margin-bottom:2px}
+.qr-opt{display:flex;justify-content:space-between;gap:10px;padding:5px 0 5px 12px;font-size:16px;line-height:1.3}
+.qr-opt b{white-space:nowrap;font-family:'Fredoka',sans-serif;font-weight:400}
+.qr-note{font-size:12px;color:#5d6356;margin:2px 0 4px}
 .ch-pop{font-size:11px;font-weight:700;background:#FFB300;color:#18240F;border-radius:20px;padding:1px 8px;margin-top:2px}
 .fprice{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px;border:1.5px solid #30471F;border-radius:12px;background:#f5f9f4}
 .fprice.extra{border-color:#e0dfd8;background:#fff}
@@ -765,7 +781,8 @@ function renderOut(){
   $('refBox').innerHTML=renderRef();
   document.querySelectorAll('.season-meta[data-season]').forEach(el=>{const s=SEASONS.find(x=>x.title===el.dataset.season);if(s)el.textContent=seasonMeta(s);});
   const cnt=ST.sel.size;const noLot=cnt>0&&total<=0&&ST.lot<=0;const askAddr=noLot&&UI.view==='focus'&&!UI.det&&UI.lk!=='fail';
-  const barAmt=ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):money(total);
+  const multi=qrData().multi;
+  const barAmt=(multi?t('op.from'):'')+(ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):money(total));
   const barLbl=ST.payView==='monthly'?n+tx(' payment'+(n===1?'':'s'),' pago'+(n===1?'':'s')):ST.payView==='annual'?(ap.save?tx('Annual Payment, 1 month free','Pago anual, 1 mes gratis'):tx('Annual Payment','Pago anual')):tx('Pay-As-You-Go','Pago por servicio');
   $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+(askAddr?tx('Type the address to see the price','Escribe la dirección para ver el precio'):noLot?tx('Type the lot size to see the price','Escribe el tamaño del terreno para ver el precio'):cnt>0?cnt+tx(' service'+(cnt===1?'':'s'),' servicio'+(cnt===1?'':'s'))+' · '+barLbl:tx('Nothing picked yet','Nada escogido todavía'))+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="'+(askAddr?'#iAddr':noLot?'#iLt':cnt>0?'#qrCard':'#s2')+'">'+(askAddr?tx('Type the address ↑','Escribe la dirección ↑'):noLot?tx('Add lot size ↑','Pon el terreno ↑'):cnt>0?tx('See quote ↓','Ver cotización ↓'):tx('Pick a service ↓','Escoge un servicio ↓'))+'</a></div>';
   $('st1').classList.toggle('done',ST.lot>0);$('st2').classList.toggle('done',cnt>0);$('st3').classList.toggle('done',!!ST.payPicked);
@@ -863,7 +880,9 @@ Object.assign(I18N.en,{'l.hf':'Home footprint (sq ft)','h.hf':'Subtracts home fr
 Object.assign(I18N.es,{'l.hf':'Superficie de la casa (pies²)','h.hf':'Se resta la casa del terreno. "Área construida" de Zillow ÷ pisos.','l.ln':'Césped (pies²)','h.mu':'Define el precio del mantillo y del cuidado de jardineras','l.tr':'Tiempo de recorte de arbustos por visita (horas)','l.pe':'Poda de perennes por sesión (horas)','l.hv':'Valor de la casa (~miles de $)','h.hv':'Cálculo a ojo (Zillow/Redfin). Define el perfil del cliente.','l.start':'Mes de inicio','l.tier':'Esfuerzo de cotización (define el mínimo)','o.remote':'Remoto','o.driveby':'Desde la calle','o.appt':'Con cita','b.look':'📍 Buscar','h.lot0':'Escribe solo esto → todos los servicios se calculan solos'});
 Object.assign(I18N.en,{'l.mu.f':'How many yards of mulch?','h.mu.f':'Leave it blank and we guess from the lot size.','l.addr.f':'Type the address','det.show':'Change details','det.hide':'Fewer details',"l.rate": "Crew price per hour", "l.cx": "Yard difficulty", "l.tier": "How was the property checked? (sets the lowest price)", "l.pe": "Flower pruning time per visit (hrs)", "so.btn": "↺ Start over", "so.sure": "Tap again to erase everything"});
 Object.assign(I18N.es,{'l.mu.f':'¿Cuántas yardas de mantillo?','h.mu.f':'Déjalo vacío y lo calculamos con el tamaño del terreno.','l.addr.f':'Escribe la dirección','det.show':'Cambiar detalles','det.hide':'Menos detalles',"l.rate": "Precio por hora de la cuadrilla", "l.cx": "Dificultad del terreno", "l.tier": "¿Cómo se revisó la propiedad? (define el precio mínimo)", "l.pe": "Tiempo para podar flores por visita (h)", "so.btn": "↺ Empezar de nuevo", "so.sure": "Toca otra vez para borrar todo"});
-const UI={view:'all',pick:new Set(),focus:new Set(),lang:'en',more:false,touched:false,prev:null,desc:new Set(),measOpen:false,det:false,lk:'none',lastAddr:'',lotTyped:false};
+Object.assign(I18N.en,{'op.hint':'Tap the options to offer. The customer picks one.','op.pick':'customer picks one','op.from':'From ','op.low':'Total (lowest option of each)','op.pnote':'Payment plans use the lowest option of each service.','op.opt':'Option '});
+Object.assign(I18N.es,{'op.hint':'Toca las opciones que ofreces. El cliente escoge una.','op.pick':'el cliente escoge una','op.from':'Desde ','op.low':'Total (la opción más baja de cada una)','op.pnote':'Los pagos usan la opción más baja de cada servicio.','op.opt':'Opción '});
+const UI={opts:{},optsSel:{},view:'all',pick:new Set(),focus:new Set(),lang:'en',more:false,touched:false,prev:null,desc:new Set(),measOpen:false,det:false,lk:'none',lastAddr:'',lotTyped:false};
 function t(k){const d=I18N[UI.lang];const fk=k+'.f';if(UI.view==='focus'&&d[fk]!=null)return d[fk];return d[k]!=null?d[k]:(I18N.en[k]!=null?I18N.en[k]:k);}
 function tx(en,es){return UI.lang==='es'?es:en;}
 function reqOn(r){if(UI.view!=='focus')return true;if(r==='bed')return UI.focus.has('bush')||UI.focus.has('mulch');return UI.focus.has(r);}
@@ -915,17 +934,82 @@ function fprice(id,extra){
   return h+'</div>';
 }
 function simpleView(){return UI.view==='focus'&&!UI.det;}
+/* ===== options: show a service's choices together, each with its own price (customer picks one) ===== */
+const OPT_SVCS=['mow','leaf','snow','bush'];
+const OPT_ALL={mow:['A1','A2'],leaf:LEAF_IDS,snow:['H1','H2','H4'],bush:['E1','E2','OE1']};
+function leafW(){const c=leafState();let w=c?c.w:(isMow()?'during':'once');if(!isMow())w='once';return w;}
+function optList(svc){
+  const mow=isMow();
+  if(svc==='mow')return [{key:'A1',id:'A1'},{key:'A2',id:'A2'}];
+  if(svc==='snow')return [{key:'H1',id:'H1'},{key:'H2',id:'H2'},{key:'H4',id:'H4'}];
+  if(svc==='bush')return [{key:'E1',id:'E1'},{key:'E2',id:'E2',dis:!mow},{key:'OE1',id:'OE1'}];
+  const w=leafW();
+  const l=[{key:'nut',id:LEAFMAP.nut[w]},{key:'rem',id:LEAFMAP.rem[w]}];
+  if(mow)l.push({key:'est',id:'G3'});
+  return l;
+}
+function optDefault(svc){return new Set(optList(svc).filter(o=>!o.dis&&o.key!=='est').map(o=>o.key));}
+function optCur(svc){return OPT_ALL[svc].filter(i=>ST.sel.has(i));}
+function optKeyOf(svc,id){
+  if(svc==='leaf'){for(const k of ['nut','rem','est'])if(LEAFMAP[k].during===id||LEAFMAP[k].once===id)return k;return null;}
+  return id;
+}
+function optCheapest(ids){let best=ids[0],bp=gp(best)||0;ids.forEach(i=>{const v=gp(i)||0;if(v<bp||(bp<=0&&v>0)){best=i;bp=v;}});return best;}
+/* keeps ST.sel at one service per group (the lowest checked option), so every price and rule works as before */
+function optSync(){
+  if(!simpleView())return;
+  OPT_SVCS.forEach(svc=>{
+    if(!UI.focus.has(svc))return;
+    const cur=optCur(svc);
+    let set=UI.opts[svc];
+    if(!set||!set.size){set=optDefault(svc);}
+    else if(cur.length===1&&cur[0]!==UI.optsSel[svc]){const k=optKeyOf(svc,cur[0]);set=new Set(k?[k]:[]);}   /* changed under "Change details" */
+    else if(cur.length>1)set=optDefault(svc);
+    const list=optList(svc);
+    set=new Set([...set].filter(k=>list.some(o=>o.key===k&&!o.dis)));
+    if(!set.size)set=optDefault(svc);
+    if(!set.size)return;
+    const ids=list.filter(o=>set.has(o.key)).map(o=>o.id);
+    const pick=optCheapest(ids);
+    OPT_ALL[svc].forEach(i=>ST.sel.delete(i));ST.sel.add(pick);
+    UI.opts[svc]=set;UI.optsSel[svc]=pick;
+  });
+}
+/* the options a quote offers for one service, or null when it is a single price */
+function optGroup(svc){
+  if(UI.view!=='focus'||!UI.focus.has(svc)||!UI.opts[svc])return null;
+  const cur=optCur(svc);if(cur.length!==1||cur[0]!==UI.optsSel[svc])return null;
+  const list=optList(svc).filter(o=>UI.opts[svc].has(o.key)&&!o.dis);
+  if(list.length<2)return null;
+  return list.map(o=>o.id);
+}
+function optSvcOfId(id){return OPT_SVCS.find(s=>OPT_ALL[s].includes(id))||null;}
+function togOpt(svc,key){
+  const set=UI.opts[svc]||optDefault(svc);const o=optList(svc).find(x=>x.key===key);if(!o||o.dis)return;
+  if(set.has(key)){if(set.size<2)return;set.delete(key);}else set.add(key);
+  UI.opts[svc]=set;render();
+}
+function optHTML(svc){
+  const set=UI.opts[svc]||optDefault(svc);
+  const nm={A1:['c.A1','c.A1s'],A2:['c.A2','c.A2s'],nut:['c.nut','c.nuts'],rem:['c.rem','c.rems'],est:['c.est','c.ests'],H1:['c.H1','c.H1s'],H2:['c.H2','c.H2s'],H4:['c.H4','c.H4s'],E1:['c.E1','c.E1s'],E2:['c.E2','c.E2s'],OE1:['c.OE1','c.OE1s']};
+  const n=[...set].length;
+  return '<div class="o-hint">'+t('op.hint')+'</div><div class="opts" data-opts="'+svc+'">'+optList(svc).map(o=>{
+    const on=set.has(o.key)&&!o.dis,p=gp(o.id)||0,k=nm[o.key];
+    const sub=o.dis?t('c.'+o.key+'d'):(o.key==='est'?t('c.ests').split(' · ')[0]:t(k[1]));
+    return '<button type="button" class="opt'+(on?' on':'')+(o.dis?' dis':'')+'" role="checkbox" aria-checked="'+(on?'true':'false')+'"'+(o.dis?' aria-disabled="true"':'')+' data-opt="'+o.key+'" data-id="'+o.id+'" onclick="'+(o.dis?'':"togOpt('"+svc+"','"+o.key+"')")+'"><span class="ob">'+(on?'✓':'')+'</span><span class="ot"><b>'+t(k[0])+'</b><i>'+sub+'</i></span><span class="op">'+(p>0?'$'+Math.round(p).toLocaleString():'–')+'</span></button>';
+  }).join('')+'</div>';
+}
 function mowCard(){
-  let h='<div class="fcard" id="fcMow"><div class="fcard-hd">'+IC.mow+'<span>'+t('c.mow')+'</span></div><div class="f-q">'+t('q.clip')+'</div><div class="choices">'
-   +choice(t('c.A1'),t('c.A1s'),"pickMow('A1')",ST.sel.has('A1'),false,true)+choice(t('c.A2'),t('c.A2s'),"pickMow('A2')",ST.sel.has('A2'),false,false)+'</div>';
+  let h='<div class="fcard" id="fcMow"><div class="fcard-hd">'+IC.mow+'<span>'+t('c.mow')+'</span></div><div class="f-q">'+t('q.clip')+'</div>'
+   +(simpleView()?optHTML('mow'):'<div class="choices">'+choice(t('c.A1'),t('c.A1s'),"pickMow('A1')",ST.sel.has('A1'),false,true)+choice(t('c.A2'),t('c.A2s'),"pickMow('A2')",ST.sel.has('A2'),false,false)+'</div>');
   if(!simpleView())['A1','A2'].forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
   return h+'</div>';
 }
 function leafCard(){
   const cur=leafState(),mow=isMow(),sm=simpleView();
-  let h='<div class="fcard" id="fcLeaf"><div class="fcard-hd">'+IC.leaf+'<span>'+t('c.leaf')+'</span></div><div class="f-q">'+t('q.kind')+'</div><div class="choices">'
+  let h='<div class="fcard" id="fcLeaf"><div class="fcard-hd">'+IC.leaf+'<span>'+t('c.leaf')+'</span></div><div class="f-q">'+t('q.kind')+'</div>'+(sm?optHTML('leaf'):'<div class="choices">'
    +choice(t('c.nut'),t('c.nuts'),"setLeaf('nut',null)",!!cur&&cur.k==='nut',false,true)+choice(t('c.rem'),t('c.rems'),"setLeaf('rem',null)",!!cur&&cur.k==='rem',false,false)
-   +(sm?'':choice(t('c.est'),mow?t('c.ests').split(' · ')[0]:t('c.ests'),"setLeaf('est',null)",!!cur&&cur.k==='est',!mow,false,true))+'</div>';
+   +(sm?'':choice(t('c.est'),mow?t('c.ests').split(' · ')[0]:t('c.ests'),"setLeaf('est',null)",!!cur&&cur.k==='est',!mow,false,true))+'</div>');
   if(!sm){
    h+='<div class="f-q">'+t('q.when')+'</div><div class="choices">'
    +choice(t('c.dur'),mow?'':t('c.durs'),"setLeaf(null,'during')",!!cur&&cur.w==='during',!mow,false)+choice(t('c.once'),t('c.onces'),"setLeaf(null,'once')",!!cur&&cur.w==='once',!!cur&&cur.k==='est',false)+'</div>';
@@ -942,7 +1026,7 @@ function rowsFor(ids){let h='';ids.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);
 function snowCard(){
   const ids=['H1','H2','H4'];
   return '<div class="fcard" id="fcSnow"><div class="fcard-hd">'+IC.snow+'<span>'+t('c.snow')+'</span></div><div class="f-q">'+t('q.snow')+'</div>'
-   +grpHTML(ids,[{id:'H1',wide:0},{id:'H2'},{id:'H4',wide:1}],true)+(simpleView()?'':rowsFor(ids))+'</div>';
+   +(simpleView()?optHTML('snow'):grpHTML(ids,[{id:'H1',wide:0},{id:'H2'},{id:'H4',wide:1}],true)+rowsFor(ids))+'</div>';
 }
 function segHTML(id,dial,vals,labelKeys,icons){
   return '<div class="seg'+(icons?' visual':'')+'" id="'+id+'">'+vals.map((v,i)=>'<button type="button" class="'+(ST[dial]===v?'on':'')+'" aria-pressed="'+(ST[dial]===v)+'" onclick="setDial(\''+dial+'\',\''+v+'\')">'+(icons?icons[v]:'')+'<span class="seg-lbl">'+t(labelKeys[i])+'</span></button>').join('')+'</div>';
@@ -950,7 +1034,7 @@ function segHTML(id,dial,vals,labelKeys,icons){
 function bushCard(){
   const mow=isMow(),ids=['E1','E2','OE1'],trim=hasTrim(),sm=simpleView();
   let h='<div class="fcard" id="fcBush"><div class="fcard-hd">'+IC.bush+'<span>'+t('c.bush')+'</span></div><div class="f-q">'+t('q.trim')+'</div>'
-   +grpHTML(ids,[{id:'E1'},{id:'E2',dis:!mow},{id:'OE1',wide:1}],true);
+   +(sm?optHTML('bush'):grpHTML(ids,[{id:'E1'},{id:'E2',dis:!mow},{id:'OE1',wide:1}],true));
   if(!sm){
    h+='<div class="choices one">'+choice(t('c.E5'),trim?t('c.E5s'):t('c.E5d'),"tgl('E5')",ST.sel.has('E5'),!trim,false,true)+'</div>';
    if(trim)h+='<div class="f-q">'+t('q.dens')+'</div>'+segHTML('tdF','trimDensity',['light','std','dense'],['o.light','o.std','o.dense']);
@@ -1035,7 +1119,11 @@ function initUI(){
 /* ===== usability pass 1: quote summary, copy/share, start over, plain address errors ===== */
 UI.arm=false;
 function qrData(){
-  let total=0;const rows=[];ST.sel.forEach(id=>{const v=gp(id)||0;total+=v;rows.push([itemName(id),v]);});
+  let total=0;const rows=[];let multi=false;const done={};
+  ST.sel.forEach(id=>{const v=gp(id)||0;total+=v;
+    const svc=optSvcOfId(id),g=svc?optGroup(svc):null;
+    if(g){multi=true;if(!done[svc]){done[svc]=1;rows.push([t('c.'+svc),v,g.map(i=>[itemName(i),gp(i)||0])]);}}
+    else rows.push([itemName(id),v]);});
   const n=planMonths(),mo=Math.round(total/n),ap=annualPay(total),sm=ST.planStartMonth||3;
   const mowA=(ST.sel.has('A1')?gp('A1'):0)+(ST.sel.has('A2')?gp('A2'):0);const perCut=mowA>0?Math.round(mowA/effVisits()):0;
   const mname=UI.lang==='es'?ES_MONTH[sm]:MONTH_NAMES[sm];
@@ -1045,16 +1133,18 @@ function qrData(){
     {k:'annual',t:tx('Annual Payment','Pago anual'),d:money(ap.pay)+(ap.save?tx(', paid at the start, 1 month free (save $'+ap.save.toLocaleString()+')',', se paga al inicio, 1 mes gratis (ahorra $'+ap.save.toLocaleString()+')'):tx(', paid at the start',', se paga al inicio'))}
   ];
   const buf=ST.bufferOn&&total>0?Math.round(total*1.2):0;
-  return {rows,total,plans,buf};
+  return {rows,total,plans,buf,multi};
 }
 function quoteText(){
   const d=qrData();const a=(typeof getAddr==='function'&&getAddr())||'';
   let x=tx('Amigo Landscaping — Quote','Amigo Landscaping — Cotización')+'\n';
   if(a)x+=a+'\n';
-  x+='\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+money(r[1])+'\n';});
-  x+='\n'+tx('Total: ','Total: ')+money(d.total)+'\n';
+  x+='\n';d.rows.forEach(r=>{
+    if(r[2]){x+=r[0]+' ('+t('op.pick')+'):\n';r[2].forEach((o,i)=>{x+='  '+t('op.opt')+(i+1)+' – '+o[0]+': '+money(o[1])+'\n';});}
+    else x+='• '+r[0]+': '+money(r[1])+'\n';});
+  x+='\n'+(d.multi?t('op.low')+': ':tx('Total: ','Total: '))+(d.multi?t('op.from'):'')+money(d.total)+'\n';
   if(d.buf)x+=tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'\n';
-  x+='\n'+tx('Ways to pay:','Formas de pago:')+'\n';
+  x+='\n'+tx('Ways to pay:','Formas de pago:')+(d.multi?' ('+t('op.pnote').replace(/\.$/,'')+')':'')+'\n';
   d.plans.forEach(p=>{x+='• '+p.t+': '+p.d+'\n';});
   return x.trim();
 }
@@ -1068,10 +1158,13 @@ function renderQR(){
   const cur=d.plans.find(p=>p.k===ST.payView)||d.plans[0];
   let h='<div class="step-hd"><span class="num">✓</span><span>'+tx('Quote ready','Cotización lista')+'</span></div>';
   if(a)h+='<div class="qr-addr">'+esc(a)+'</div>';
-  d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});
-  h+='<div class="qr-tot"><span>'+tx('Total','Total')+'</span><span class="qr-big">'+money(d.total)+'</span></div>';
+  d.rows.forEach(r=>{
+    if(r[2]){h+='<div class="qr-grp" data-grp="1"><div class="qr-gh">'+esc(r[0])+' · '+t('op.pick')+'</div>'+r[2].map((o,i)=>'<div class="qr-opt"><span>'+t('op.opt')+(i+1)+' – '+esc(o[0])+'</span><b>'+money(o[1])+'</b></div>').join('')+'</div>';}
+    else h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});
+  h+='<div class="qr-tot"><span>'+(d.multi?t('op.low'):tx('Total','Total'))+'</span><span class="qr-big">'+(d.multi?'<small style="font-size:16px">'+t('op.from')+'</small>':'')+money(d.total)+'</span></div>';
   if(d.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'</div>';
   h+='<div class="qr-addr" style="margin:10px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
+  if(d.multi)h+='<div class="qr-note">'+t('op.pnote')+'</div>';
   d.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===cur.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});
   h+='<button type="button" class="qr-btn" id="qrCopy" onclick="copyQuote(this)">'+tx('📋 Copy quote','📋 Copiar cotización')+'</button>';
   if(navigator.share)h+='<button type="button" class="qr-btn sec" onclick="shareQuote()">'+tx('Share…','Compartir…')+'</button>';
@@ -1098,6 +1191,7 @@ function uxPass(){
   const ia=$('iAddr');if(ia)ia.placeholder=tx('e.g. 303 W Wesley St','Ej.: 303 W Wesley St');const ds=$('detSum');if(ds)ds.textContent=tx('Office details (optional)','Detalles de oficina (opcional)');
 }
 {const _r=render;render=function(){_r.apply(this,arguments);uxPass();};}
+{const _r2=render;render=function(){optSync();_r2.apply(this,arguments);};}
 {const _ll=lookupLot;
  lookupLot=async function(a){
   const btn=$('lkBtn'),hint=$('iLtH'),msg=$('addrMsg');if(msg)msg.classList.remove('show');
