@@ -37,8 +37,9 @@ Test (needs the repo served on :8765 and playwright-core; the comparison baselin
 `node request-first/tests/request-first.mjs` — checks every service path prices exactly like the full view and like the previous builder (except one-time weeding, which must be exactly 2x), the screens and flow, Spanish, 48px tap targets, and that Everything matches today's builder. (`QUICK=1` skips the long price matrix.)
 
 ## Address-first (Oct 28, 2026) — UI only, no price changes
-Pick one service, type the address, get the quote. Nothing else on the screen.
-- After picking services the screen shows: the "Quote for" chips, the address box + Look up, a one-line "Found it: 10,890 sq ft lot" note, a "Change details" link, the Quote ready card and the price bar.
+Pick one service: the screen is the address, the map and the ONE choice that changes the price. Everything else is under "Change details".
+- After picking services the screen shows: the "Quote for" chips, the address box + Look up, a "Found it: 10,890 sq ft lot" note, the same satellite map as the full builder (after Look up), that service's key choice, a "Change details" link, the Quote ready card and the price bar.
+- Key choice per service (same names as the full screen): mowing = Leave on lawn / Bag and take (Nutrient vs Bagged); leaf = Shred and leave / Haul away (leaf level stays 3; Full clear, "When?" and per-visit rows are under Change details); snow = Standard / Premium / Zero tolerance; mulch = the yards box; bushes = Once a year (default) / All season / One time.
 - Lot size, leaf level, complexity, bed sizes, crew rate, payment plan, etc. are hidden and use the looked-up lot size plus the normal defaults (leaf level 3). Same numbers as before.
 - If the lookup comes back blank, fails, or takes longer than 20 seconds: "We couldn't find that address. Type the lot size." and only the fields that service needs appear (lot size; plus driveway for snow, mulch yards for mulch, bush trim for bushes).
 - "Change details" (and "Fewer details") shows or hides the full old screen. `?details=1` opens it that way from the start (the older tests use it).

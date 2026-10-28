@@ -414,14 +414,14 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
     const m = await u.evaluate(() => { const e = document.getElementById('addrMsg'); const r = e.getBoundingClientRect(); return { show: e.classList.contains('show'), text: e.textContent, top: r.top + scrollY, addrTop: document.getElementById('iAddr').getBoundingClientRect().top + scrollY, btn: document.getElementById('lkBtn').textContent }; });
     ok(m.show && m.text.length > 20 && m.top - m.addrTop < 150, lang + ': bad address shows a plain message right under the address', { m });
     ok(lang === 'es' ? /No encontramos esa dirección/.test(m.text) : /couldn't find that address/.test(m.text), lang + ': address message language');
-    ok(await u.evaluate(() => document.getElementById('mapBox').style.display === 'none'), lang + ': no misleading map after a failed lookup');
+    ok(await u.evaluate(() => document.getElementById('mapBox').style.display !== 'none'), lang + ': map stays after a failed lookup (worker can eyeball the lot)');
   }
   await ctx.close();
   console.log('usability pass: checked quote summary on ' + paths.length * 2 + ' views');
 }
 
 
-// ---------- 8. address-first: one service = type the address; other fields only if the lookup finds nothing, or on "Change details" ----------
+// ---------- 8. address-first: one service = address + map + the one choice that matters; other fields only if the lookup finds nothing, or on "Change details" ----------
 {
   const modes = {
     found: async c => { await c.route(/nominatim/i, r => r.fulfill({ json: [{ lat: '41.85', lon: '-88.0', address: { town: 'Wheaton' } }] })); await c.route(/arcgis|dupage/i, r => r.fulfill({ json: { features: [{ attributes: { ACREAGE: 0.25, PIN: '0000' } }] } })); },
@@ -438,6 +438,7 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
   const barAmt = u => u.evaluate(() => document.querySelector('#bar .bar-amt').textContent);
   const barTxt = u => u.evaluate(() => document.querySelector('#bar').innerText);
   const FIELDS = ['#iLt', '#dials', '#moreBtn', '#measDet', '#s3', '#mapBox', '#estW'];
+  const HID = ['#iLt', '#dials', '#moreBtn', '#measDet', '#s3', '#estW']; // never on the simple screen once the address is found (mowing)
   for (const lang of ['en', 'es']) {
     const es = lang === 'es';
     // before typing: ONLY the address box is there, no quote yet, the bar asks for the address
@@ -446,10 +447,20 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
     for (const f of FIELDS) ok(!(await vis(u, f)), lang + ': hidden before the address is typed: ' + f);
     ok(!(await vis(u, '#qrCard')), lang + ': no quote yet');
     ok((es ? /Escribe la dirección/ : /Type the address/).test(await barTxt(u)), lang + ': bar asks for the address');
-    // address found: still only the address + the quote
+    // the one key choice is already there before the address: Leave on lawn / Bag and take
+    ok(await vis(u, '#svcCol') && (await u.locator('#svcCol .choice').count()) === 2, lang + ': mowing shows its one key choice (leave or bag)');
+    ok(await u.evaluate(() => ST.sel.has('A1') && !ST.sel.has('A2')), lang + ': leave on lawn is the default');
+    // address found: the map shows up + the quote; still no lot size box etc.
     await lookup(u);
+    ok(await vis(u, '#mapBox') && await u.evaluate(() => document.getElementById('mapBox').offsetHeight) >= 200, lang + ': map shows after the address is found');
+    ok((await u.evaluate(() => document.querySelector('#mapBox iframe') && document.querySelector('#mapBox iframe').src)) !== null, lang + ': map is the same embed as the full builder');
     ok(await vis(u, '#qrCard'), lang + ': Quote ready card shows after the address is found');
-    for (const f of FIELDS) ok(!(await vis(u, f)), lang + ': fields stay hidden after a successful lookup: ' + f);
+    for (const f of HID) ok(!(await vis(u, f)), lang + ': fields stay hidden after a successful lookup: ' + f);
+    const mowPrice0 = await barAmt(u);
+    await u.locator('#svcCol .choice').nth(1).click(); await u.waitForTimeout(150);
+    ok(await u.evaluate(() => ST.sel.has('A2') && !ST.sel.has('A1')), lang + ': tapping Bag and take switches to bagged mowing');
+    ok(await barAmt(u) !== mowPrice0, lang + ': bagging changes the price');
+    await u.locator('#svcCol .choice').nth(0).click(); await u.waitForTimeout(150);
     ok(!(await vis(u, '#addrMsg')), lang + ': no error after a successful lookup');
     ok(/10,890/.test(await u.locator('#addrNote').innerText()), lang + ': says what lot size it found');
     ok(await u.evaluate(() => ST.lot) === 10890, lang + ': lot size filled from the lookup');
@@ -491,6 +502,7 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
       ok(await vis(u, '#addrMsg'), lang + '/' + mode + ': plain message shown');
       ok((es ? /No encontramos esa dirección\. Escribe el tamaño del terreno\./ : /We couldn't find that address\. Type the lot size\./).test(await u.locator('#addrMsg').innerText()), lang + '/' + mode + ': message text');
       ok(await vis(u, '#iLt'), lang + '/' + mode + ': lot size box is revealed');
+      ok(await vis(u, '#mapBox'), lang + '/' + mode + ': the map stays so the lot can be eyeballed');
       ok(!(await vis(u, '#dials')) && !(await vis(u, '#s3')) && !(await vis(u, '#moreBtn')) && !(await vis(u, '#measDet')), lang + '/' + mode + ': nothing else is revealed for mowing');
       ok(!(await vis(u, '#qrCard')), lang + '/' + mode + ': no quote until the lot size is typed');
       ok(/lot size|tamaño/i.test(await barTxt(u)), lang + '/' + mode + ': bar asks for the lot size');
@@ -502,22 +514,36 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
       await u.ctx.close();
     }
   }
-  // each service: found = fields hidden; not found = only the fields THAT service needs
+  // each service: found = map + its key choice, no other fields; not found = map stays + only the fields THAT service needs
   const needs = { mow: false, leaf: false, snow: true, mulch: true, bush: true }; // true = measurement box is revealed when the lookup fails
+  const keyChoice = { mow: ['A1', 'A2'], leaf: ['nut', 'rem'], snow: ['H1', 'H2', 'H4'], bush: ['E1', 'E2', 'OE1'] }; // the buttons on the simple screen
   for (const [svc, meas] of Object.entries(needs)) {
     let u = await mk('found', 'view=focus&req=' + svc); await lookup(u);
-    for (const f of ['#dials', '#moreBtn', '#measDet', '#s3', '#mapBox']) ok(!(await vis(u, f)), svc + ': hidden after address found: ' + f);
+    ok(await vis(u, '#mapBox'), svc + ': map shown after address found');
+    for (const f of ['#dials', '#moreBtn', '#s3', '#estW']) ok(!(await vis(u, f)), svc + ': hidden after address found: ' + f);
+    ok(await vis(u, '#measDet') === (svc === 'mulch'), svc + ': yards box ' + (svc === 'mulch' ? 'shown (it is the mulch choice)' : 'hidden'));
     ok(!(await vis(u, '#iLt')) && await u.evaluate(() => ST.lot) === 10890, svc + ': lot size hidden but filled');
+    if (svc === 'mulch') {
+      ok(await vis(u, '#iMu'), 'mulch: yards field visible');
+    } else {
+      ok(await u.evaluate(ids => [...document.querySelectorAll('#svcCol .choice')].filter(e => e.offsetParent).length === ids.length && ids.every(i => [...document.querySelectorAll('#svcCol .choice')].some(e => (e.getAttribute('onclick') || '').includes("'" + i + "'"))), keyChoice[svc]), svc + ': only the key choices are on screen: ' + keyChoice[svc].join('/'));
+    }
+    if (svc === 'leaf') ok(await u.evaluate(() => effLeaf() === 3 && ![...document.querySelectorAll('#svcCol .choice')].some(e => (e.getAttribute('onclick') || '').includes("'est'")) && document.querySelectorAll('#svcCol .f-q').length === 1), 'leaf: level stays at 3; Full clear and "When?" are under Change details');
+    if (svc === 'bush') ok(await u.evaluate(() => ST.sel.has('E1')), 'bush: Once a year is the default');
+    ok(await u.evaluate(() => { const t = document.getElementById('qrCard'); return !!t && t.offsetParent !== null; }), svc + ': quote ready');
+    const tiny = await u.evaluate(() => [...document.querySelectorAll('#svcCol .choice,#svcCol .f-add,#iMu,#detToggle')].filter(e => e.offsetParent).map(e => Math.round(e.getBoundingClientRect().height)).filter(h => h < 48));
+    ok(tiny.length === 0, svc + ': choices are at least 48px tall', { tiny });
     await u.ctx.close();
     u = await mk('fail', 'view=focus&req=' + svc); await lookup(u);
     ok(await vis(u, '#iLt') && await vis(u, '#addrMsg'), svc + ': not found reveals lot size + message');
+    ok(await vis(u, '#mapBox'), svc + ': map stays when not found');
     ok(await vis(u, '#measDet') === meas, svc + ': measurement box ' + (meas ? 'revealed' : 'stays hidden') + ' when not found');
     ok(!(await vis(u, '#dials')) && !(await vis(u, '#s3')), svc + ': dials and payment stay hidden when not found');
     await u.ctx.close();
   }
   // several services: still only the address; "Everything" is still the full screen
   { const u = await mk('found', 'view=focus&req=mow,leaf,snow,mulch'); await lookup(u);
-    for (const f of ['#iLt', '#dials', '#measDet', '#s3']) ok(!(await vis(u, f)), 'several services: hidden after address found: ' + f);
+    for (const f of ['#iLt', '#dials', '#s3']) ok(!(await vis(u, f)), 'several services: hidden after address found: ' + f);
     ok(await vis(u, '#qrCard'), 'several services: quote ready'); await u.ctx.close(); }
   for (const url of ['view=all', 'view=focus&req=mow&details=1']) {
     const u = await mk('found', url);

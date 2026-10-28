@@ -294,10 +294,20 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 body.v-focus #detToggle{display:block}
 .det-link{min-height:48px;margin:6px 0 0;padding:0 4px;border:none;background:none;color:#30471F;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;text-decoration:underline;cursor:pointer;text-align:left}
 #addrNote.show{display:block;margin:2px 0 4px;padding:10px 12px;border-radius:10px;background:#eef5e8;border:1.5px solid #30471F;color:#18240F;font-size:14px;font-weight:700;line-height:1.35}
-body.simple #steps,body.simple #s1 .step-hd,body.simple #dials,body.simple #s1 .sub-hd,body.simple #moreBtn,body.simple #estW,body.simple .miss-std,body.simple #s3,body.simple #detBox,body.simple #focusStrip .f-all,body.simple #lotRow,body.simple #measDet,body.simple #mapBox,body.simple #mapMeta,body.simple #iLtH{display:none!important}
+body.simple #steps,body.simple #s1 .step-hd,body.simple #dials,body.simple #s1 .sub-hd,body.simple #moreBtn,body.simple #estW,body.simple .miss-std,body.simple #s3,body.simple #detBox,body.simple #focusStrip .f-all,body.simple #lotRow,body.simple #iLtH{display:none!important}
 body.simple.manual #lotRow{display:grid!important}
-body.simple.manual.f-snow #measDet,body.simple.manual.f-bush #measDet,body.simple.manual.f-mulch #measDet{display:block!important}
-body.simple:not(.f-bush) #s2,body.simple #s2 .step-hd,body.simple .f-note,body.simple .fprice,body.simple #svcCol .fs-b,body.simple .f-h,body.simple #fcMow,body.simple #fcLeaf,body.simple #fcSnow,body.simple #fcMulch{display:none!important}
+body.simple.manual #openIn{display:block!important}
+/* the map stays (like the live builder); the choices a worker naturally picks stay; the price rows, mulch card and extras live in the quote card / Change details */
+body.simple #mapBox{height:280px!important}
+body.simple #s2 .step-hd,body.simple .f-note,body.simple .fprice,body.simple #svcCol .fs-b,body.simple .f-h,body.simple #fcMulch,body.simple #fcFlo,body.simple #fcBed{display:none!important}
+body.simple #s2{margin-bottom:6px}
+body.simple #svcCol .fcard{margin-bottom:10px}
+/* measurement boxes: none unless a lookup failed; mulch yards is the mulch choice, so it stays for mulch */
+body.simple:not(.manual) #measDet{display:none!important}
+body.simple:not(.manual).f-mulch #measDet{display:block!important}
+body.simple:not(.manual) #measDet .mf:not(.mf-mulch){display:none!important}
+body.simple:not(.manual):not(.f-mulch) #measDet .mf-mulch{display:none!important}
+body.simple.manual:not(.f-snow) #measDet .mf-snow{display:none!important}
 body.simple #s1{margin-bottom:10px}
 </style>
 </head>
@@ -344,7 +354,7 @@ body.simple #s1{margin-bottom:10px}
     <a href="#" onclick="openLotSearch();return false" class="ext-lnk">🏠 Zillow/Redfin</a>
   </div>
   <div id="mapBox" style="display:none;height:380px;border-radius:10px;overflow:hidden;border:1.5px solid #d8d8d0;margin-bottom:6px"></div>
-  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
+  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa" id="mapTip">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
   
   <div class="g2" id="lotRow" style="margin-bottom:6px">
     <div><label class="lbl" data-i18n="l.lot">Lot size</label><div style="display:flex;gap:4px"><input type="number" id="iLt" placeholder="e.g. 10890" step="any" oninput="upd()" style="flex:1;min-width:0"><button type="button" id="iLtU" class="unit-btn" onclick="toggleLotUnit()">sqft</button></div><div class="hint" id="iLtH" data-i18n="h.lot0">Enter this alone → all services auto-estimate</div></div>
@@ -851,8 +861,8 @@ Object.assign(I18N.en,{"d.show": "What is included", "d.hide": "Hide", "f.reset"
 Object.assign(I18N.es,{"d.show": "Qué incluye", "d.hide": "Ocultar", "f.reset": "quitar", "c.est": "Limpieza total", "c.ests": "Césped, caminos y jardineras · necesita corte", "c.snow": "Nieve", "q.snow": "¿Qué tan rápido la quitamos?", "c.H1": "Estándar", "c.H1s": "Limpiamos con unas 2 pulgadas", "c.H2": "Premium", "c.H2s": "Con ~1 pulgada · prioridad", "c.H4": "Cero tolerancia", "c.H4s": "Limpio con cualquier nieve", "n.H1": "Plan estándar de nieve", "n.H2": "Plan premium de nieve", "n.H4": "Plan cero tolerancia de nieve", "c.bush": "Arbustos", "q.trim": "¿Recortamos los arbustos?", "c.E1": "Una vez al año", "c.E1s": "Una visita de recorte", "c.E2": "Toda la temporada", "c.E2s": "Necesita corte", "c.E2d": "Necesita corte", "c.OE1": "Una sola vez", "c.OE1s": "Recorte ligero, a mano", "c.E5": "Arbustos altos: usar escalera", "c.E5s": "Cuesta extra", "c.E5d": "Primero escoge un recorte", "q.dens": "¿Qué tan espesos están los arbustos?", "o.light": "Poco", "o.std": "Normal", "o.dense": "Mucho", "n.E1": "Recorte de arbustos, una vez al año", "n.E2": "Recorte de arbustos, toda la temporada", "n.OE1": "Recorte de arbustos, una vez", "n.E5": "Escalera para arbustos altos", "c.flo": "Flores", "q.flo": "¿Podamos las flores?", "c.E3": "Toda la temporada", "c.E3s": "Se podan cuando toca", "c.OE3": "Una sola vez", "c.OE3s": "Una visita de poda", "n.E3": "Poda de flores, toda la temporada", "n.OE3": "Poda de flores, una vez", "c.bed": "Jardineras", "q.bed": "¿Qué necesitan las jardineras?", "c.C2": "Deshierbe en cada visita", "c.C2s": "Necesita corte y mantillo", "c.OF2": "Deshierbe una vez", "c.OF2s": "Se arranca a mano", "c.OF3": "Limpieza de jardineras", "c.OF3s": "Una limpieza grande", "n.C2": "Deshierbe, cada visita", "n.OF2": "Deshierbe, una vez", "n.OF3": "Limpieza de jardineras, una vez", "q.weed": "¿Cuánta hierba mala hay?", "w.none": "Nada", "w.light": "Poca", "w.mod": "Regular", "w.heavy": "Mucha", "f.needmow3": "Algunas opciones necesitan el corte.", "f.needmulch": "El deshierbe en cada visita necesita mantillo.", "f.addmulch": "+ Agregar mantillo", "c.mulch": "Mantillo", "q.mulch": "¿Ponemos mantillo en las jardineras?", "c.F1": "Mantillo y bordes", "c.F1s": "Entregado y esparcido", "n.F1": "Mantillo y bordes de jardineras", "l.bed": "Tamaño de jardineras (% del terreno)", "l.bed.f": "¿Qué tan grandes son las jardineras?", "o.bl": "Poco", "o.bm": "Regular", "o.bh": "Mucho", "o.bl.f": "Chicas", "o.bm.f": "Medianas", "o.bh.f": "Grandes", "l.pv": "Área pavimentada: entrada y banquetas (pies²)", "l.pv.f": "Entrada y banquetas (pies²)", "l.mu": "Mantillo: a ojo (yardas)", "l.mu.f": "¿Cuánto mantillo? (yardas)"});
 Object.assign(I18N.en,{'l.hf':'Home footprint (sq ft)','h.hf':'Subtracts home from lot. Zillow "building area" ÷ stories.','l.ln':'Lawn / turf (sq ft)','h.mu':'Drives bed maintenance + mulch pricing','l.tr':'Bush trim time per visit (hrs)','l.pe':'Perennial pruning per session (hrs)','l.hv':'Home value (~$K)','h.hv':'Rough eyeball (Zillow/Redfin). Drives avatar fit.','l.start':'Start month','l.tier':'Quote effort (sets floor)','o.remote':'Remote','o.driveby':'Drive-by','o.appt':'Appt','b.look':'📍 Look up','h.lot0':'Enter this alone → all services auto-estimate'});
 Object.assign(I18N.es,{'l.hf':'Superficie de la casa (pies²)','h.hf':'Se resta la casa del terreno. "Área construida" de Zillow ÷ pisos.','l.ln':'Césped (pies²)','h.mu':'Define el precio del mantillo y del cuidado de jardineras','l.tr':'Tiempo de recorte de arbustos por visita (horas)','l.pe':'Poda de perennes por sesión (horas)','l.hv':'Valor de la casa (~miles de $)','h.hv':'Cálculo a ojo (Zillow/Redfin). Define el perfil del cliente.','l.start':'Mes de inicio','l.tier':'Esfuerzo de cotización (define el mínimo)','o.remote':'Remoto','o.driveby':'Desde la calle','o.appt':'Con cita','b.look':'📍 Buscar','h.lot0':'Escribe solo esto → todos los servicios se calculan solos'});
-Object.assign(I18N.en,{'l.addr.f':'Type the address','det.show':'Change details','det.hide':'Fewer details',"l.rate": "Crew price per hour", "l.cx": "Yard difficulty", "l.tier": "How was the property checked? (sets the lowest price)", "l.pe": "Flower pruning time per visit (hrs)", "so.btn": "↺ Start over", "so.sure": "Tap again to erase everything"});
-Object.assign(I18N.es,{'l.addr.f':'Escribe la dirección','det.show':'Cambiar detalles','det.hide':'Menos detalles',"l.rate": "Precio por hora de la cuadrilla", "l.cx": "Dificultad del terreno", "l.tier": "¿Cómo se revisó la propiedad? (define el precio mínimo)", "l.pe": "Tiempo para podar flores por visita (h)", "so.btn": "↺ Empezar de nuevo", "so.sure": "Toca otra vez para borrar todo"});
+Object.assign(I18N.en,{'l.mu.f':'How many yards of mulch?','h.mu.f':'Leave it blank and we guess from the lot size.','l.addr.f':'Type the address','det.show':'Change details','det.hide':'Fewer details',"l.rate": "Crew price per hour", "l.cx": "Yard difficulty", "l.tier": "How was the property checked? (sets the lowest price)", "l.pe": "Flower pruning time per visit (hrs)", "so.btn": "↺ Start over", "so.sure": "Tap again to erase everything"});
+Object.assign(I18N.es,{'l.mu.f':'¿Cuántas yardas de mantillo?','h.mu.f':'Déjalo vacío y lo calculamos con el tamaño del terreno.','l.addr.f':'Escribe la dirección','det.show':'Cambiar detalles','det.hide':'Menos detalles',"l.rate": "Precio por hora de la cuadrilla", "l.cx": "Dificultad del terreno", "l.tier": "¿Cómo se revisó la propiedad? (define el precio mínimo)", "l.pe": "Tiempo para podar flores por visita (h)", "so.btn": "↺ Empezar de nuevo", "so.sure": "Toca otra vez para borrar todo"});
 const UI={view:'all',pick:new Set(),focus:new Set(),lang:'en',more:false,touched:false,prev:null,desc:new Set(),measOpen:false,det:false,lk:'none',lastAddr:'',lotTyped:false};
 function t(k){const d=I18N[UI.lang];const fk=k+'.f';if(UI.view==='focus'&&d[fk]!=null)return d[fk];return d[k]!=null?d[k]:(I18N.en[k]!=null?I18N.en[k]:k);}
 function tx(en,es){return UI.lang==='es'?es:en;}
@@ -874,6 +884,7 @@ function enterFocus(){
   if(UI.focus.has('leaf')&&!LEAF_IDS.some(i=>ST.sel.has(i)))ST.sel.add(isMow()?'G1':'OD3');
   if(UI.focus.has('snow')&&!['H1','H2','H4'].some(i=>ST.sel.has(i)))ST.sel.add('H1');
   if(UI.focus.has('mulch')&&!ST.sel.has('F1'))ST.sel.add('F1');
+  if(UI.focus.has('bush')&&!UI.det&&!['E1','E2','OE1'].some(i=>ST.sel.has(i)))ST.sel.add('E1');
   UI.view='focus';UI.more=false;
 }
 function pickContinue(){if(!UI.pick.size)return;enterFocus();render();window.scrollTo(0,0);if(!(ST.lot>0)&&!UI.det){setTimeout(()=>{try{$('iAddr').focus({preventScroll:true});}catch(e){}},60);}}
@@ -903,21 +914,24 @@ function fprice(id,extra){
   if(extra)h+='<button type="button" class="f-x" aria-label="'+t('f.rm')+'" onclick="toggle(\''+id+'\',\''+CATOF[id].cat+'\')">✕</button>';
   return h+'</div>';
 }
+function simpleView(){return UI.view==='focus'&&!UI.det;}
 function mowCard(){
   let h='<div class="fcard" id="fcMow"><div class="fcard-hd">'+IC.mow+'<span>'+t('c.mow')+'</span></div><div class="f-q">'+t('q.clip')+'</div><div class="choices">'
    +choice(t('c.A1'),t('c.A1s'),"pickMow('A1')",ST.sel.has('A1'),false,true)+choice(t('c.A2'),t('c.A2s'),"pickMow('A2')",ST.sel.has('A2'),false,false)+'</div>';
-  ['A1','A2'].forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
+  if(!simpleView())['A1','A2'].forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
   return h+'</div>';
 }
 function leafCard(){
-  const cur=leafState(),mow=isMow();
+  const cur=leafState(),mow=isMow(),sm=simpleView();
   let h='<div class="fcard" id="fcLeaf"><div class="fcard-hd">'+IC.leaf+'<span>'+t('c.leaf')+'</span></div><div class="f-q">'+t('q.kind')+'</div><div class="choices">'
    +choice(t('c.nut'),t('c.nuts'),"setLeaf('nut',null)",!!cur&&cur.k==='nut',false,true)+choice(t('c.rem'),t('c.rems'),"setLeaf('rem',null)",!!cur&&cur.k==='rem',false,false)
-   +choice(t('c.est'),mow?t('c.ests').split(' · ')[0]:t('c.ests'),"setLeaf('est',null)",!!cur&&cur.k==='est',!mow,false,true)+'</div>'
-   +'<div class="f-q">'+t('q.when')+'</div><div class="choices">'
+   +(sm?'':choice(t('c.est'),mow?t('c.ests').split(' · ')[0]:t('c.ests'),"setLeaf('est',null)",!!cur&&cur.k==='est',!mow,false,true))+'</div>';
+  if(!sm){
+   h+='<div class="f-q">'+t('q.when')+'</div><div class="choices">'
    +choice(t('c.dur'),mow?'':t('c.durs'),"setLeaf(null,'during')",!!cur&&cur.w==='during',!mow,false)+choice(t('c.once'),t('c.onces'),"setLeaf(null,'once')",!!cur&&cur.w==='once',!!cur&&cur.k==='est',false)+'</div>';
-  if(!mow)h+='<div class="f-rule"><span>'+t('f.needmow')+'</span><button type="button" onclick="addMowToLeaf()">'+t('f.addmow')+'</button></div>';
-  LEAF_IDS.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
+   if(!mow)h+='<div class="f-rule"><span>'+t('f.needmow')+'</span><button type="button" onclick="addMowToLeaf()">'+t('f.addmow')+'</button></div>';
+   LEAF_IDS.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);});
+  }
   return h+'</div>';
 }
 
@@ -928,19 +942,21 @@ function rowsFor(ids){let h='';ids.forEach(id=>{if(ST.sel.has(id))h+=fprice(id);
 function snowCard(){
   const ids=['H1','H2','H4'];
   return '<div class="fcard" id="fcSnow"><div class="fcard-hd">'+IC.snow+'<span>'+t('c.snow')+'</span></div><div class="f-q">'+t('q.snow')+'</div>'
-   +grpHTML(ids,[{id:'H1',wide:0},{id:'H2'},{id:'H4',wide:1}],true)+rowsFor(ids)+'</div>';
+   +grpHTML(ids,[{id:'H1',wide:0},{id:'H2'},{id:'H4',wide:1}],true)+(simpleView()?'':rowsFor(ids))+'</div>';
 }
 function segHTML(id,dial,vals,labelKeys,icons){
   return '<div class="seg'+(icons?' visual':'')+'" id="'+id+'">'+vals.map((v,i)=>'<button type="button" class="'+(ST[dial]===v?'on':'')+'" aria-pressed="'+(ST[dial]===v)+'" onclick="setDial(\''+dial+'\',\''+v+'\')">'+(icons?icons[v]:'')+'<span class="seg-lbl">'+t(labelKeys[i])+'</span></button>').join('')+'</div>';
 }
 function bushCard(){
-  const mow=isMow(),ids=['E1','E2','OE1'],trim=hasTrim();
+  const mow=isMow(),ids=['E1','E2','OE1'],trim=hasTrim(),sm=simpleView();
   let h='<div class="fcard" id="fcBush"><div class="fcard-hd">'+IC.bush+'<span>'+t('c.bush')+'</span></div><div class="f-q">'+t('q.trim')+'</div>'
-   +grpHTML(ids,[{id:'E1'},{id:'E2',dis:!mow},{id:'OE1',wide:1}],true)
-   +'<div class="choices one">'+choice(t('c.E5'),trim?t('c.E5s'):t('c.E5d'),"tgl('E5')",ST.sel.has('E5'),!trim,false,true)+'</div>';
-  if(trim)h+='<div class="f-q">'+t('q.dens')+'</div>'+segHTML('tdF','trimDensity',['light','std','dense'],['o.light','o.std','o.dense']);
+   +grpHTML(ids,[{id:'E1'},{id:'E2',dis:!mow},{id:'OE1',wide:1}],true);
+  if(!sm){
+   h+='<div class="choices one">'+choice(t('c.E5'),trim?t('c.E5s'):t('c.E5d'),"tgl('E5')",ST.sel.has('E5'),!trim,false,true)+'</div>';
+   if(trim)h+='<div class="f-q">'+t('q.dens')+'</div>'+segHTML('tdF','trimDensity',['light','std','dense'],['o.light','o.std','o.dense']);
+  }
   if(!mow)h+='<div class="f-rule"><span>'+t('f.needmow3')+'</span><button type="button" onclick="addMowToLeaf()">'+t('f.addmow')+'</button></div>';
-  return h+rowsFor(['E1','E2','OE1','E5'])+'</div>';
+  return h+(sm?'':rowsFor(['E1','E2','OE1','E5']))+'</div>';
 }
 function floCard(){
   const ids=['E3','OE3'];
@@ -1098,7 +1114,7 @@ function uxPass(){
     const m=tx("We couldn't find that address. Type the lot size.","No encontramos esa dirección. Escribe el tamaño del terreno.");
     if(hint)hint.innerHTML=tx("✕ Type the lot size here","✕ Escribe aquí el tamaño del terreno");
     if(msg){msg.textContent=m;msg.classList.add('show');}
-    const mb=$('mapBox');if(mb){mb.style.display='none';}const mm=$('mapMeta');if(mm)mm.style.display='none';
+    if(UI.view!=='focus'){const mb=$('mapBox');if(mb){mb.style.display='none';}const mm=$('mapMeta');if(mm)mm.style.display='none';}
     const li=$('iLt');if(li&&li.scrollIntoView)li.scrollIntoView({block:'center',behavior:'smooth'});
     {const ae=document.activeElement;if(li&&li.offsetParent&&(!ae||ae===document.body||ae.id==='iAddr'||ae.id==='lkBtn')){try{li.focus({preventScroll:true});}catch(e){}}}
   }
@@ -1112,12 +1128,18 @@ function addrUI(simple){
   if(!n)return;
   let h='';
   if(simple&&UI.lk==='busy')h='<span class="spinner"></span> '+tx('Finding the lot…','Buscando el terreno…');
-  else if(simple&&UI.lk==='ok'&&ST.lot>0)h='✓ '+tx('Found it: ','Listo: ')+ST.lot.toLocaleString()+tx(' sq ft lot (',' pies² de terreno (')+(ST.lot/43560).toFixed(2)+tx(' acre). Prices are estimated from the lot size.',' acres). Los precios se calculan con el tamaño del terreno.');
+  else if(simple&&UI.lk==='ok'&&ST.lot>0)h='✓ '+tx('Found it: ','Listo: ')+ST.lot.toLocaleString()+tx(' sq ft lot (',' pies² de terreno (')+(ST.lot/43560).toFixed(2)+tx(' acre). Prices are estimated from the lot size. Not right? Tap Change details.',' acres). Los precios se calculan con el tamaño del terreno. ¿No es correcto? Toca Cambiar detalles.');
   if(n.innerHTML!==h)n.innerHTML=h;
   n.classList.toggle('show',!!h);
+  {const tip=$('mapTip'),ma=$('mapAddr');
+   if(tip){const v=tx('Use the layer button on the map to switch between Map and Satellite','Usa el botón de capas del mapa para cambiar entre Mapa y Satélite');if(tip.textContent!==v)tip.textContent=v;}
+   if(ma&&simple&&UI.lastAddr){let v=null;
+    if(UI.lk==='ok'&&ST.lot>0)v=UI.lastAddr+' · '+ST.lot.toLocaleString()+tx(' sq ft (',' pies² (')+(ST.lot/43560).toFixed(2)+tx(' acre)',' acres)');
+    else if(UI.lk==='fail')v=UI.lastAddr+' · '+tx('not found. Look at the map, then type the lot size','no encontrada. Mira el mapa y escribe el tamaño del terreno');
+    if(v!==null&&ma.textContent!==v)ma.textContent=v;}}
 }
-function toggleDet(){UI.det=!UI.det;UI.more=false;applyUI();}
-function setDetails(v){UI.det=!!v;applyUI();}
+function toggleDet(){UI.det=!UI.det;UI.more=false;render();}
+function setDetails(v){UI.det=!!v;render();}
 (function(){
   const ia=document.getElementById('iAddr'),il=document.getElementById('iLt');
   il.addEventListener('input',()=>{UI.lotTyped=true;});
