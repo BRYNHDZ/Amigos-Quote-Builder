@@ -35,3 +35,13 @@ The main quote builder (root `index.html`) now starts with **"What did they ask 
 
 Test (needs the repo served on :8765 and playwright-core; the comparison baseline is `/previous/`):
 `node request-first/tests/request-first.mjs` — checks every service path prices exactly like the full view and like the previous builder (except one-time weeding, which must be exactly 2x), the screens and flow, Spanish, 48px tap targets, and that Everything matches today's builder. (`QUICK=1` skips the long price matrix.)
+
+## Address-first (Oct 28, 2026) — UI only, no price changes
+Pick one service, type the address, get the quote. Nothing else on the screen.
+- After picking services the screen shows: the "Quote for" chips, the address box + Look up, a one-line "Found it: 10,890 sq ft lot" note, a "Change details" link, the Quote ready card and the price bar.
+- Lot size, leaf level, complexity, bed sizes, crew rate, payment plan, etc. are hidden and use the looked-up lot size plus the normal defaults (leaf level 3). Same numbers as before.
+- If the lookup comes back blank, fails, or takes longer than 20 seconds: "We couldn't find that address. Type the lot size." and only the fields that service needs appear (lot size; plus driveway for snow, mulch yards for mulch, bush trim for bushes).
+- "Change details" (and "Fewer details") shows or hides the full old screen. `?details=1` opens it that way from the start (the older tests use it).
+- "Show everything" / `?view=all` is unchanged: the full screen.
+- Typing a different address clears the old lot size and quote, so a stale price never stays on screen. A blank address gets "Type the address first."
+- Tests: section 8 of `tests/request-first.mjs` (found, not found, empty result, blank, stale address, Change details, each service, several services, Everything, EN and ES, 48px buttons, same price as the full screen). Run with `node request-first/tests/request-first.mjs` and `node --test tests/`.
