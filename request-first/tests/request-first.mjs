@@ -258,8 +258,8 @@ for (const lg of ['en', 'es']) for (const qs of ['req=bush', 'req=leaf', 'req=mo
 q = await shot('view=focus&req=snow&lang=es');
 await q.fill('#iLt', '3000'); await q.waitForTimeout(500);
 const esOut = await q.evaluate(() => document.body.innerText);
-ok(/Solo un cálculo aproximado/.test(esOut) && /pies²/.test(esOut), 'Spanish rough-estimate note');
-ok(/Se usaron valores automáticos/.test(esOut) && /Tarifa por hora/.test(esOut), 'Spanish auto-defaults warning');
+ok(/Cálculo solo con el tamaño del terreno/.test(esOut) && /pies²/.test(esOut), 'Spanish rough-estimate note');
+ok(/Se usan valores estándar/.test(esOut) && /Precio por hora/.test(esOut), 'Spanish auto-defaults warning');
 ok(/marzo hasta febrero/.test(esOut) && !/March|through/.test(esOut.replace(/Details[\s\S]*$/, '')), 'Spanish payment card months');
 q = await shot('view=focus&req=mulch&lang=es');
 await q.fill('#iLt', '3000'); await q.evaluate(() => { ST.ov = { F1: 100 }; render(); }); await q.waitForTimeout(400);
@@ -282,16 +282,18 @@ await q.evaluate(() => { UI.lang = 'en'; });
 const sameDials = { lot: 14000, leaf: 4, complex: 'med', rate: 90 };
 for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'G1', 'OD3', 'F1', 'H1']) }); render(); }, sameDials);
 const norm = h => h.replace(/\s+/g, ' ');
+// The usability pass reworded the payment cards and the bar in plain words, so for those two compare every dollar amount and percent in order (wording is free, numbers are strict).
+const nums = h => (h.match(/\$[\d,]+(?:\.\d+)?|\d+(?:\.\d+)?%/g) || []).join(' ');
 // One-time weeding (OF2) is listed with its price even when not picked and is exactly 2x in the request-first page, so halve that one number before comparing; every other character must match.
 const halveOF2 = h => h.replace(/data-id="OF2" value="(\d+)" placeholder="(\d+)"/, (m, v, ph) => { ok(Number(v) % 2 === 0 && v === ph, 'OF2 price on the request-first page is an exact 2x', { v, ph }); return 'data-id="OF2" value="' + v / 2 + '" placeholder="' + ph / 2 + '"'; });
 for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'heavy', trimDensity: 'dense', bedFootprint: 'high', lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'E2', 'E5', 'E3', 'C2', 'F1', 'OF3', 'G3', 'H2', 'D2', 'B1']) }); render(); }, sameDials);
 const [a0, b0] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML, bar: document.getElementById('bar').innerHTML, s1: document.getElementById('s1').innerText }))));
-ok(norm(halveOF2(a0.svc)) === norm(b0.svc) && norm(a0.out) === norm(b0.out) && norm(a0.bar) === norm(b0.bar) && norm(a0.s1) === norm(b0.s1), 'Everything: identical to the current builder with every new service and dial in use, except one-time weeding which is checked below (services, payment cards, bar, property step)');
+ok(norm(halveOF2(a0.svc)) === norm(b0.svc) && nums(a0.out) === nums(b0.out) && nums(a0.bar) === nums(b0.bar) && nums(a0.s1) === nums(b0.s1), 'Everything: identical to the current builder with every new service and dial in use, except one-time weeding which is checked below (services, payment cards, bar, property step)');
 for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'light', trimDensity: 'light', bedFootprint: null, sel: new Set(['A1', 'G1', 'OD3', 'F1', 'H1']) }); render(); }, sameDials);
 const [a, b] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML, bar: document.getElementById('bar').innerHTML, s1: document.getElementById('s1').innerHTML.length }))));
 ok(norm(halveOF2(a.svc)) === norm(b.svc), 'Everything: services list identical to current builder (OF2 price halved back)');
-ok(norm(a.out) === norm(b.out), 'Everything: payment cards identical to current builder');
-ok(norm(a.bar) === norm(b.bar), 'Everything: price bar identical to current builder');
+ok(nums(a.out) === nums(b.out) && nums(a.out).length > 20, 'Everything: payment card dollar amounts identical to current builder');
+ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to current builder');
 
 // ---------- 3b. One-time weeding (OF2) is exactly double the current builder's price; nothing else moves ----------
 {
@@ -326,6 +328,90 @@ ok(norm(a.bar) === norm(b.bar), 'Everything: price bar identical to current buil
   ok(new URL(o.url()).pathname === '/' && o.url().includes('req=snow') && o.url().includes('lang=es'), 'old /request-first/ link redirects to the root and keeps its options', { url: o.url() });
   const pv = await open('/previous/');
   ok(await pv.evaluate(() => typeof getSug === 'function' && !document.querySelector('.pk-tile')), '/previous/ still loads the old builder');
+}
+
+
+// ---------- 5. usability pass: quote summary, copy/share, start over, plain words, address errors ----------
+{
+  const ctx = await browser.newContext({ viewport: MOBILE, hasTouch: true, isMobile: true, permissions: ['clipboard-read', 'clipboard-write'] });
+  const u = await ctx.newPage(); u.setDefaultTimeout(6000); u.on('pageerror', e => errors.push('usability: ' + e.message));
+  await u.route(/nominatim|arcgis|dupage/i, r => r.abort());
+  const goto = async qs => { await u.goto(base + '/?' + qs); await u.waitForTimeout(250); };
+  const txt = () => u.evaluate(() => document.body.innerText);
+  const barBtn = () => u.evaluate(() => document.querySelector('#bar .bar-btn').textContent.trim());
+
+  // empty states: tell the person what to do next instead of showing $0 and a vague button
+  await goto('view=focus&req=mow,leaf');
+  ok(/Type the lot size/.test(await u.evaluate(() => document.querySelector('#bar').innerText)) && /lot size/i.test(await barBtn()), 'no lot size: sticky bar asks for the lot size');
+  ok(await u.evaluate(() => getComputedStyle(document.getElementById('qrCard')).display === 'none'), 'no price yet: no "Quote ready" box');
+  ok(await u.evaluate(() => !document.getElementById('st1').classList.contains('done')), 'step 1 is not ticked before the lot size is typed');
+  await u.fill('#iLt', '10890'); await u.waitForTimeout(200);
+  ok(/see quote/i.test(await barBtn()), 'lot size typed: bar button says "See quote"');
+  ok(await u.evaluate(() => document.getElementById('st1').classList.contains('done') && document.getElementById('st2').classList.contains('done')), 'steps 1 and 2 are ticked once the lot size and a service exist');
+  await goto('view=focus&req=snow'); await u.fill('#iLt', '10890'); await u.waitForTimeout(150);
+  await u.evaluate(() => { ST.sel.clear(); render(); });
+  ok(/Nothing picked yet/.test(await u.evaluate(() => document.querySelector('#bar').innerText)) && /pick a service/i.test(await barBtn()), 'nothing picked: bar says so and points at the services');
+
+  // quote summary matches the prices on the page
+  const paths = ['mow', 'leaf', 'snow', 'bush', 'mulch', 'mow,leaf', 'mow,leaf,snow,bush,mulch'];
+  for (const lang of ['en', 'es']) for (const req of paths) {
+    await goto('view=focus&lang=' + lang + '&req=' + req); await u.fill('#iLt', '10890'); await u.evaluate(() => { if (!ST.sel.size) tgl('E1'); }); await u.waitForTimeout(200);
+    const d = await u.evaluate(() => { const qc = document.getElementById('qrCard'); const rows = [...qc.querySelectorAll('.qr-row')].map(r => [r.children[0].textContent, Number(r.children[1].textContent.replace(/[^\d]/g, ''))]); let sum = 0; ST.sel.forEach(id => sum += gp(id) || 0); const tot = Number(qc.querySelector('.qr-big').textContent.replace(/[^\d]/g, '')); return { shown: qc.offsetParent !== null, rows, tot, sum, n: ST.sel.size, bar: document.querySelector('#bar .bar-amt').textContent, text: quoteText() }; });
+    const k = lang + ' ' + req;
+    ok(d.shown && d.rows.length === d.n && d.rows.every(r => r[0] && r[1] >= 0), k + ': quote lists every picked service', { d });
+    ok(d.tot === d.sum && d.rows.reduce((a, r) => a + r[1], 0) === d.sum, k + ': quote total equals the sum of the services', { d });
+    ok(d.bar.replace(/[^\d]/g, '') === String(d.sum), k + ': quote total equals the bar price', { d });
+    ok(!/undefined|NaN|\[object/.test(d.text) && d.rows.every(r => d.text.includes(r[0])) && d.text.includes('$' + d.sum.toLocaleString()), k + ': copied text has every service and the total', { text: d.text });
+    ok(lang === 'es' ? /Cotización|Formas de pago/.test(d.text) && !/Ways to pay/.test(d.text) : /Ways to pay/.test(d.text), k + ': copied text is in the screen language');
+  }
+
+  // copy button really copies, and says so
+  await goto('view=focus&req=mow,leaf'); await u.fill('#iLt', '10890'); await u.waitForTimeout(200);
+  await u.locator('#qrCopy').click(); await u.waitForTimeout(250);
+  const clip = await u.evaluate(() => navigator.clipboard.readText());
+  ok(/Total: \$1,987/.test(clip) && /Spread monthly/.test(clip) && /Annual Payment/.test(clip), 'Copy quote puts the quote on the clipboard', { clip });
+  ok(/Copied/.test(await u.locator('#qrCopy').textContent()), 'Copy button confirms with "Copied"');
+  // see-quote button scrolls to the summary
+  await u.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await u.locator('#bar .bar-btn').click(); await u.waitForTimeout(900);
+  ok(await u.evaluate(() => { const r = document.getElementById('qrCard').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }), '"See quote" scrolls the quote into view');
+  // 20% extra is shown in the summary the same way as on the pay card
+  await u.evaluate(() => { ST.bufferOn = true; render(); });
+  ok(/20% extra/.test(await u.locator('#qrCard').innerText()), 'quote shows the 20% extra line when it is on');
+  await u.evaluate(() => { ST.bufferOn = false; render(); });
+
+  // start over: needs a second tap, then returns to the first screen with nothing picked
+  await u.locator('#qrCard .qr-so').click();
+  ok(/Tap again/.test(await u.locator('#qrCard .qr-so').textContent()) && await u.evaluate(() => ST.sel.size > 0), 'Start over asks for a second tap and erases nothing yet');
+  await u.locator('#qrCard .qr-so').click(); await u.waitForTimeout(500);
+  ok(await u.evaluate(() => !!document.querySelector('.pk-tile') && UI.view === 'pick' && ST.lot === 0), 'second tap on Start over goes back to the first screen, empty');
+  await goto('view=focus&req=mow'); await u.locator('#focusStrip .so-btn').click(); await u.waitForTimeout(100);
+  await u.waitForTimeout(4300);
+  ok(/Start over/.test(await u.locator('#focusStrip .so-btn').textContent()), 'Start over un-arms by itself after a few seconds');
+
+  // plain words: nothing office-only on the phone views
+  for (const req of ['mow', 'leaf', 'snow', 'bush', 'mulch']) {
+    await goto('view=focus&req=' + req); await u.fill('#iLt', '10890'); await u.waitForTimeout(200);
+    const body = await txt();
+    ok(!/buffer|\bfloor\b|complexity|man-hour|footprint|perennial|\bICP\b|derived from|auto defaults/i.test(body), req + ': no office jargon on screen', { hit: (body.match(/buffer|\bfloor\b|complexity|man-hour|footprint|perennial|\bICP\b|derived from|auto defaults/i) || [])[0] });
+    ok(await u.evaluate(() => document.documentElement.scrollWidth <= innerWidth), req + ': no sideways scrolling');
+    const tiny = await u.evaluate(() => [...document.querySelectorAll('#s1 .hint, #s1 .lbl, #qrCard *, .bar-l, #fsChips *')].filter(e => e.offsetParent && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 11.5).map(e => e.textContent.trim().slice(0, 30)));
+    ok(tiny.length === 0, req + ': hints and labels are at least 12px', { tiny });
+  }
+  // new buttons are big enough to tap
+  await goto('view=focus&req=mow,leaf'); await u.fill('#iLt', '10890'); await u.waitForTimeout(200);
+  const smallBtn = await u.evaluate(() => [...document.querySelectorAll('.qr-btn,.so-btn,.f-add,.f-all,#bar .bar-btn')].filter(e => e.offsetParent).map(e => [e.className, Math.round(e.getBoundingClientRect().height)]).filter(x => x[1] < 48));
+  ok(smallBtn.length === 0, 'new buttons are at least 48px tall', { smallBtn });
+  // unfinished-address help: clear message right under the address box, in both languages
+  for (const lang of ['en', 'es']) {
+    await goto('view=focus&lang=' + lang + '&req=mow'); await u.fill('#iAddr', 'zzzz qqq nowhere'); await u.locator('#lkBtn').click(); await u.waitForTimeout(2500);
+    const m = await u.evaluate(() => { const e = document.getElementById('addrMsg'); const r = e.getBoundingClientRect(); return { show: e.classList.contains('show'), text: e.textContent, top: r.top + scrollY, addrTop: document.getElementById('iAddr').getBoundingClientRect().top + scrollY, btn: document.getElementById('lkBtn').textContent }; });
+    ok(m.show && m.text.length > 20 && m.top - m.addrTop < 150, lang + ': bad address shows a plain message right under the address', { m });
+    ok(lang === 'es' ? /No encontramos/.test(m.text) : /couldn't find this address/.test(m.text), lang + ': address message language');
+    ok(await u.evaluate(() => document.getElementById('mapBox').style.display === 'none'), lang + ': no misleading map after a failed lookup');
+  }
+  await ctx.close();
+  console.log('usability pass: checked quote summary on ' + paths.length * 2 + ' views');
 }
 
 console.log('checks: ' + checks + ', failures: ' + fails.length + ', page errors: ' + errors.length);
