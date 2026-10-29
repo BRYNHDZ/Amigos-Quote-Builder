@@ -35,3 +35,23 @@ The main quote builder (root `index.html`) now starts with **"What did they ask 
 
 Test (needs the repo served on :8765 and playwright-core; the comparison baseline is `/previous/`):
 `node request-first/tests/request-first.mjs` — checks every service path prices exactly like the full view and like the previous builder (except one-time weeding, which must be exactly 2x), the screens and flow, Spanish, 48px tap targets, and that Everything matches today's builder. (`QUICK=1` skips the long price matrix.)
+
+## Address lookup accuracy (branch `address-accuracy`, Oct 28, 2026) — draft, not live
+The lot-size lookup used to take the first parcel whose address merely *contained* the typed words, and the first map point
+Nominatim returned — so a typed "400 …" could fill in the lot for a "1400 …" in another town, and "535 Duane St, Wheaton"
+silently used a 2,178 sqft sliver of the Glen Ellyn Civic Center (on our 164-address test: 56 of 152 auto-fills were the wrong property).
+Now (`addr-match.js`, pure logic + unit tests in `tests/addr-match.test.js`):
+- The typed address is split into house number, street, town and zip (handles no commas, ZIP+4, "GE", "IL", grid numbers
+  like 21W565 / 0N029, small typos like "Glen Elyn" / "Highveiw").
+- Candidates come from the county parcel layer: parcels under the top 3 Nominatim points, plus a text search that requires
+  the address to **start with the exact house number**.
+- The lot size fills in by itself only when exactly one property has the exact number, the same street, and agrees with the
+  town and zip that were typed. Anything less sure shows a big **"Did you mean…?"** box (EN/ES) with up to 3 choices (our
+  service-area towns first) and "None of these — I will type the lot size". Tapping a choice fills the lot and corrects the
+  address field. Nothing found → the old "type the lot size" message.
+- Prices are not touched.
+
+Score it: `node request-first/tests/address-accuracy.mjs [baseUrl]` (repo served on :8765; needs internet). The real
+test set (148 Jobber service addresses + 16 tricky variants) is client data, so it is **not in this public repo**; run with
+`ADDR_SAMPLE=/path/to/private/address-sample.json`. Without it the harness runs the 4 public landmark cases in `address-public.json`. Geocoder
+answers are cached in `/tmp/qb-addr-cache` (outside the repo) so runs are repeatable and Nominatim is asked ≤1×/sec.
