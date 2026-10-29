@@ -1,0 +1,10 @@
+{
+ "about": "Public buildings only (village/city halls), safe for a public repo. The real test set (client service addresses) lives outside the repo; set ADDR_SAMPLE to use it.",
+ "jobber": [],
+ "tricky": [
+  { "q": "255 E Wilson Ave, Lombard, IL 60148", "expectCity": "LOMBARD", "note": "Lombard Village Hall: one parcel, fills by itself" },
+  { "q": "535 Duane St, Glen Ellyn, IL 60137", "expectAsk": true, "note": "Glen Ellyn Civic Center: several parcels, must ask (main silently used a 2,178 sqft sliver)" },
+  { "q": "535 Duane St, Wheaton, IL 60187", "expectAsk": true, "note": "wrong town typed: must not fill silently" },
+  { "q": "303 W Wesley St, Wheaton, IL 60187", "expectAsk": true, "note": "Wheaton City Hall: two parcels, must ask" }
+ ]
+}

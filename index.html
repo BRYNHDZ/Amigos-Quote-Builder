@@ -287,6 +287,12 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 @media (hover:none){.desk-only{display:none}}
 .addr-msg{display:none;margin:2px 0 8px;padding:10px 12px;border-radius:10px;background:#fff5f5;border:1.5px solid #cc0000;color:#a00;font-size:14px;font-weight:700;line-height:1.35}
 .addr-msg.show{display:block}
+.addr-pick{margin:2px 0 10px;padding:10px;border-radius:12px;background:#fff8e6;border:2px solid #e0a100}
+.addr-pick .pick-q{font-size:17px;font-weight:800;color:#5a3d00;margin-bottom:8px}
+.addr-pick .pick-btn{display:block;width:100%;text-align:left;margin:0 0 8px;padding:12px 14px;min-height:52px;border-radius:10px;border:2px solid #30471F;background:#fff;color:#18240F;font-family:'Nunito',sans-serif;cursor:pointer}
+.addr-pick .pick-btn b{display:block;font-size:16px}
+.addr-pick .pick-btn span{font-size:13px;color:#5d6356}
+.addr-pick .pick-none{display:block;width:100%;padding:10px;border-radius:10px;border:1.5px solid #bbb;background:#f4f4ef;color:#333;font-size:14px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer}
 </style>
 </head>
 <body>
@@ -326,6 +332,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
     <button class="addr-btn" onclick="lookupAddr()" id="lkBtn" data-i18n="b.look">📍 Look up</button>
   </div>
   <div id="addrMsg" class="addr-msg" role="alert"></div>
+  <div id="addrPick" class="addr-pick" role="group" style="display:none"></div>
   <div id="openIn" style="font-size:12px;color:#5d6356;margin-bottom:10px">Open in:
     <a href="#" onclick="openEarth();return false" class="ext-lnk">🌍 Earth (3D)</a> <span class="desk-only" style="color:#777;font-weight:400">— ctrl+drag to rotate</span> ·
     <a href="#" onclick="openLotSearch();return false" class="ext-lnk">🏠 Zillow/Redfin</a>
@@ -431,6 +438,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 <div class="bar" id="bar"></div>
 
 <script src="route-fit.js"></script>
+<script src="addr-match.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -441,7 +449,7 @@ async function loadRouteData(){
 }
 async function geocodeForFit(a){
   try{
-    const g=await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q='+encodeURIComponent(a)).then(r=>r.json());
+    const g=await nomSearch(a);
     if(!g||!g.length){ST.fitGeo=null;renderFit();return;}
     const ad=g[0].address||{};
     ST.fitGeo={lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||''};
@@ -608,50 +616,89 @@ function lookupAddr(){
   geocodeForFit(a);
 }
 const DUPAGE_GIS='https://gis.dupageco.org/arcgis/rest/services/DuPage_County_IL/ParcelsWithRealEstateCC/MapServer/0/query';
-function addrTokens(a){
-  const SKIP={N:1,S:1,E:1,W:1,NE:1,NW:1,SE:1,SW:1,ST:1,STREET:1,AVE:1,AVENUE:1,DR:1,DRIVE:1,RD:1,ROAD:1,BLVD:1,BOULEVARD:1,CT:1,COURT:1,LN:1,LANE:1,PL:1,PLACE:1,WAY:1,CIR:1,CIRCLE:1,TER:1,TERRACE:1,PKWY:1,PARKWAY:1,TRL:1,TRAIL:1,HWY:1,HIGHWAY:1};
-  const s=a.split(',')[0].toUpperCase().replace(/\s+(APT|UNIT|#|STE|SUITE)\b.*$/i,'').replace(/(\d+[A-Z])\s+(\d+)/g,'$1$2').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-  return s.split(' ').filter(t=>t&&!SKIP[t]).slice(0,2);
+const DP_FIELDS='PIN,ACREAGE,PROPADDRL1,PROPCITY,PROPZIP';
+const _nomCache={};
+// One Nominatim search per address, shared by the lot lookup and Route & Fit (geocodeForFit).
+function nomSearch(a){
+  if(!_nomCache[a])_nomCache[a]=fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=us&q='+encodeURIComponent(a)).then(r=>r.json()).catch(()=>{delete _nomCache[a];return [];});
+  return _nomCache[a];
 }
-async function parcelByPoint(a){
-  try{
-    const geo=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(a)).then(r=>r.json());
-    if(!geo||!geo.length)return null;
-    const r=await fetch(DUPAGE_GIS+'?geometry='+geo[0].lon+','+geo[0].lat+'&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=ACREAGE,PIN&returnGeometry=false&f=json').then(r=>r.json());
-    if(!r||!r.features||!r.features.length)return null;
-    return r.features[0].attributes;
-  }catch(e){return null;}
+async function dpQuery(params){
+  try{const r=await fetch(DUPAGE_GIS+'?'+params+'&outFields='+DP_FIELDS+'&returnGeometry=false&f=json').then(r=>r.json());return (r&&r.features||[]).map(f=>f.attributes);}catch(e){return [];}
 }
-async function parcelByText(a){
-  const toks=addrTokens(a);if(!toks.length)return null;
-  const where=toks.map(t=>"UPPER(PROPADDRL1) LIKE '%"+t.replace(/'/g,"''")+"%'").join(' AND ');
-  try{
-    const r=await fetch(DUPAGE_GIS+'?where='+encodeURIComponent(where)+'&outFields=ACREAGE,PIN,PROPADDRL1&returnGeometry=false&f=json&resultRecordCount=5').then(r=>r.json());
-    if(!r||!r.features||!r.features.length)return null;
-    const hits=r.features.filter(f=>(parseFloat(f.attributes.ACREAGE)||0)>0);
-    if(!hits.length)return null;
-    return Object.assign({},hits[0].attributes,{_count:r.features.length});
-  }catch(e){return null;}
+// Parcels under the top map points for the typed address.
+async function parcelsByPoint(a){
+  const geo=await nomSearch(a);if(!geo||!geo.length)return [];
+  const pts=geo.slice(0,3).map(g=>dpQuery('geometry='+g.lon+','+g.lat+'&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects'));
+  return [].concat(...await Promise.all(pts));
+}
+// Parcels whose address starts with EXACTLY the typed house number and contains the street name.
+async function parcelsByText(p){
+  if(!p.num||!p.name)return [];
+  const g=p.num.match(/^(\d+)([NSEW])(\d+)$/);
+  const numLike=g?g[1]+g[2]+'%'+g[3]+' %':p.num+' %';
+  const words=p.name.split(' ').filter(w=>w.length>1).sort((x,y)=>y.length-x.length);
+  const num="UPPER(PROPADDRL1) LIKE '"+numLike.replace(/'/g,"''")+"'";
+  const q=w=>dpQuery('where='+encodeURIComponent(num+(w?" AND UPPER(PROPADDRL1) LIKE '%"+w.replace(/'/g,"''")+"%'":''))+'&resultRecordCount='+(w?25:200));
+  let rows=words.length?await q(words[0]):[];
+  // Street typo or spacing ("Highveiw", "McCarron" vs "MC CARRON"): widen the search, AddrMatch then fuzzy-matches.
+  if(!rows.length&&words[0]&&words[0].length>=5)rows=await q(words[0].slice(0,3));
+  if(!rows.length)rows=await q('');
+  if(g)rows=rows.filter(r=>AddrMatch.normNum(String(r.PROPADDRL1||'').split(' ')[0])===p.num);
+  return rows;
+}
+function serviceTowns(){
+  const s=new Set(AddrMatch.CORE_AREA);
+  try{(ROUTE_DATA&&ROUTE_DATA.routes||[]).forEach(r=>(r.stops||[]).forEach(st=>{const t=String(st.address||'').split(',')[1];if(t)s.add(t.trim().toUpperCase().replace(/\./g,''));}));}catch(e){}
+  return [...s];
+}
+function hidePick(){const pk=$('addrPick');if(pk){pk.innerHTML='';pk.style.display='none';}}
+function useParcel(s,a,note){
+  const sqft=Math.round(s.acres*43560),inp=$('iLt');
+  inp.value=ST.lotUnit==='ac'?(+s.acres.toFixed(3)):sqft;upd();
+  $('mapAddr').textContent=AddrMatch.label(s)+' · '+sqft.toLocaleString()+' sqft ('+s.acres.toFixed(2)+' ac) · PIN '+s.pin+(note?' · '+note:'');
+}
+// "Did you mean…?" — big buttons, one per possible property, plus "none of these".
+function showPick(opts,a){
+  const pk=$('addrPick');pk.innerHTML='';
+  const h=document.createElement('div');h.className='pick-q';h.textContent=tx('Did you mean…?','¿Es esta la dirección?');pk.appendChild(h);
+  opts.forEach(s=>{
+    const b=document.createElement('button');b.type='button';b.className='pick-btn';b.dataset.pin=s.pin;
+    const l1=document.createElement('b');l1.textContent='📍 '+AddrMatch.label(s);
+    const l2=document.createElement('span');l2.textContent=Math.round(s.acres*43560).toLocaleString()+' sqft';
+    b.appendChild(l1);b.appendChild(l2);
+    b.onclick=()=>{hidePick();$('iAddr').value=AddrMatch.full(s);useParcel(s,a,tx('confirmed','confirmado'));const mm=$('mapMeta');if(mm)mm.style.display='flex';try{geocodeForFit($('iAddr').value);}catch(e){}};
+    pk.appendChild(b);
+  });
+  const n=document.createElement('button');n.type='button';n.className='pick-none';n.textContent=tx('None of these — I will type the lot size','Ninguna — escribo el tamaño del terreno');
+  n.onclick=()=>{hidePick();$('iLt').value='';upd();const li=$('iLt');li.focus();if(li.scrollIntoView)li.scrollIntoView({block:'center',behavior:'smooth'});$('iLtH').textContent=tx('Type the lot size here','Escribe aquí el tamaño del terreno');};
+  pk.appendChild(n);
+  pk.style.display='block';
 }
 async function lookupLot(a){
   const btn=$('lkBtn');const orig='📍 Look up';const hint=$('iLtH');
-  btn.textContent='⏳ Finding lot…';btn.disabled=true;
+  btn.textContent='⏳ Finding lot…';btn.disabled=true;hidePick();
   hint.innerHTML='<span class="spinner"></span> Looking up lot size…';
   hint.style.color='#30471F';hint.style.fontWeight='700';
-  const setMeta=t=>{$('mapAddr').textContent=t;};
-  let f=await parcelByPoint(a),viaText=false;
-  if(!f||!(parseFloat(f.ACREAGE)>0)){const t=await parcelByText(a);if(t){f=t;viaText=true;}}
-  if(f&&parseFloat(f.ACREAGE)>0){
-    const acres=parseFloat(f.ACREAGE),sqft=Math.round(acres*43560),inp=$('iLt');
-    inp.value=ST.lotUnit==='ac'?(+acres.toFixed(3)):sqft;upd();
-    const note=viaText?(f._count>1?' · '+f._count+' addr matches, using first':' · matched by address'):'';
-    setMeta(a+' · '+sqft.toLocaleString()+' sqft ('+acres.toFixed(2)+' ac)'+(f.PIN?' · PIN '+f.PIN:'')+note);
+  const typed=AddrMatch.parseAddress(a);
+  const [pt,txt]=await Promise.all([parcelsByPoint(a).catch(()=>[]),parcelsByText(typed).catch(()=>[])]);
+  const cands=pt.map(x=>({attrs:x,viaPoint:true})).concat(txt.map(x=>({attrs:x})));
+  const d=AddrMatch.decide(typed,cands,serviceTowns());
+  if(d.action==='auto'){
+    useParcel(d.pick,a,'');
     btn.textContent='✓ Lot found';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2000);
+  }else if(d.action==='ask'){
+    $('iLt').value='';upd();
+    showPick(d.options,a);
+    hint.textContent=tx('👆 Pick the right address above','👆 Elige la dirección correcta arriba');
+    hint.style.color='#9a5b00';hint.style.fontWeight='700';
+    $('mapAddr').textContent=a+' · '+tx('please confirm the address','confirma la dirección');
+    btn.textContent=orig;btn.disabled=false;
   }else{
     $('iLt').value='';upd();
     hint.innerHTML="✕ Couldn't find a lot size for this address — please enter it manually";
     hint.style.color='#cc0000';hint.style.fontWeight='700';
-    setMeta(a+' · no DuPage parcel match — enter lot size manually');
+    $('mapAddr').textContent=a+' · no DuPage parcel match — enter lot size manually';
     btn.textContent=orig;btn.disabled=false;
   }
 }
