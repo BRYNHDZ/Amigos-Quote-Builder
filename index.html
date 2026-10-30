@@ -90,6 +90,10 @@ input[type=number]:focus{border-color:#30471F;box-shadow:0 0 0 2px rgba(48,71,31
 .sm-hint{font-size:10px;color:#aaa;margin-top:6px;padding-top:6px;border-top:1px dashed #e8e8e0}
 .addr-btn{padding:7px 12px;font-size:12px;font-weight:700;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;cursor:pointer;white-space:nowrap;font-family:'Nunito',sans-serif;transition:all .12s}
 .addr-btn:hover{background:#e6f0e0;border-color:#30471F}
+.corner-wrap{display:flex;flex-direction:column;justify-content:flex-end}
+.corner-chk{display:flex;align-items:center;gap:8px;min-height:34px;padding:6px 10px;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#18240F;font-size:13px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;user-select:none}
+.corner-chk input{width:18px;height:18px;margin:0;accent-color:#30471F;cursor:pointer;flex-shrink:0}
+.corner-chk:has(input:checked){border-color:#30471F;background:#f5f9f4}
 .unit-btn{width:52px;font-size:11px;font-weight:700;border:1.5px solid #d8d8d0;border-radius:7px;background:#fafaf8;color:#30471F;cursor:pointer;white-space:nowrap;font-family:'Nunito',sans-serif;transition:all .12s;flex-shrink:0}
 .unit-btn:hover{background:#e6f0e0;border-color:#30471F}
 .ext-lnk{color:#30471F;font-weight:700;text-decoration:none;white-space:nowrap}
@@ -141,6 +145,7 @@ body{padding-bottom:90px}
 .px-edit:has(input.ovr){border-color:#FFB300;background:#fffbec}
 .px-big{font-size:16px;font-weight:700;color:#30471F;padding:6px 0}
 .px-sub{font-size:11px;color:#888;margin-top:3px}
+.px-sub.corner-sub{color:#30471F;font-weight:700}.px-sub.corner-sub.off{color:#7a5800}
 .px-sub a{color:#7a5800;text-decoration:underline;cursor:pointer}
 .pay-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .pay{border:1.5px solid #e0dfd8;border-radius:12px;padding:12px;cursor:pointer;background:#fff;text-align:left;font-family:'Nunito',sans-serif;color:#18240F}
@@ -356,6 +361,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
   
   <div class="g2" style="margin-bottom:6px">
     <div><label class="lbl" data-i18n="l.lot">Lot size</label><div style="display:flex;gap:4px"><input type="number" id="iLt" placeholder="e.g. 10890" step="any" oninput="upd()" style="flex:1;min-width:0"><button type="button" id="iLtU" class="unit-btn" onclick="toggleLotUnit()">sqft</button></div><div class="hint" id="iLtH" data-i18n="h.lot0">Enter this alone → all services auto-estimate</div></div>
+    <div class="corner-wrap"><label class="corner-chk" for="iCorner"><input type="checkbox" id="iCorner" autocomplete="off" onchange="setCornerLot(this.checked)"><span id="iCornerL">Corner lot</span></label><div class="hint" id="iCornerH">Adds $10 to every mowing visit</div></div>
   </div>
   <details class="more-det" id="measDet"><summary data-i18n="l.meas">Measurements (auto-filled from lot size)</summary>
   <div class="g2">
@@ -506,7 +512,7 @@ function renderFit(){
 }
 const V=35,BEB=200,BER1=60,BER2=40;
 const SLM=[0.75,0.9,1.0,1.15,1.30,1.50];
-let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:0,leaf:null,snow:null,payView:'visit',homeVal:0,homeFt:0,complex:null,bedFootprint:null,visitsRemain:0,oneTier:'remote',sel:new Set(['A1']),ov:{},exp:new Set(),lotUnit:'sqft',trimDensity:'light',weedPressure:'light',bufferOn:false,mulchOverride:false,planStartMonth:3,fitGeo:null};
+let ST={lawn:0,lot:0,paved:0,mulch:0,trim:0,peren:0,rate:0,leaf:null,snow:null,payView:'visit',homeVal:0,homeFt:0,complex:null,bedFootprint:null,visitsRemain:0,oneTier:'remote',sel:new Set(['A1']),ov:{},exp:new Set(),lotUnit:'sqft',trimDensity:'light',weedPressure:'light',bufferOn:false,cornerLot:false,mulchOverride:false,planStartMonth:3,fitGeo:null};
 // Bed footprint % of nonHome area — drives auto-derived mulch yards
 // Calibrated so 0.25-acre / 2000-sqft home produces clean 3/6/9 yards
 const BED_FOOTPRINT_PCT={low:0.03,mod:0.07,high:0.10};
@@ -563,6 +569,12 @@ const SNOW_BASE=795,SNOW_BASE_SQFT=2000,SNOW_PER_SQFT=0.30;
 const SNOW_MULT={H1:1,H2:1.5,H4:2.7};
 const RATE_SVCS=['A1','A2','C2','B1','B2','B3','B4','D1','D2','G1','G2','G3','OB1','OB2','OB3','OB4','OD1','OD2','OD3','OD4'];
 // Start month: drives mowing proration (visits left) and the number of monthly payments
+// Corner lot: flat add-on per mowing visit (extra edging/trim time on the second street side). Only ever adds.
+const CORNER_LOT_FEE_PER_VISIT=10;
+function cornerFee(){return ST.cornerLot?CORNER_LOT_FEE_PER_VISIT*effVisits():0;}
+function cornerSub(id){if(!ST.cornerLot||(id!=='A1'&&id!=='A2')||!(gp(id)>0))return '';if('A1'in ST.ov)return '<div class="px-sub corner-sub off">'+tx('Corner lot: not added to a manual price','Esquina: no se suma a un precio manual')+'</div>';return '<div class="px-sub corner-sub">'+tx('Corner lot (+$'+CORNER_LOT_FEE_PER_VISIT+'/visit)','Terreno de esquina (+$'+CORNER_LOT_FEE_PER_VISIT+'/visita)')+'</div>';}
+function cornerUI(){const l=$('iCornerL'),h=$('iCornerH'),c=$('iCorner');if(c)c.checked=!!ST.cornerLot;if(l)l.textContent=tx('Corner lot','Terreno de esquina');if(h){const n=effVisits();h.textContent=ST.cornerLot?tx('+$'+CORNER_LOT_FEE_PER_VISIT+' per mowing visit × '+n+' = +$'+(CORNER_LOT_FEE_PER_VISIT*n).toLocaleString()+' a season','+$'+CORNER_LOT_FEE_PER_VISIT+' por corte × '+n+' = +$'+(CORNER_LOT_FEE_PER_VISIT*n).toLocaleString()+' por temporada'):tx('Adds $'+CORNER_LOT_FEE_PER_VISIT+' to every mowing visit','Suma $'+CORNER_LOT_FEE_PER_VISIT+' a cada corte');}}
+function setCornerLot(on){ST.cornerLot=!!on;render();}
 const PLAN_VISITS_BY_START_MONTH={3:35,4:30,5:26,6:22,7:17,8:13,9:8,10:4,11:1,12:0,1:0,2:0};
 const MONTH_NAMES={1:'January',2:'February',3:'March',4:'April',5:'May',6:'June',7:'July',8:'August',9:'September',10:'October',11:'November',12:'December'};
 function planMonths(){const m=ST.planStartMonth||3;return m>=3?15-m:3-m;}
@@ -594,11 +606,11 @@ const SMALL_LOT_LEAF_D={3:{nut:38,rem:36},4:{nut:96,rem:123}};
 function smallLotLeaf(R,lot,leaf){const D=SMALL_LOT_LEAF_D[leaf];if(!D||!(lot>0))return;const w=Math.max(0,Math.min(1,(20000-lot)/10000));if(!w)return;[['G1','nut'],['OD3','nut'],['G2','rem'],['OD4','rem']].forEach(([k,t])=>{if(R[k])R[k]=Math.round(R[k]-D[t]*w);});}
 function leafVisits(id){const v=(ST.leafVisits||{})[id]||1;return Math.max(1,Math.min(4,v));}
 function setLeafVisits(id,v){ST.leafVisits=ST.leafVisits||{};ST.leafVisits[id]=v;render();}
-function getSug(){const d=derive();const rate=effRate();const leaf=effLeaf();const cxM=CXM[effComplex()]||1;const lot=ST.lot;let lawn=ST.lawn>0?ST.lawn:(d?d.lawn:0);let paved=ST.paved>0?ST.paved:(d?d.paved:0);let mulch=ST.mulch>0?ST.mulch:(d?d.mulch:0);let trim=ST.trim>0?ST.trim:(d?d.trim:0);let peren=ST.peren>0?ST.peren:(d?d.peren:0);let mc=0;if(lawn>0){if(lawn<=5000)mc=40;else if(lawn<=10000)mc=40+(lawn-5000)*0.0019;else if(lawn<=20000)mc=49.5+(lawn-10000)*0.0015;else mc=64.5+(lawn-20000)*0.0012;}const mowFactor=Math.max(1,Math.min(35,effVisits()))/V;const mY=Math.round(mc*V*mowFactor);const c2=mulch>0?Math.round(bp(mulch,BEB,BER1,BER2)):mc>0?Math.round(mc*5):0;let fb=0,fbB=0;if(lot>0&&leaf>0){const b=lot<=10000?275:lot<=20000?275+(lot-10000)*0.011:lot<=43560?385+(lot-20000)*0.007:550+(lot-43560)*0.006;fbB=b;fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}const scBase=lot>0?(lot<=10000?200:lot<=20000?200+(lot-10000)*0.008:lot<=43560?280+(lot-20000)*0.005:420+(lot-43560)*0.004):0;const sc=Math.round(scBase*SLM[leaf]);const snb=paved>0?SNOW_BASE+Math.max(0,paved-SNOW_BASE_SQFT)*SNOW_PER_SQFT:0;const mR=mc>0?Math.round(mc*3.5):0;const os=mc>0&&lawn>0?Math.round(mc+lawn*0.02):0;const mu=mulch>0?Math.round(mulch*MULCH_PRICE_PER_YD):0;const R={A1:mY,A2:Math.round(mY*1.25),C2:Math.round(c2*WEED_PRESSURE_MULT.C2[ST.weedPressure]),B1:mR,B2:mR,B3:os,B4:os,D1:sc,D2:Math.round(sc*1.2),G1:Math.round(fb),G2:Math.round(fbB+(fb-fbB)*1.35),G3:Math.round(fb*1.7),E1:(lot>0?Math.round(trimHrs(lot)*effRate()*2*TRIM_DENSITY_MULT.E1[ST.trimDensity]):0),E2:(lot>0?Math.round(trimHrs(lot)*effRate()*2*E2_MULT*TRIM_DENSITY_MULT.E2[ST.trimDensity]):0),E5:(lot>0?Math.max(100,Math.round(trimHrs(lot)*effRate()*2*0.35*TRIM_DENSITY_MULT.E5[ST.trimDensity])):0),E3:peren>0?Math.round(peren*rate*2):0,F1:mu,H1:Math.round(snb*SNOW_MULT.H1),H2:Math.round(snb*SNOW_MULT.H2),H4:Math.round(snb*SNOW_MULT.H4),OB1:mR,OB2:mR,OB3:os,OB4:os,OD1:sc,OD2:Math.round(sc*1.2),OD3:Math.round(fb),OD4:Math.round(fbB+(fb-fbB)*1.35),OE1:(lot>0?Math.round(trimHrs(lot)*effRate()*2*TRIM_DENSITY_MULT.OE1[ST.trimDensity]):0),OE3:peren>0?Math.round(peren*rate):0,OF1:mu,OF2:mulch>0?Math.round(mulch*(WEED_MIN_PER_YD[ST.weedPressure]||0)*rate*2/60):0,OF3:(mulch>0?Math.round(mulch*rate*0.4*WEED_PRESSURE_MULT.OF3[ST.weedPressure]):mc>0?Math.round(mc*2*WEED_PRESSURE_MULT.OF3[ST.weedPressure]):0)};smallLotLeaf(R,lot,leaf);if(cxM!==1)['A1','A2','C2','D1','D2','G1','G2','G3','E3','OE3','OF2','OF3','OD1','OD2','OD3','OD4'].forEach(k=>{if(R[k])R[k]=Math.round(R[k]*cxM);});const rateM=rate/RATE_BASE;if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});for(const k in VISIT_SVCS_M){const v=leafVisits(k);if(v>1&&R[k])R[k]+=Math.round(fbB*VISIT_SVCS_M[k]*(v-1)*cxM*rateM);}if(R.OF2)R.OF2*=2;return R;}
+function getSug(){const d=derive();const rate=effRate();const leaf=effLeaf();const cxM=CXM[effComplex()]||1;const lot=ST.lot;let lawn=ST.lawn>0?ST.lawn:(d?d.lawn:0);let paved=ST.paved>0?ST.paved:(d?d.paved:0);let mulch=ST.mulch>0?ST.mulch:(d?d.mulch:0);let trim=ST.trim>0?ST.trim:(d?d.trim:0);let peren=ST.peren>0?ST.peren:(d?d.peren:0);let mc=0;if(lawn>0){if(lawn<=5000)mc=40;else if(lawn<=10000)mc=40+(lawn-5000)*0.0019;else if(lawn<=20000)mc=49.5+(lawn-10000)*0.0015;else mc=64.5+(lawn-20000)*0.0012;}const mowFactor=Math.max(1,Math.min(35,effVisits()))/V;const mY=Math.round(mc*V*mowFactor);const c2=mulch>0?Math.round(bp(mulch,BEB,BER1,BER2)):mc>0?Math.round(mc*5):0;let fb=0,fbB=0;if(lot>0&&leaf>0){const b=lot<=10000?275:lot<=20000?275+(lot-10000)*0.011:lot<=43560?385+(lot-20000)*0.007:550+(lot-43560)*0.006;fbB=b;fb=b*(1+[0,0,0.25,0.5,0.8,1.2][leaf]);}const scBase=lot>0?(lot<=10000?200:lot<=20000?200+(lot-10000)*0.008:lot<=43560?280+(lot-20000)*0.005:420+(lot-43560)*0.004):0;const sc=Math.round(scBase*SLM[leaf]);const snb=paved>0?SNOW_BASE+Math.max(0,paved-SNOW_BASE_SQFT)*SNOW_PER_SQFT:0;const mR=mc>0?Math.round(mc*3.5):0;const os=mc>0&&lawn>0?Math.round(mc+lawn*0.02):0;const mu=mulch>0?Math.round(mulch*MULCH_PRICE_PER_YD):0;const R={A1:mY,A2:Math.round(mY*1.25),C2:Math.round(c2*WEED_PRESSURE_MULT.C2[ST.weedPressure]),B1:mR,B2:mR,B3:os,B4:os,D1:sc,D2:Math.round(sc*1.2),G1:Math.round(fb),G2:Math.round(fbB+(fb-fbB)*1.35),G3:Math.round(fb*1.7),E1:(lot>0?Math.round(trimHrs(lot)*effRate()*2*TRIM_DENSITY_MULT.E1[ST.trimDensity]):0),E2:(lot>0?Math.round(trimHrs(lot)*effRate()*2*E2_MULT*TRIM_DENSITY_MULT.E2[ST.trimDensity]):0),E5:(lot>0?Math.max(100,Math.round(trimHrs(lot)*effRate()*2*0.35*TRIM_DENSITY_MULT.E5[ST.trimDensity])):0),E3:peren>0?Math.round(peren*rate*2):0,F1:mu,H1:Math.round(snb*SNOW_MULT.H1),H2:Math.round(snb*SNOW_MULT.H2),H4:Math.round(snb*SNOW_MULT.H4),OB1:mR,OB2:mR,OB3:os,OB4:os,OD1:sc,OD2:Math.round(sc*1.2),OD3:Math.round(fb),OD4:Math.round(fbB+(fb-fbB)*1.35),OE1:(lot>0?Math.round(trimHrs(lot)*effRate()*2*TRIM_DENSITY_MULT.OE1[ST.trimDensity]):0),OE3:peren>0?Math.round(peren*rate):0,OF1:mu,OF2:mulch>0?Math.round(mulch*(WEED_MIN_PER_YD[ST.weedPressure]||0)*rate*2/60):0,OF3:(mulch>0?Math.round(mulch*rate*0.4*WEED_PRESSURE_MULT.OF3[ST.weedPressure]):mc>0?Math.round(mc*2*WEED_PRESSURE_MULT.OF3[ST.weedPressure]):0)};smallLotLeaf(R,lot,leaf);if(cxM!==1)['A1','A2','C2','D1','D2','G1','G2','G3','E3','OE3','OF2','OF3','OD1','OD2','OD3','OD4'].forEach(k=>{if(R[k])R[k]=Math.round(R[k]*cxM);});const rateM=rate/RATE_BASE;if(rateM!==1)RATE_SVCS.forEach(k=>{if(R[k])R[k]=Math.round(R[k]*rateM);});for(const k in VISIT_SVCS_M){const v=leafVisits(k);if(v>1&&R[k])R[k]+=Math.round(fbB*VISIT_SVCS_M[k]*(v-1)*cxM*rateM);}if(R.OF2)R.OF2*=2;if(R.A1>0){const cf=cornerFee();R.A1+=cf;R.A2+=cf;}return R;}
 function getSel(){return ST.sel;}
 function getOv(){return ST.ov;}
 function getCats(){return SEASONS.flatMap(x=>x.cats);}
-function gp(id){const ov=getOv();if(id==='A2'){const b='A1'in ST.ov?ST.ov.A1:(getSug().A1||0);return Math.round(b*1.25);}return id in ov?ov[id]:(getSug()[id]||0);}
+function gp(id){const ov=getOv();if(id==='A2'){if('A1'in ST.ov)return Math.round(ST.ov.A1*1.25);const a1=getSug().A1||0;const cf=a1>0?cornerFee():0;return Math.round((a1-cf)*1.25)+cf;}return id in ov?ov[id]:(getSug()[id]||0);}
 function toggle(id,cid){const sel=getSel();const isRec=true;if(isRec&&MDEPS.includes(id)&&!isMow())return;if(id==='E5'&&!hasTrim())return;if(MULCH_DEPS.includes(id)&&!hasMulch())return;if(sel.has(id)){sel.delete(id);if(isRec&&cid==='A'&&!isMow())MDEPS.forEach(d=>sel.delete(d));if(cid==='E'&&!sel.has('E1')&&!sel.has('E2'))sel.delete('E5');if(id==='F1'&&!hasMulch())MULCH_DEPS.forEach(d=>sel.delete(d));}else sel.add(id);render();}
 function toggleExp(id){ST.exp.has(id)?ST.exp.delete(id):ST.exp.add(id);render();}
 function setSeg(gid,btn,fn){document.querySelectorAll('#'+gid+' button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');fn();render();}
@@ -762,6 +774,7 @@ function renderSvc(){
         if(item.auto)h+='<div class="px-big" data-px="'+id+'">$'+Math.round(p).toLocaleString()+'</div><div class="px-sub">'+tx('+25% auto','+25% automático')+'</div>';
         else h+='<label class="px-edit"><span>$</span><input class="pi'+(isOvr?' ovr':'')+'" type="number" inputmode="decimal" data-id="'+id+'" value="'+(p>0?Math.round(p):'')+'" placeholder="'+(sp>0?Math.round(sp):'0')+'" oninput="ovr(\''+id+'\',this.value)"></label>';
         if(mo.v>0)h+='<div class="px-sub svc-mo" data-mo="'+id+'">$'+mo.v+mo.unit+'</div>';
+        h+=cornerSub(id);
         if(VISIT_SVCS.includes(id)&&selected&&!dis&&leafVisits(id)>1)h+='<div class="px-sub">'+leafVisits(id)+tx(' visits',' visitas')+'</div>';
         if(!item.auto&&isOvr)h+='<div class="px-sub">✎ '+tx('manual price · ','precio manual · ')+'<a onclick="resetOvr(\''+id+'\',event)">'+tx('reset to auto','volver a automático')+'</a></div>';
         h+='</div></div>';
@@ -944,6 +957,7 @@ function fprice(id,extra){
   else h+='<label class="px-edit"><span>$</span><input class="pi'+(isOvr?' ovr':'')+'" type="number" inputmode="decimal" data-id="'+id+'" value="'+(p>0?Math.round(p):'')+'" placeholder="'+(sp>0?Math.round(sp):'0')+'" oninput="ovr(\''+id+'\',this.value)"></label>';
   h+='<div class="px-sub">'+t('u.season')+'</div>';
   if(mo.v>0)h+='<div class="px-sub svc-mo" data-mo="'+id+'">$'+mo.v+(mo.unit==='/cut'?' '+t('u.cut'):mo.unit)+'</div>';
+  h+=cornerSub(id);
   if(!auto&&isOvr)h+='<div class="px-sub">✎ <a onclick="resetOvr(\''+id+'\',event)">'+t('f.reset')+'</a></div>';
   h+='</div>';
   if(extra)h+='<button type="button" class="f-x" aria-label="'+t('f.rm')+'" onclick="toggle(\''+id+'\',\''+CATOF[id].cat+'\')">✕</button>';
@@ -1063,7 +1077,7 @@ function initUI(){
 /* ===== usability pass 1: quote summary, copy/share, start over, plain address errors ===== */
 UI.arm=false;
 function qrData(){
-  let total=0;const rows=[];ST.sel.forEach(id=>{const v=gp(id)||0;total+=v;rows.push([itemName(id),v]);});
+  let total=0;const rows=[];ST.sel.forEach(id=>{const v=gp(id)||0;total+=v;const cl=ST.cornerLot&&(id==='A1'||id==='A2')&&v>0&&!('A1'in ST.ov);rows.push([itemName(id)+(cl?tx(' · corner lot (+$'+CORNER_LOT_FEE_PER_VISIT+'/visit)',' · terreno de esquina (+$'+CORNER_LOT_FEE_PER_VISIT+'/visita)'):''),v]);});
   const n=planMonths(),mo=Math.round(total/n),ap=annualPay(total),sm=ST.planStartMonth||3;
   const mowA=(ST.sel.has('A1')?gp('A1'):0)+(ST.sel.has('A2')?gp('A2'):0);const perCut=mowA>0?Math.round(mowA/effVisits()):0;
   const mname=UI.lang==='es'?ES_MONTH[sm]:MONTH_NAMES[sm];
@@ -1121,7 +1135,7 @@ function startOver(){
   location.href=location.pathname;
 }
 function uxPass(){
-  renderQR();
+  cornerUI();renderQR();
   document.querySelectorAll('.so-btn').forEach(b=>{b.classList.toggle('arm',UI.arm);b.textContent=UI.arm?t('so.sure'):t('so.btn');});
   const ia=$('iAddr');if(ia)ia.placeholder=tx('e.g. 303 W Wesley St','Ej.: 303 W Wesley St');const ds=$('detSum');if(ds)ds.textContent=tx('Office details (optional)','Detalles de oficina (opcional)');
 }
