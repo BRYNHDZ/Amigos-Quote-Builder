@@ -43,12 +43,14 @@ let compared = 0;
 for (const c of process.env.QUICK ? [] : cases) {
   for (const p of [both, leafOnly, mowOnly, full, live]) await setDials(p, c);
   const runs = [];
+  // choices are multi-select now (Option 1 / Option 2), so each run starts from exactly one mowing + one leaf pick
+  const LM = { nut: { during: 'G1', once: 'OD3' }, rem: { during: 'G2', once: 'OD4' } };
   for (const m of ['A1', 'A2']) for (const k of ['nut', 'rem']) for (const w of ['during', 'once'])
-    runs.push([both, `button.choice[onclick="pickMow('${m}')"]`, `button.choice[onclick="setLeaf('${k}',null)"]`, `button.choice[onclick="setLeaf(null,'${w}')"]`]);
-  for (const k of ['nut', 'rem']) runs.push([leafOnly, null, `button.choice[onclick="setLeaf('${k}',null)"]`, `button.choice[onclick="setLeaf(null,'once')"]`]);
-  for (const m of ['A1', 'A2']) runs.push([mowOnly, `button.choice[onclick="pickMow('${m}')"]`, null, null]);
-  for (const [p, a, b, d] of runs) {
-    for (const s of [a, b, d]) if (s) await click(p, s);
+    runs.push([both, [m, LM[k][w]], 'x', `'${w}'`]);
+  for (const k of ['nut', 'rem']) runs.push([leafOnly, [LM[k].once], 'x', `'once'`]);
+  for (const m of ['A1', 'A2']) runs.push([mowOnly, [m], null, null]);
+  for (const [p, want, b, d] of runs) {
+    await p.evaluate(w => { ['A1', 'A2', ...LEAF_IDS].forEach(i => ST.sel.delete(i)); w.forEach(i => ST.sel.add(i)); render(); }, want);
     for (const visits of (b && /'once'/.test(d) ? [1, 3] : [1])) {
       if (visits > 1) await p.evaluate(() => { setLeafVisits(leafState().k === 'nut' ? 'OD3' : 'OD4', 3); });
       const f = await readFocus(p);
@@ -67,9 +69,9 @@ console.log('price parity: ' + compared + ' focus-vs-full-vs-live comparisons');
 // ---------- 1b. every new service path: focus view == full view == live root builder ----------
 const CH = {
   A1: `pickMow('A1')`, A2: `pickMow('A2')`,
-  H1: `pickGrp(['H1','H2','H4'],'H1',true)`, H2: `pickGrp(['H1','H2','H4'],'H2',true)`, H4: `pickGrp(['H1','H2','H4'],'H4',true)`,
-  E1: `pickGrp(['E1','E2','OE1'],'E1',true)`, E2: `pickGrp(['E1','E2','OE1'],'E2',true)`, OE1: `pickGrp(['E1','E2','OE1'],'OE1',true)`,
-  E3: `pickGrp(['E3','OE3'],'E3',true)`, OE3: `pickGrp(['E3','OE3'],'OE3',true)`,
+  H1: `tgl('H1')`, H2: `tgl('H2')`, H4: `tgl('H4')`,
+  E1: `tgl('E1')`, E2: `tgl('E2')`, OE1: `tgl('OE1')`,
+  E3: `tgl('E3')`, OE3: `tgl('OE3')`,
   E5: `tgl('E5')`, C2: `tgl('C2')`, OF2: `tgl('OF2')`, OF3: `tgl('OF3')`, F1: `tgl('F1')`
 };
 const DOMAIN = ['H1', 'H2', 'H4', 'E1', 'E2', 'OE1', 'E3', 'OE3', 'E5', 'C2', 'OF2', 'OF3', 'F1'];
@@ -80,6 +82,7 @@ const drive = async (pg, want, tag) => {
     if (cur.includes(id) && !want.includes(id) && await pg.evaluate(i => ST.sel.has(i), id)) await pg.locator(`button.choice[onclick="${CH[id]}"]`).first().click();
   for (const id of ['A1', 'A2', 'F1', 'H1', 'H2', 'H4', 'E1', 'E2', 'OE1', 'E5', 'E3', 'OE3', 'C2', 'OF2', 'OF3'])
     if (want.includes(id) && !(await pg.evaluate(i => ST.sel.has(i), id))) await pg.locator(`button.choice[onclick="${CH[id]}"]`).first().click();
+  for (const m of ['A1', 'A2']) if (!want.includes(m) && want.includes(m === 'A1' ? 'A2' : 'A1') && await pg.evaluate(i => ST.sel.has(i), m)) await pg.locator(`button.choice[onclick="${CH[m]}"]`).first().click();
   const got = await pg.evaluate(d => d.filter(i => ST.sel.has(i)).sort(), DOMAIN);
   ok(JSON.stringify(got) === JSON.stringify(DOMAIN.filter(i => want.includes(i)).sort()), 'tapping the choices gives exactly the picked services', { tag, want, got });
 };
@@ -193,8 +196,10 @@ ok(await q.evaluate(() => ST.sel.has('H1') && ST.sel.size === 1), 'snow path: st
 ok(await vis2(q, '#measDet') && await vis2(q, '#iPv') && !(await vis2(q, '#iMu')) && !(await vis2(q, '#iTr')) && !(await vis2(q, '#dLeaf')) && !(await vis2(q, '#dBed')) && !(await vis2(q, '#dCx')), 'snow path: only the driveway/walks size is asked');
 await q.fill('#iPv', '4000'); await q.waitForTimeout(500);
 ok(await q.evaluate(() => ST.paved === 4000), 'snow path: driveway size feeds the price');
-await click(q, `button.choice[onclick="pickGrp(['H1','H2','H4'],'H4',true)"]`);
-ok(await q.evaluate(() => ST.sel.has('H4') && !ST.sel.has('H1')), 'snow path: picking zero tolerance swaps the plan');
+await click(q, `button.choice[onclick="tgl('H4')"]`);
+ok(await q.evaluate(() => ST.sel.has('H4') && ST.sel.has('H1')), 'snow path: picking zero tolerance adds it as Option 2 (multi-select)');
+await click(q, `button.choice[onclick="tgl('H1')"]`);
+ok(await q.evaluate(() => ST.sel.has('H4') && !ST.sel.has('H1')), 'snow path: tapping standard again leaves only zero tolerance');
 await click(q, '.f-info'); const descEn = await q.locator('.f-desc').textContent();
 ok(descEn.length > 20, 'snow path: "What is included" shows the description');
 await click(q, '#lgEs'); const descEs = await q.locator('.f-desc').textContent();
@@ -209,7 +214,7 @@ ok(await q.evaluate(() => ST.sel.size === 0), 'bush path: nothing preselected (t
 ok(await q.locator('button.choice.dis').count() === 3 && await q.locator('button.choice.dis[onclick=""]').count() === 3, 'bush path without mowing/mulch/trim: all-season trim, ladder and every-visit weeding are greyed out');
 ok(await q.locator('.f-rule').count() === 3, 'bush path: rules explain what is missing (mowing x2, mulch)');
 ok(await vis2(q, '#measDet') && await vis2(q, '#iMu') && await vis2(q, '#iTr') && await vis2(q, '#iPe') && !(await vis2(q, '#iPv')) && await vis2(q, '#dBed') && await vis2(q, '#dCx'), 'bush path: shows bush/flower/mulch sizes, bed size and complexity only');
-await click(q, `button.choice[onclick="pickGrp(['E1','E2','OE1'],'E1',true)"]`);
+await click(q, `button.choice[onclick="tgl('E1')"]`);
 ok(await q.locator('#tdF').count() === 1 && await q.evaluate(() => hasTrim()), 'bush path: thickness question appears once a trim is picked');
 await click(q, `#tdF button:nth-child(3)`); ok(await q.evaluate(() => ST.trimDensity === 'dense'), 'bush path: thickness button sets density');
 ok(await q.locator(`button.choice[onclick="tgl('E5')"]`).count() === 1, 'bush path: ladder unlocked after a trim');
