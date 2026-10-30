@@ -804,13 +804,14 @@ function markDefaults(){const d={rPg:ST.rate?null:0,lPg:ST.leaf==null?LEAF_DEFAU
 function money(n){return '$'+Math.round(n).toLocaleString();}
 function renderOut(){
   $('missBox').innerHTML=warnHTML();
-  const _qo=quoteOptions();const _ids=_qo.opts.length?_qo.fixed.concat(_qo.opts[0]):[...ST.sel];
+  const _qo=quoteOptions();const alts=_qo.opts.length>0;const _ids=[...ST.sel];
   let total=0;_ids.forEach(id=>{total+=gp(id)||0;});
   const mowA=(_ids.includes('A1')?gp('A1'):0)+(_ids.includes('A2')?gp('A2'):0);const perCut=mowA>0?Math.round(mowA/effVisits()):0;const mowPV=mowPerVisit(_ids);
   const n=planMonths();const mo=Math.round(total/n);const ap=annualPay(total);const sm=ST.planStartMonth||3;
   let h='';
   if(total<=0){h+='<div class="det-hint">'+tx('Pick services in step 2 to see what they pay.','Escoge servicios en el paso 2 para ver el precio.')+'</div>';}
-  if(_qo.opts.length&&total>0)h+='<div class="info-bar" style="background:#eef5e8;border:1px solid #30471F;color:#30471F;font-weight:700;margin-bottom:6px">'+tx('Billing below is for Option 1 of '+_qo.opts.length+'. Every option is in the quote summary.','Los pagos de abajo son de la Opción 1 de '+_qo.opts.length+'. Todas las opciones están en el resumen.')+'</div>';
+  if(alts&&total>0)h+='<div class="info-bar" style="background:#eef5e8;border:1px solid #30471F;color:#30471F;font-weight:700;margin-bottom:6px">'+tx('You picked more than one choice for some services, so there is no single total. Every line has its own price in the quote summary.','Escogiste más de una opción en algunos servicios, así que no hay un solo total. Cada línea tiene su propio precio en el resumen.')+'</div>';
+  if(!alts){
   h+='<div class="pay-cards">';
   h+='<button class="pay'+(ST.payView==='visit'?' on':'')+'" id="payVisit" onclick="setPay(\'visit\')"><div class="pay-t">'+tx('Pay-As-You-Go','Pago por servicio')+'</div><div class="amt">'+(mowPV>0?money2(mowPV)+tx('/visit','/visita'):money(total))+'</div><div class="pay-s">'+(mowPV>0?tx('Mowing per visit · season total: ','Corte por visita · total de temporada: '):tx('Total: ','Total: '))+money(total)+'</div></button>';
   h+='<button class="pay'+(ST.payView==='monthly'?' on':'')+'" id="payMonthly" onclick="setPay(\'monthly\')"><div class="pay-t">'+tx('Spread monthly','Pagos mensuales')+'</div><div class="amt">'+money(mo)+'/mo</div><div class="pay-s">'+n+tx(' payment'+(n===1?'':'s'),' pago'+(n===1?'':'s'))+tx(' of $',' de $')+mo.toLocaleString()+'/mo · '+(UI.lang==='es'?ES_MONTH[sm]:MONTH_NAMES[sm])+tx(' through February',' hasta febrero')+'</div></button>';
@@ -822,14 +823,15 @@ function renderOut(){
   }
   h+='<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;font-size:11px"><span style="color:#888">'+tx('Add 20% extra','Agregar 20% extra')+'</span><button onclick="ST.bufferOn=!ST.bufferOn;render()" style="padding:3px 10px;border:1.5px solid '+(ST.bufferOn?'#FFB300':'#d8d8d0')+';border-radius:20px;background:'+(ST.bufferOn?'#fffbec':'#fafaf8')+';color:'+(ST.bufferOn?'#7a5800':'#888')+';font-weight:700;cursor:pointer;font-family:&apos;Nunito&apos;,sans-serif;font-size:11px">'+(ST.bufferOn?tx('ON','SÍ'):tx('OFF','NO'))+'</button></div>';
   if(ST.bufferOn&&total>0){const _buf=Math.round(total*1.2);const _mo=ST.payView==='monthly'?' ($'+Math.round(_buf/n).toLocaleString()+'/mo)':'';h+='<div class="info-bar" style="background:#fffbec;border:1px solid #FFB300;color:#7a5800;font-weight:700">'+tx('With 20% extra: $','Con 20% extra: $')+_buf.toLocaleString()+_mo+'</div>';}
+  }
   $('outCol').innerHTML=h;
   $('bdBox').innerHTML=breakdownHTML();
   $('refBox').innerHTML=renderRef();
   document.querySelectorAll('.season-meta[data-season]').forEach(el=>{const s=SEASONS.find(x=>x.title===el.dataset.season);if(s)el.textContent=seasonMeta(s);});
-  const cnt=ST.sel.size;const barOpts=quoteOptions().opts.length;const noLot=cnt>0&&total<=0&&ST.lot<=0;
-  const barAmt=ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):mowPV>0?money2(mowPV)+tx('/visit','/visita'):money(total);
+  const cnt=ST.sel.size;const noLot=cnt>0&&total<=0&&ST.lot<=0;
+  const barAmt=alts?tx(cnt+' prices',cnt+' precios'):ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):mowPV>0?money2(mowPV)+tx('/visit','/visita'):money(total);
   const barLbl=ST.payView==='monthly'?n+tx(' payment'+(n===1?'':'s'),' pago'+(n===1?'':'s')):ST.payView==='annual'?(ap.save?tx('Annual Payment, 1 month free','Pago anual, 1 mes gratis'):tx('Annual Payment','Pago anual')):tx('Pay-As-You-Go','Pago por servicio');
-  $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+(noLot?tx('Type the lot size to see the price','Escribe el tamaño del terreno para ver el precio'):cnt>0?(barOpts>1?tx('Option 1 of '+barOpts,'Opción 1 de '+barOpts):cnt+tx(' service'+(cnt===1?'':'s'),' servicio'+(cnt===1?'':'s')))+' · '+barLbl:tx('Nothing picked yet','Nada escogido todavía'))+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="'+(noLot?'#iLt':cnt>0?'#qrCard':'#s2')+'">'+(noLot?tx('Add lot size ↑','Pon el terreno ↑'):cnt>0?tx('See quote ↓','Ver cotización ↓'):tx('Pick a service ↓','Escoge un servicio ↓'))+'</a></div>';
+  $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+(noLot?tx('Type the lot size to see the price','Escribe el tamaño del terreno para ver el precio'):cnt>0?(alts?tx('Several choices · no single total','Varias opciones · sin un solo total'):cnt+tx(' service'+(cnt===1?'':'s'),' servicio'+(cnt===1?'':'s'))+' · '+barLbl):tx('Nothing picked yet','Nada escogido todavía'))+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="'+(noLot?'#iLt':cnt>0?'#qrCard':'#s2')+'">'+(noLot?tx('Add lot size ↑','Pon el terreno ↑'):cnt>0?tx('See quote ↓','Ver cotización ↓'):tx('Pick a service ↓','Escoge un servicio ↓'))+'</a></div>';
   $('st1').classList.toggle('done',ST.lot>0);$('st2').classList.toggle('done',cnt>0);$('st3').classList.toggle('done',!!ST.payPicked);
   markDefaults();
 }
@@ -954,7 +956,7 @@ function toggleMore(){UI.more=!UI.more;applyUI();}
 const ALT_GROUPS=[['A1','A2'],['G1','G2','G3','OD3','OD4'],['H1','H2','H4'],['E1','E2','OE1'],['E3','OE3'],['D1','D2']];
 function altGroupOf(id){return ALT_GROUPS.find(g=>g.includes(id))||null;}
 function optNum(id){const g=altGroupOf(id);if(!g||!ST.sel.has(id))return 0;const on=g.filter(i=>ST.sel.has(i));return on.length>1?on.indexOf(id)+1:0;}
-function optTag(id){const n=optNum(id);return n?'<span class="opt-tag">'+tx('Option ','Opción ')+n+'</span> ':'';}
+function optTag(id){return '';}
 function quoteOptions(){const fixed=[],multi=[];ST.sel.forEach(id=>{const g=altGroupOf(id);const on=g?g.filter(i=>ST.sel.has(i)):[];if(on.length<2){fixed.push(id);return;}if(!multi.some(m=>m[0]===on[0]))multi.push(on);});
  if(!multi.length)return{fixed:fixed,opts:[]};
  const n=Math.max(...multi.map(m=>m.length));const opts=[];for(let k=0;k<n;k++)opts.push(multi.map(m=>m[Math.min(k,m.length-1)]));return{fixed:fixed,opts:opts};}
@@ -973,7 +975,7 @@ function pickGrp(ids,id,optional){const had=ST.sel.has(id);ids.forEach(o=>{if(o!
 function tgl(id){toggle(id,CATOF[id].cat);}
 function toggleDesc(id){UI.desc.has(id)?UI.desc.delete(id):UI.desc.add(id);render();}
 function itemName(id){const k='n.'+id;if(UI.lang==='es'&&I18N.es[k]!=null)return I18N.es[k];if(I18N.en[k]!=null)return I18N.en[k];return CATOF[id]?(UI.lang==='es'&&ES_NM[id]?ES_NM[id]:CATOF[id].name):id;}
-function multiHint(){return '<span class="f-multi">'+tx('Tap more than one to quote options','Toca más de una para cotizar opciones')+'</span>';}
+function multiHint(){return '<span class="f-multi">'+tx('Tap more than one to price each one','Toca más de una para ver el precio de cada una')+'</span>';}
 function choice(label,sub,fn,on,dis,pop,wide){return '<button type="button" class="choice'+(on?' on':'')+(dis?' dis':'')+(wide?' wide':'')+'" aria-pressed="'+(on?'true':'false')+'"'+(dis?' aria-disabled="true"':'')+' onclick="'+(dis?'':fn)+'"><span class="ch-t">'+label+'</span><span class="ch-s">'+sub+'</span>'+(pop?'<span class="ch-pop">★</span>':'')+'</button>';}
 function fprice(id,extra){
   const sug=getSug();const p=gp(id),sp=sug[id]||0,isOvr=id in ST.ov,mo=moOrCut(id,p);const auto=id==='A2';
@@ -1126,27 +1128,23 @@ function qrPack(ids){
   const buf=ST.bufferOn&&total>0?Math.round(total*1.2):0;
   return {rows,total,plans,buf};
 }
+/* the quote is one flat list: every picked service and every picked choice is its own line with its own price, in on-screen order.
+   Ways to pay only makes sense when there is one pick per choice (then the lines add up to one total). */
+function qrOrder(ids){const pos={};let k=0;document.querySelectorAll('#svcCol [data-svc],#svcCol .pi[data-id],#svcCol [data-px]').forEach(e=>{const i=e.dataset.svc||e.dataset.id||e.dataset.px;if(i&&!(i in pos))pos[i]=k++;});
+  const cat=getCats().flatMap(c=>c.items.map(it=>it.id));return ids.slice().sort((a,b)=>((a in pos?pos[a]:1e4+cat.indexOf(a))-(b in pos?pos[b]:1e4+cat.indexOf(b))));}
 function qrData(){
-  const qo=quoteOptions();
-  if(!qo.opts.length){const d=qrPack(qo.fixed);d.opts=[];return d;}
-  const fixed=qo.fixed.map(qrRow);
-  const opts=qo.opts.map(o=>{const d=qrPack(qo.fixed.concat(o));d.own=o.map(qrRow);return d;});
-  return {rows:fixed,total:opts[0].total,plans:opts[0].plans,buf:opts[0].buf,opts:opts};
+  const qo=quoteOptions();const alts=qo.opts.length>0;
+  const d=qrPack(qrOrder([...ST.sel]));d.alts=alts;
+  if(alts){d.plans=[];d.buf=0;}
+  return d;
 }
+function qrNoPay(){return tx('Ways to pay depend on the options chosen.','Las formas de pago dependen de las opciones que escoja.');}
 function quoteText(){
   const d=qrData();const a=(typeof getAddr==='function'&&getAddr())||'';
   let x=tx('Amigo Landscaping — Quote','Amigo Landscaping — Cotización')+'\n';
   if(a)x+=a+'\n';
-  if(d.opts.length){
-    if(d.rows.length){x+='\n'+tx('In every option:','En todas las opciones:')+'\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+r[2]+'\n';});}
-    d.opts.forEach((o,k)=>{
-      x+='\n'+tx('Option ','Opción ')+(k+1)+'\n';o.own.forEach(r=>{x+='• '+r[0]+': '+r[2]+'\n';});
-      if(o.buf)x+=tx('With 20% extra: ','Con 20% extra: ')+money(o.buf)+'\n';
-      x+=tx('Ways to pay:','Formas de pago:')+'\n';o.plans.forEach(p=>{x+='• '+p.t+': '+p.d+'\n';});
-    });
-    return x.trim();
-  }
   x+='\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+r[2]+'\n';});
+  if(d.alts){x+='\n'+qrNoPay()+'\n';return x.trim();}
   if(d.buf)x+=tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'\n';
   x+='\n'+tx('Ways to pay:','Formas de pago:')+'\n';
   d.plans.forEach(p=>{x+='• '+p.t+': '+p.d+'\n';});
@@ -1159,20 +1157,15 @@ function renderQR(){
   el.style.display='';
   const d=qrData();const a=(typeof getAddr==='function'&&getAddr())||'';
   const esc=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const cur=d.plans.find(p=>p.k===ST.payView)||d.plans[0];
   let h='<div class="step-hd"><span class="num">✓</span><span>'+tx('Quote ready','Cotización lista')+'</span></div>';
   if(a)h+='<div class="qr-addr">'+esc(a)+'</div>';
-  if(d.opts.length){
-    if(d.rows.length){h+='<div class="qr-opt">'+tx('In every option','En todas las opciones')+'</div>';d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+esc(r[2])+'</b></div>';});}
-    d.opts.forEach((o,k)=>{h+='<div class="qr-opt">'+tx('Option ','Opción ')+(k+1)+'</div>';o.own.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+esc(r[2])+'</b></div>';});
-      h+='<div class="qr-addr" style="margin:8px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
-      if(o.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(o.buf)+'</div>';
-      const oc=o.plans.find(p=>p.k===ST.payView)||o.plans[0];o.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===oc.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});});
-  }else{
   d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+esc(r[2])+'</b></div>';});
-  if(d.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'</div>';
-  h+='<div class="qr-addr" style="margin:10px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
-  d.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===cur.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});
+  if(d.alts){h+='<div class="qr-addr" style="margin:10px 0 4px">'+qrNoPay()+'</div>';}
+  else{
+    const cur=d.plans.find(p=>p.k===ST.payView)||d.plans[0];
+    if(d.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'</div>';
+    h+='<div class="qr-addr" style="margin:10px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
+    d.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===cur.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});
   }
   h+='<button type="button" class="qr-btn" id="qrCopy" onclick="copyQuote(this)">'+tx('📋 Copy quote','📋 Copiar cotización')+'</button>';
   if(navigator.share)h+='<button type="button" class="qr-btn sec" onclick="shareQuote()">'+tx('Share…','Compartir…')+'</button>';

@@ -28,7 +28,7 @@ for (const view of ['?view=all', '?view=focus&req=mow,leaf,snow,bush,mulch']) {
     if (JSON.stringify(a.gp) !== JSON.stringify(z.gp)) why.push('gp');
     if (a.total !== z.total || a.buf !== z.buf || JSON.stringify(a.plans) !== JSON.stringify(z.plans)) why.push('totals/plans');
     if (a.pay !== z.pay || a.head !== z.head) why.push('ways-to-pay text');
-    if (a.rows.length !== z.rows.length || a.rows.some((r, k) => r[0] !== z.rows[k][0] || r[1] !== z.rows[k][1])) why.push('rows');
+    { const key = rs => JSON.stringify(rs.map(r => [r[0], r[1]]).sort()); if (key(a.rows) !== key(z.rows)) why.push('rows'); } // same lines and prices; the new list is in on-screen order
     z.rows.forEach((r, k) => { const id = c.sel.filter(i => true)[k]; const m = r[2].match(/^\$([\d,.]+) (per visit|por visita|per season|por temporada|per job|por trabajo)$/); if (!m) { why.push('unit fmt ' + r[2]); return; } const amt = +m[1].replace(/,/g, ''); const pv = /visit|visita/.test(m[2]); if (pv ? Math.abs(amt * z.visits - r[1]) > z.visits * 0.005 + 1e-9 : amt !== r[1]) why.push('unit math ' + r[0] + ' ' + r[2] + ' vs ' + r[1]); });
     if (a.cards[1] !== z.cards[1] || a.cards[2] !== z.cards[2]) why.push('monthly/annual cards');
     if (c.pay !== 'visit' || z.mowPV === 0) { if (a.bar !== z.bar) why.push('bar'); } else if (z.bar !== m2(z.mowPV) + (c.lang === 'es' ? '/visita' : '/visit')) why.push('bar per visit ' + z.bar);
