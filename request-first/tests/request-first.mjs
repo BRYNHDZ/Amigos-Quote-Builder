@@ -24,7 +24,7 @@ const setDials = (p, c) => p.evaluate(c => { Object.assign(ST, { lot: c.lot, lea
 const readFocus = p => p.evaluate(() => {
   const ids = [...ST.sel].sort(); const px = {};
   ids.forEach(id => { const r = document.querySelector('.fprice[data-svc="' + id + '"]'); const i = r && r.querySelector('input.pi'); px[id] = i ? i.value : (r && r.querySelector('[data-px]') || {}).textContent; });
-  return { ids, px, bar: document.querySelector('#bar .bar-amt').textContent, vis: JSON.stringify(ST.leafVisits || {}) };
+  return { ids, px, bar: (typeof mowPerVisit === 'function' && ST.payView === 'visit' && mowPerVisit([...ST.sel]) > 0 ? money([...ST.sel].reduce((a, i) => a + (gp(i) || 0), 0)) : document.querySelector('#bar .bar-amt').textContent), vis: JSON.stringify(ST.leafVisits || {}) };
 });
 // x2: the live root builder keeps the old one-time weeding price (OF2); the request-first page doubles it. To compare everything else
 // (totals, monthly, annual, bar) exactly, the live page is given OF2 typed in as exactly 2x its own suggested price. Nothing else is touched.
@@ -32,7 +32,7 @@ const readFull = (p, snap, x2) => p.evaluate(([s, x2]) => {
   delete ST.ov.OF2; if (x2 && s.ids.includes('OF2')) { const b = getSug().OF2; if (b > 0) ST.ov.OF2 = 2 * b; }
   ST.sel = new Set(s.ids); ST.leafVisits = JSON.parse(s.vis); render();
   const px = {}; s.ids.forEach(id => { const r = [...document.querySelectorAll('.svc')].find(x => x.querySelector('[data-id="' + id + '"],[data-px="' + id + '"]')); const i = r && r.querySelector('input.pi'); px[id] = i ? i.value : (r && r.querySelector('[data-px]') || {}).textContent; });
-  return { px, bar: document.querySelector('#bar .bar-amt').textContent };
+  return { px, bar: (typeof mowPerVisit === 'function' && ST.payView === 'visit' && mowPerVisit([...ST.sel]) > 0 ? money([...ST.sel].reduce((a, i) => a + (gp(i) || 0), 0)) : document.querySelector('#bar .bar-amt').textContent) };
 }, [snap, !!x2]);
 const cases = [];
 for (const lot of [6000, 10890, 21780, 43560, 65000]) for (const leaf of [0, 1, 3, 5]) for (const [complex, rate] of [['low', 80], ['high', 100]]) cases.push({ lot, leaf, complex, rate });
@@ -43,12 +43,14 @@ let compared = 0;
 for (const c of process.env.QUICK ? [] : cases) {
   for (const p of [both, leafOnly, mowOnly, full, live]) await setDials(p, c);
   const runs = [];
+  // choices are multi-select now (Option 1 / Option 2), so each run starts from exactly one mowing + one leaf pick
+  const LM = { nut: { during: 'G1', once: 'OD3' }, rem: { during: 'G2', once: 'OD4' } };
   for (const m of ['A1', 'A2']) for (const k of ['nut', 'rem']) for (const w of ['during', 'once'])
-    runs.push([both, `button.choice[onclick="pickMow('${m}')"]`, `button.choice[onclick="setLeaf('${k}',null)"]`, `button.choice[onclick="setLeaf(null,'${w}')"]`]);
-  for (const k of ['nut', 'rem']) runs.push([leafOnly, null, `button.choice[onclick="setLeaf('${k}',null)"]`, `button.choice[onclick="setLeaf(null,'once')"]`]);
-  for (const m of ['A1', 'A2']) runs.push([mowOnly, `button.choice[onclick="pickMow('${m}')"]`, null, null]);
-  for (const [p, a, b, d] of runs) {
-    for (const s of [a, b, d]) if (s) await click(p, s);
+    runs.push([both, [m, LM[k][w]], 'x', `'${w}'`]);
+  for (const k of ['nut', 'rem']) runs.push([leafOnly, [LM[k].once], 'x', `'once'`]);
+  for (const m of ['A1', 'A2']) runs.push([mowOnly, [m], null, null]);
+  for (const [p, want, b, d] of runs) {
+    await p.evaluate(w => { ['A1', 'A2', ...LEAF_IDS].forEach(i => ST.sel.delete(i)); w.forEach(i => ST.sel.add(i)); render(); }, want);
     for (const visits of (b && /'once'/.test(d) ? [1, 3] : [1])) {
       if (visits > 1) await p.evaluate(() => { setLeafVisits(leafState().k === 'nut' ? 'OD3' : 'OD4', 3); });
       const f = await readFocus(p);
@@ -67,9 +69,9 @@ console.log('price parity: ' + compared + ' focus-vs-full-vs-live comparisons');
 // ---------- 1b. every new service path: focus view == full view == live root builder ----------
 const CH = {
   A1: `pickMow('A1')`, A2: `pickMow('A2')`,
-  H1: `pickGrp(['H1','H2','H4'],'H1',true)`, H2: `pickGrp(['H1','H2','H4'],'H2',true)`, H4: `pickGrp(['H1','H2','H4'],'H4',true)`,
-  E1: `pickGrp(['E1','E2','OE1'],'E1',true)`, E2: `pickGrp(['E1','E2','OE1'],'E2',true)`, OE1: `pickGrp(['E1','E2','OE1'],'OE1',true)`,
-  E3: `pickGrp(['E3','OE3'],'E3',true)`, OE3: `pickGrp(['E3','OE3'],'OE3',true)`,
+  H1: `tgl('H1')`, H2: `tgl('H2')`, H4: `tgl('H4')`,
+  E1: `tgl('E1')`, E2: `tgl('E2')`, OE1: `tgl('OE1')`,
+  E3: `tgl('E3')`, OE3: `tgl('OE3')`,
   E5: `tgl('E5')`, C2: `tgl('C2')`, OF2: `tgl('OF2')`, OF3: `tgl('OF3')`, F1: `tgl('F1')`
 };
 const DOMAIN = ['H1', 'H2', 'H4', 'E1', 'E2', 'OE1', 'E3', 'OE3', 'E5', 'C2', 'OF2', 'OF3', 'F1'];
@@ -80,6 +82,7 @@ const drive = async (pg, want, tag) => {
     if (cur.includes(id) && !want.includes(id) && await pg.evaluate(i => ST.sel.has(i), id)) await pg.locator(`button.choice[onclick="${CH[id]}"]`).first().click();
   for (const id of ['A1', 'A2', 'F1', 'H1', 'H2', 'H4', 'E1', 'E2', 'OE1', 'E5', 'E3', 'OE3', 'C2', 'OF2', 'OF3'])
     if (want.includes(id) && !(await pg.evaluate(i => ST.sel.has(i), id))) await pg.locator(`button.choice[onclick="${CH[id]}"]`).first().click();
+  for (const m of ['A1', 'A2']) if (!want.includes(m) && want.includes(m === 'A1' ? 'A2' : 'A1') && await pg.evaluate(i => ST.sel.has(i), m)) await pg.locator(`button.choice[onclick="${CH[m]}"]`).first().click();
   const got = await pg.evaluate(d => d.filter(i => ST.sel.has(i)).sort(), DOMAIN);
   ok(JSON.stringify(got) === JSON.stringify(DOMAIN.filter(i => want.includes(i)).sort()), 'tapping the choices gives exactly the picked services', { tag, want, got });
 };
@@ -193,8 +196,10 @@ ok(await q.evaluate(() => ST.sel.has('H1') && ST.sel.size === 1), 'snow path: st
 ok(await vis2(q, '#measDet') && await vis2(q, '#iPv') && !(await vis2(q, '#iMu')) && !(await vis2(q, '#iTr')) && !(await vis2(q, '#dLeaf')) && !(await vis2(q, '#dBed')) && !(await vis2(q, '#dCx')), 'snow path: only the driveway/walks size is asked');
 await q.fill('#iPv', '4000'); await q.waitForTimeout(500);
 ok(await q.evaluate(() => ST.paved === 4000), 'snow path: driveway size feeds the price');
-await click(q, `button.choice[onclick="pickGrp(['H1','H2','H4'],'H4',true)"]`);
-ok(await q.evaluate(() => ST.sel.has('H4') && !ST.sel.has('H1')), 'snow path: picking zero tolerance swaps the plan');
+await click(q, `button.choice[onclick="tgl('H4')"]`);
+ok(await q.evaluate(() => ST.sel.has('H4') && ST.sel.has('H1')), 'snow path: picking zero tolerance adds it as Option 2 (multi-select)');
+await click(q, `button.choice[onclick="tgl('H1')"]`);
+ok(await q.evaluate(() => ST.sel.has('H4') && !ST.sel.has('H1')), 'snow path: tapping standard again leaves only zero tolerance');
 await click(q, '.f-info'); const descEn = await q.locator('.f-desc').textContent();
 ok(descEn.length > 20, 'snow path: "What is included" shows the description');
 await click(q, '#lgEs'); const descEs = await q.locator('.f-desc').textContent();
@@ -209,7 +214,7 @@ ok(await q.evaluate(() => ST.sel.size === 0), 'bush path: nothing preselected (t
 ok(await q.locator('button.choice.dis').count() === 3 && await q.locator('button.choice.dis[onclick=""]').count() === 3, 'bush path without mowing/mulch/trim: all-season trim, ladder and every-visit weeding are greyed out');
 ok(await q.locator('.f-rule').count() === 3, 'bush path: rules explain what is missing (mowing x2, mulch)');
 ok(await vis2(q, '#measDet') && await vis2(q, '#iMu') && await vis2(q, '#iTr') && await vis2(q, '#iPe') && !(await vis2(q, '#iPv')) && await vis2(q, '#dBed') && await vis2(q, '#dCx'), 'bush path: shows bush/flower/mulch sizes, bed size and complexity only');
-await click(q, `button.choice[onclick="pickGrp(['E1','E2','OE1'],'E1',true)"]`);
+await click(q, `button.choice[onclick="tgl('E1')"]`);
 ok(await q.locator('#tdF').count() === 1 && await q.evaluate(() => hasTrim()), 'bush path: thickness question appears once a trim is picked');
 await click(q, `#tdF button:nth-child(3)`); ok(await q.evaluate(() => ST.trimDensity === 'dense'), 'bush path: thickness button sets density');
 ok(await q.locator(`button.choice[onclick="tgl('E5')"]`).count() === 1, 'bush path: ladder unlocked after a trim');
@@ -244,10 +249,12 @@ q = await shot('view=focus&req=leaf');
 ok(await q.locator('#fcLeaf button.choice:has-text("Full clear")').getAttribute('aria-disabled') === 'true', 'leaf path: Estate is greyed out without mowing');
 await click(q, '#fcLeaf button[onclick="addMowToLeaf()"]');
 await click(q, `button.choice[onclick="setLeaf('est',null)"]`);
-ok(await q.evaluate(() => ST.sel.has('G3') && !LEAF_IDS.some(i => i !== 'G3' && ST.sel.has(i))), 'leaf path: Estate (G3) can be chosen once mowing is added');
-ok(await q.locator('#fcLeaf button.choice:has-text("once at the end"), #fcLeaf button.choice.dis').count() >= 1 && await q.evaluate(() => { const b = [...document.querySelectorAll('#fcLeaf .choices')[1].children]; return b[1].getAttribute('aria-disabled') === 'true'; }), 'leaf path: "once at the end" greyed out for Estate');
+ok(await q.evaluate(() => ST.sel.has('G3') && ST.sel.has('G1')), 'leaf path: Estate (G3) can be added as another option once mowing is added');
 await click(q, `button.choice[onclick="setLeaf('nut',null)"]`);
-ok(await q.evaluate(() => ST.sel.has('G1') && !ST.sel.has('G3')), 'leaf path: going back to Shred swaps out Estate');
+ok(await q.evaluate(() => ST.sel.has('G3') && !LEAF_IDS.some(i => i !== 'G3' && ST.sel.has(i))), 'leaf path: tapping Shred off leaves Estate alone');
+ok(await q.locator('#fcLeaf button.choice:has-text("once at the end"), #fcLeaf button.choice.dis').count() >= 1 && await q.evaluate(() => { const b = [...document.querySelectorAll('#fcLeaf .choices')[1].children]; return b[1].getAttribute('aria-disabled') === 'true'; }), 'leaf path: "once at the end" greyed out for Estate');
+await click(q, `button.choice[onclick="setLeaf('nut',null)"]`); await click(q, `button.choice[onclick="setLeaf('est',null)"]`);
+ok(await q.evaluate(() => ST.sel.has('G1') && !ST.sel.has('G3')), 'leaf path: tapping Shred back on, then Estate off, leaves only Shred');
 // no raw translation keys (like "c.E2d") ever show on screen, in either language, in any state
 for (const lg of ['en', 'es']) for (const qs of ['req=bush', 'req=leaf', 'req=mow,leaf,snow,bush,mulch', 'req=snow,mulch']) {
   const kp = await shot('view=focus&' + qs + '&lang=' + lg);
@@ -280,20 +287,21 @@ await q.evaluate(() => { UI.lang = 'en'; });
 
 // ---------- 3. Everything == the current builder ----------
 const sameDials = { lot: 14000, leaf: 4, complex: 'med', rate: 90 };
-for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'G1', 'OD3', 'F1', 'H1']) }); render(); }, sameDials);
+for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'G1', 'F1', 'H1']) /* G1 + OD3 together are now two leaf options (Option 1/2), not a sum */ }); render(); }, sameDials);
 const norm = h => h.replace(/\s+/g, ' ');
 // The usability pass reworded the payment cards and the bar in plain words, so for those two compare every dollar amount and percent in order (wording is free, numbers are strict).
 const nums = h => (h.match(/\$[\d,]+(?:\.\d+)?|\d+(?:\.\d+)?%/g) || []).join(' ');
 // One-time weeding (OF2) is listed with its price even when not picked and is exactly 2x in the request-first page, so halve that one number before comparing; every other character must match.
 const halveOF2 = h => h.replace(/data-id="OF2" value="(\d+)" placeholder="(\d+)"/, (m, v, ph) => { ok(Number(v) % 2 === 0 && v === ph, 'OF2 price on the request-first page is an exact 2x', { v, ph }); return 'data-id="OF2" value="' + v / 2 + '" placeholder="' + ph / 2 + '"'; });
 for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'heavy', trimDensity: 'dense', bedFootprint: 'high', lawn: 0, paved: 0, mulch: 0, trim: 0, peren: 0, ov: {}, sel: new Set(['A1', 'E2', 'E5', 'E3', 'C2', 'F1', 'OF3', 'G3', 'H2', 'D2', 'B1']) }); render(); }, sameDials);
-const [a0, b0] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML, bar: document.getElementById('bar').innerHTML, s1: document.getElementById('s1').innerText }))));
+const [a0, b0] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML.replace(/<button class="pay[^"]*" id="payVisit"[\s\S]*?<\/button>/, ''), bar: (ST.payView = 'monthly', render(), document.getElementById('bar').innerHTML), pv: (ST.payView = 'visit', render(), [document.getElementById('payVisit').innerText, typeof mowPerVisit === 'function' ? money2(mowPerVisit([...ST.sel])) : '', money([...ST.sel].reduce((a, i) => a + (gp(i) || 0), 0))]), s1: document.getElementById('s1').innerText }))));
 ok(norm(halveOF2(a0.svc)) === norm(b0.svc) && nums(a0.out) === nums(b0.out) && nums(a0.bar) === nums(b0.bar) && nums(a0.s1) === nums(b0.s1), 'Everything: identical to the current builder with every new service and dial in use, except one-time weeding which is checked below (services, payment cards, bar, property step)');
-for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'light', trimDensity: 'light', bedFootprint: null, sel: new Set(['A1', 'G1', 'OD3', 'F1', 'H1']) }); render(); }, sameDials);
-const [a, b] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML, bar: document.getElementById('bar').innerHTML, s1: document.getElementById('s1').innerHTML.length }))));
+for (const pg of [full, live]) await pg.evaluate(c => { Object.assign(ST, c, { weedPressure: 'light', trimDensity: 'light', bedFootprint: null, sel: new Set(['A1', 'G1', 'F1', 'H1']) /* G1 + OD3 together are now two leaf options (Option 1/2), not a sum */ }); render(); }, sameDials);
+const [a, b] = await Promise.all([full, live].map(pg => pg.evaluate(() => ({ svc: document.getElementById('svcCol').innerHTML, out: document.getElementById('outCol').innerHTML.replace(/<button class="pay[^"]*" id="payVisit"[\s\S]*?<\/button>/, ''), bar: (ST.payView = 'monthly', render(), document.getElementById('bar').innerHTML), pv: (ST.payView = 'visit', render(), [document.getElementById('payVisit').innerText, typeof mowPerVisit === 'function' ? money2(mowPerVisit([...ST.sel])) : '', money([...ST.sel].reduce((a, i) => a + (gp(i) || 0), 0))]), s1: document.getElementById('s1').innerHTML.length }))));
 ok(norm(halveOF2(a.svc)) === norm(b.svc), 'Everything: services list identical to current builder (OF2 price halved back)');
 ok(nums(a.out) === nums(b.out) && nums(a.out).length > 20, 'Everything: payment card dollar amounts identical to current builder');
-ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to current builder');
+ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to current builder (monthly view)');
+ok(a.pv[0].includes(a.pv[1] + '/visit') && a.pv[0].includes(a.pv[2]) && b.pv[0].includes(a.pv[2]), 'Everything: Pay-As-You-Go card leads with mowing per visit and still shows the same season total', { a: a.pv, b: b.pv });
 
 // ---------- 3b. One-time weeding (OF2) is exactly double the current builder's price; nothing else moves ----------
 {
@@ -356,11 +364,12 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
   const paths = ['mow', 'leaf', 'snow', 'bush', 'mulch', 'mow,leaf', 'mow,leaf,snow,bush,mulch'];
   for (const lang of ['en', 'es']) for (const req of paths) {
     await goto('view=focus&lang=' + lang + '&req=' + req); await u.fill('#iLt', '10890'); await u.evaluate(() => { if (!ST.sel.size) tgl('E1'); }); await u.waitForTimeout(200);
-    const d = await u.evaluate(() => { const qc = document.getElementById('qrCard'); const rows = [...qc.querySelectorAll('.qr-row')].map(r => [r.children[0].textContent, Number(r.children[1].textContent.replace(/[^\d]/g, ''))]); let sum = 0; ST.sel.forEach(id => sum += gp(id) || 0); const tot = Number(qc.querySelector('.qr-big').textContent.replace(/[^\d]/g, '')); return { shown: qc.offsetParent !== null, rows, tot, sum, n: ST.sel.size, bar: document.querySelector('#bar .bar-amt').textContent, text: quoteText() }; });
+    const d = await u.evaluate(() => { const qc = document.getElementById('qrCard'); const rows = [...qc.querySelectorAll('.qr-row')].map(r => [r.children[0].textContent, Number(r.children[1].textContent.replace(/[^\d]/g, ''))]); let sum = 0; ST.sel.forEach(id => sum += gp(id) || 0); const tot = qrData().total; const units = [...ST.sel].map(id => [id, gp(id) || 0, qrUnit(id, gp(id) || 0)]); const mpv = mowPerVisit([...ST.sel]); return { shown: qc.offsetParent !== null, rows, tot, sum, n: ST.sel.size, units, mpv: mpv > 0 ? money2(mpv) : '', big: !!qc.querySelector('.qr-big'), bar: document.querySelector('#bar .bar-amt').textContent, text: quoteText() }; });
     const k = lang + ' ' + req;
     ok(d.shown && d.rows.length === d.n && d.rows.every(r => r[0] && r[1] >= 0), k + ': quote lists every picked service', { d });
-    ok(d.tot === d.sum && d.rows.reduce((a, r) => a + r[1], 0) === d.sum, k + ': quote total equals the sum of the services', { d });
-    ok(d.bar.replace(/[^\d]/g, '') === String(d.sum), k + ': quote total equals the bar price', { d });
+    ok(d.tot === d.sum && d.units.every(([id, v, u]) => Math.abs(u.amt * u.n - v) < 1e-6), k + ': each line shows its natural unit (per visit x visits = season) and the services add up to the billing total', { d });
+    ok(!d.big && !/Total: /.test(d.text), k + ': no big season-total headline', { d });
+    ok(d.mpv ? d.bar === d.mpv + (lang === 'es' ? '/visita' : '/visit') : d.bar.replace(/[^\d]/g, '') === String(d.sum), k + ': bar shows mowing per visit, or the job/season price', { d });
     ok(!/undefined|NaN|\[object/.test(d.text) && d.rows.every(r => d.text.includes(r[0])) && d.text.includes('$' + d.sum.toLocaleString()), k + ': copied text has every service and the total', { text: d.text });
     ok(lang === 'es' ? /Cotización|Formas de pago/.test(d.text) && !/Ways to pay/.test(d.text) : /Ways to pay/.test(d.text), k + ': copied text is in the screen language');
   }
@@ -369,7 +378,7 @@ ok(nums(a.bar) === nums(b.bar), 'Everything: price bar amounts identical to curr
   await goto('view=focus&req=mow,leaf'); await u.fill('#iLt', '10890'); await u.waitForTimeout(200);
   await u.locator('#qrCopy').click(); await u.waitForTimeout(250);
   const clip = await u.evaluate(() => navigator.clipboard.readText());
-  ok(/Total: \$1,987/.test(clip) && /Spread monthly/.test(clip) && /Annual Payment/.test(clip), 'Copy quote puts the quote on the clipboard', { clip });
+  ok(/\$44\.57 per visit/.test(clip) && /\$392 per season/.test(clip) && /Pay-As-You-Go: \$1,952/.test(clip) && !/Total: /.test(clip) && /Spread monthly/.test(clip) && /Annual Payment/.test(clip), 'Copy quote puts the quote on the clipboard', { clip });
   ok(/Copied/.test(await u.locator('#qrCopy').textContent()), 'Copy button confirms with "Copied"');
   // see-quote button scrolls to the summary
   await u.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
