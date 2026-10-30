@@ -806,13 +806,13 @@ function renderOut(){
   $('missBox').innerHTML=warnHTML();
   const _qo=quoteOptions();const _ids=_qo.opts.length?_qo.fixed.concat(_qo.opts[0]):[...ST.sel];
   let total=0;_ids.forEach(id=>{total+=gp(id)||0;});
-  const mowA=(_ids.includes('A1')?gp('A1'):0)+(_ids.includes('A2')?gp('A2'):0);const perCut=mowA>0?Math.round(mowA/effVisits()):0;
+  const mowA=(_ids.includes('A1')?gp('A1'):0)+(_ids.includes('A2')?gp('A2'):0);const perCut=mowA>0?Math.round(mowA/effVisits()):0;const mowPV=mowPerVisit(_ids);
   const n=planMonths();const mo=Math.round(total/n);const ap=annualPay(total);const sm=ST.planStartMonth||3;
   let h='';
   if(total<=0){h+='<div class="det-hint">'+tx('Pick services in step 2 to see what they pay.','Escoge servicios en el paso 2 para ver el precio.')+'</div>';}
-  if(_qo.opts.length&&total>0)h+='<div class="info-bar" style="background:#eef5e8;border:1px solid #30471F;color:#30471F;font-weight:700;margin-bottom:6px">'+tx('Prices below are for Option 1. ','Los precios de abajo son de la Opción 1. ')+_qo.opts.map((o,k)=>tx('Option ','Opción ')+(k+1)+': '+money(o.reduce((a,id)=>a+(gp(id)||0),0)+_qo.fixed.reduce((a,id)=>a+(gp(id)||0),0))).join(' · ')+'</div>';
+  if(_qo.opts.length&&total>0)h+='<div class="info-bar" style="background:#eef5e8;border:1px solid #30471F;color:#30471F;font-weight:700;margin-bottom:6px">'+tx('Billing below is for Option 1 of '+_qo.opts.length+'. Every option is in the quote summary.','Los pagos de abajo son de la Opción 1 de '+_qo.opts.length+'. Todas las opciones están en el resumen.')+'</div>';
   h+='<div class="pay-cards">';
-  h+='<button class="pay'+(ST.payView==='visit'?' on':'')+'" id="payVisit" onclick="setPay(\'visit\')"><div class="pay-t">'+tx('Pay-As-You-Go','Pago por servicio')+'</div><div class="amt">'+money(total)+'</div><div class="pay-s">'+(perCut>0?tx('Per cut: ','Por corte: ')+'$'+perCut.toLocaleString()+' · ':'')+tx('Total: ','Total: ')+money(total)+'</div></button>';
+  h+='<button class="pay'+(ST.payView==='visit'?' on':'')+'" id="payVisit" onclick="setPay(\'visit\')"><div class="pay-t">'+tx('Pay-As-You-Go','Pago por servicio')+'</div><div class="amt">'+(mowPV>0?money2(mowPV)+tx('/visit','/visita'):money(total))+'</div><div class="pay-s">'+(mowPV>0?tx('Mowing per visit · season total: ','Corte por visita · total de temporada: '):tx('Total: ','Total: '))+money(total)+'</div></button>';
   h+='<button class="pay'+(ST.payView==='monthly'?' on':'')+'" id="payMonthly" onclick="setPay(\'monthly\')"><div class="pay-t">'+tx('Spread monthly','Pagos mensuales')+'</div><div class="amt">'+money(mo)+'/mo</div><div class="pay-s">'+n+tx(' payment'+(n===1?'':'s'),' pago'+(n===1?'':'s'))+tx(' of $',' de $')+mo.toLocaleString()+'/mo · '+(UI.lang==='es'?ES_MONTH[sm]:MONTH_NAMES[sm])+tx(' through February',' hasta febrero')+'</div></button>';
   h+='<button class="pay'+(ST.payView==='annual'?' on':'')+'" id="payAnnual" onclick="setPay(\'annual\')"><div class="pay-t">'+tx('Annual Payment','Pago anual')+'</div><div class="amt">'+money(ap.pay)+'</div><div class="pay-s'+(ap.save?'':' warn-t')+'">'+(ap.save?tx('Pay all at the start: 1 month free (save $','Pagas todo al inicio: 1 mes gratis (ahorras $')+ap.save.toLocaleString()+')':tx('No free month: 1 month free needs a 12 month plan (March start). This start month gives '+ap.n+' payment'+(ap.n===1?'':'s')+'.','Sin mes gratis: el mes gratis necesita plan de 12 meses (inicio en marzo).'))+'</div></button>';
   h+='</div>';
@@ -827,7 +827,7 @@ function renderOut(){
   $('refBox').innerHTML=renderRef();
   document.querySelectorAll('.season-meta[data-season]').forEach(el=>{const s=SEASONS.find(x=>x.title===el.dataset.season);if(s)el.textContent=seasonMeta(s);});
   const cnt=ST.sel.size;const barOpts=quoteOptions().opts.length;const noLot=cnt>0&&total<=0&&ST.lot<=0;
-  const barAmt=ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):money(total);
+  const barAmt=ST.payView==='monthly'?money(mo)+'/mo':ST.payView==='annual'?money(ap.pay):mowPV>0?money2(mowPV)+tx('/visit','/visita'):money(total);
   const barLbl=ST.payView==='monthly'?n+tx(' payment'+(n===1?'':'s'),' pago'+(n===1?'':'s')):ST.payView==='annual'?(ap.save?tx('Annual Payment, 1 month free','Pago anual, 1 mes gratis'):tx('Annual Payment','Pago anual')):tx('Pay-As-You-Go','Pago por servicio');
   $('bar').innerHTML='<div class="bar-in"><div><div class="bar-l">'+(noLot?tx('Type the lot size to see the price','Escribe el tamaño del terreno para ver el precio'):cnt>0?(barOpts>1?tx('Option 1 of '+barOpts,'Opción 1 de '+barOpts):cnt+tx(' service'+(cnt===1?'':'s'),' servicio'+(cnt===1?'':'s')))+' · '+barLbl:tx('Nothing picked yet','Nada escogido todavía'))+'</div><div class="bar-amt">'+barAmt+'</div></div><a class="bar-btn" href="'+(noLot?'#iLt':cnt>0?'#qrCard':'#s2')+'">'+(noLot?tx('Add lot size ↑','Pon el terreno ↑'):cnt>0?tx('See quote ↓','Ver cotización ↓'):tx('Pick a service ↓','Escoge un servicio ↓'))+'</a></div>';
   $('st1').classList.toggle('done',ST.lot>0);$('st2').classList.toggle('done',cnt>0);$('st3').classList.toggle('done',!!ST.payPicked);
@@ -962,7 +962,7 @@ function pickMow(id){const o=id==='A1'?'A2':'A1';if(ST.sel.has(id)&&!ST.sel.has(
 function leafSets(){const K=new Set(),W=new Set();for(const k of ['nut','rem','est'])for(const w of ['during','once'])if(LEAFMAP[k][w]&&ST.sel.has(LEAFMAP[k][w])){K.add(k);W.add(w);}return{K:K,W:W};}
 function leafBuild(K,W){const ids=[];K.forEach(k=>W.forEach(w=>{if(LEAFMAP[k][w])ids.push(LEAFMAP[k][w]);}));return ids;}
 function setLeaf(k,w){const s=leafSets(),K=s.K,W=s.W,mow=isMow();
- if(k){if(K.has(k)){if(K.size===1)return;K.delete(k);}else{if(k==='est'&&!mow)return;K.add(k);}}
+ if(k){if(K.has(k)){if(K.size===1)return;K.delete(k);}else{if(k==='est'&&!mow)return;K.add(k);if(k==='est')W.add('during');}}
  if(w){if(W.has(w)){if(W.size===1)return;W.delete(w);}else{if(w==='during'&&!mow)return;W.add(w);}}
  if(!K.size)K.add('nut');if(!W.size)W.add(mow?'during':'once');
  let ids=leafBuild(K,W);if(!ids.length&&mow){W.add('during');ids=leafBuild(K,W);}if(!ids.length)return;
@@ -1106,7 +1106,13 @@ function initUI(){
 /* ===== usability pass 1: quote summary, copy/share, start over, plain address errors ===== */
 UI.arm=false;
 const LEAF_PK_IDS=['G1','G2','G3','OD3','OD4'];
-function qrRow(id){const v=gp(id)||0;const mow=(id==='A1'||id==='A2')&&v>0&&!('A1'in ST.ov);const leafPk=LEAF_PK_IDS.includes(id)&&v>0&&!(id in ST.ov);const pk=parkwaySq()>0;return [itemName(id)+(mow&&ST.cornerLot?tx(' · corner lot',' · terreno de esquina')+tx(' (+$'+CORNER_LOT_FEE_PER_VISIT+'/visit)',' (+$'+CORNER_LOT_FEE_PER_VISIT+'/visita)'):'')+((mow||leafPk)&&pk?pkTag():''),v];}
+/* each quote line shows its smallest natural unit: mowing + ongoing weeding per visit, leaf/snow/season-long care per season, everything else per job */
+const PER_VISIT_IDS=['A1','A2','C2'],PER_SEASON_IDS=['G1','G2','G3','OD3','OD4','H1','H2','H4','E2','E3'];
+function money2(n){const c=Math.round(n*100)/100;return c===Math.round(c)?money(c):'$'+c.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function qrUnit(id,v){if(PER_VISIT_IDS.includes(id)){const n=effVisits();return {amt:v/n,n:n,u:'visit',txt:money2(v/n)+tx(' per visit',' por visita')};}
+  const u=PER_SEASON_IDS.includes(id)?'season':'job';return {amt:v,n:1,u:u,txt:money(v)+(u==='season'?tx(' per season',' por temporada'):tx(' per job',' por trabajo'))};}
+function mowPerVisit(ids){const a=(ids.includes('A1')?gp('A1')||0:0)+(ids.includes('A2')?gp('A2')||0:0);return a>0?a/effVisits():0;}
+function qrRow(id){const v=gp(id)||0;const mow=(id==='A1'||id==='A2')&&v>0&&!('A1'in ST.ov);const leafPk=LEAF_PK_IDS.includes(id)&&v>0&&!(id in ST.ov);const pk=parkwaySq()>0;return [itemName(id)+(mow&&ST.cornerLot?tx(' · corner lot',' · terreno de esquina')+tx(' (+$'+CORNER_LOT_FEE_PER_VISIT+'/visit)',' (+$'+CORNER_LOT_FEE_PER_VISIT+'/visita)'):'')+((mow||leafPk)&&pk?pkTag():''),v,qrUnit(id,v).txt];}
 function qrPack(ids){
   let total=0;const rows=[];ids.forEach(id=>{const r=qrRow(id);total+=r[1];rows.push(r);});
   const n=planMonths(),mo=Math.round(total/n),ap=annualPay(total),sm=ST.planStartMonth||3;
@@ -1132,17 +1138,15 @@ function quoteText(){
   let x=tx('Amigo Landscaping — Quote','Amigo Landscaping — Cotización')+'\n';
   if(a)x+=a+'\n';
   if(d.opts.length){
-    if(d.rows.length){x+='\n'+tx('In every option:','En todas las opciones:')+'\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+money(r[1])+'\n';});}
+    if(d.rows.length){x+='\n'+tx('In every option:','En todas las opciones:')+'\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+r[2]+'\n';});}
     d.opts.forEach((o,k)=>{
-      x+='\n'+tx('Option ','Opción ')+(k+1)+'\n';o.own.forEach(r=>{x+='• '+r[0]+': '+money(r[1])+'\n';});
-      x+=tx('Total: ','Total: ')+money(o.total)+'\n';
+      x+='\n'+tx('Option ','Opción ')+(k+1)+'\n';o.own.forEach(r=>{x+='• '+r[0]+': '+r[2]+'\n';});
       if(o.buf)x+=tx('With 20% extra: ','Con 20% extra: ')+money(o.buf)+'\n';
       x+=tx('Ways to pay:','Formas de pago:')+'\n';o.plans.forEach(p=>{x+='• '+p.t+': '+p.d+'\n';});
     });
     return x.trim();
   }
-  x+='\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+money(r[1])+'\n';});
-  x+='\n'+tx('Total: ','Total: ')+money(d.total)+'\n';
+  x+='\n';d.rows.forEach(r=>{x+='• '+r[0]+': '+r[2]+'\n';});
   if(d.buf)x+=tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'\n';
   x+='\n'+tx('Ways to pay:','Formas de pago:')+'\n';
   d.plans.forEach(p=>{x+='• '+p.t+': '+p.d+'\n';});
@@ -1159,14 +1163,13 @@ function renderQR(){
   let h='<div class="step-hd"><span class="num">✓</span><span>'+tx('Quote ready','Cotización lista')+'</span></div>';
   if(a)h+='<div class="qr-addr">'+esc(a)+'</div>';
   if(d.opts.length){
-    if(d.rows.length){h+='<div class="qr-opt">'+tx('In every option','En todas las opciones')+'</div>';d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});}
-    d.opts.forEach((o,k)=>{h+='<div class="qr-opt">'+tx('Option ','Opción ')+(k+1)+'</div>';o.own.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});
-      h+='<div class="qr-tot"><span>'+tx('Option ','Opción ')+(k+1)+' '+tx('total','total')+'</span><span class="qr-big">'+money(o.total)+'</span></div>';
+    if(d.rows.length){h+='<div class="qr-opt">'+tx('In every option','En todas las opciones')+'</div>';d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+esc(r[2])+'</b></div>';});}
+    d.opts.forEach((o,k)=>{h+='<div class="qr-opt">'+tx('Option ','Opción ')+(k+1)+'</div>';o.own.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+esc(r[2])+'</b></div>';});
+      h+='<div class="qr-addr" style="margin:8px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
       if(o.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(o.buf)+'</div>';
       const oc=o.plans.find(p=>p.k===ST.payView)||o.plans[0];o.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===oc.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});});
   }else{
-  d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+money(r[1])+'</b></div>';});
-  h+='<div class="qr-tot"><span>'+tx('Total','Total')+'</span><span class="qr-big">'+money(d.total)+'</span></div>';
+  d.rows.forEach(r=>{h+='<div class="qr-row"><span>'+esc(r[0])+'</span><b>'+esc(r[2])+'</b></div>';});
   if(d.buf)h+='<div class="qr-addr" style="font-weight:800">'+tx('With 20% extra: ','Con 20% extra: ')+money(d.buf)+'</div>';
   h+='<div class="qr-addr" style="margin:10px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
   d.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===cur.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});
