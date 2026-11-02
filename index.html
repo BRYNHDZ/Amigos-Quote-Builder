@@ -295,6 +295,11 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 @media (hover:none){.desk-only{display:none}}
 .addr-msg{display:none;margin:2px 0 8px;padding:10px 12px;border-radius:10px;background:#fff5f5;border:1.5px solid #cc0000;color:#a00;font-size:14px;font-weight:700;line-height:1.35}
 .addr-msg.show{display:block}
+.route-badge{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;padding:10px 14px;border-radius:12px;border:2px solid #30471F;background:#f5f9f4}
+.route-badge .rb-l{font-size:20px;font-weight:800;line-height:1.1;color:#30471F}
+.route-badge .rb-s{font-size:13px;font-weight:700}
+.route-badge.rb-warn{border-color:#e0a100;background:#fff8e6}.route-badge.rb-warn .rb-l,.route-badge.rb-warn .rb-s{color:#7a5800}
+.route-badge.rb-out{border-color:#cc0000;background:#fff5f5}.route-badge.rb-out .rb-l{color:#a00}
 .addr-pick{margin:2px 0 10px;padding:10px;border-radius:12px;background:#fff8e6;border:2px solid #e0a100}
 .addr-pick .pick-q{font-size:17px;font-weight:800;color:#5a3d00;margin-bottom:8px}
 .addr-pick .pick-btn{display:block;width:100%;text-align:left;margin:0 0 8px;padding:12px 14px;min-height:52px;border-radius:10px;border:2px solid #30471F;background:#fff;color:#18240F;font-family:'Nunito',sans-serif;cursor:pointer}
@@ -355,6 +360,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
   </div>
   <div id="addrMsg" class="addr-msg" role="alert"></div>
   <div id="addrPick" class="addr-pick" role="group" style="display:none"></div>
+  <div id="routeBadge" class="route-badge" aria-live="polite"></div>
   <div id="openIn" style="font-size:12px;color:#5d6356;margin-bottom:10px">Open in:
     <a href="#" onclick="openEarth();return false" class="ext-lnk">🌍 Earth (3D)</a> <span class="desk-only" style="color:#777;font-weight:400">— ctrl+drag to rotate</span> ·
     <a href="#" onclick="openLotSearch();return false" class="ext-lnk">🏠 Zillow/Redfin</a>
@@ -487,10 +493,25 @@ function fitBadge(status){
     :status==='borderline'?{bd:'#FFB300',bg:'#fffbec',fg:'#7a5800',ic:'!',txt:'BORDERLINE'}
     :{bd:'#cc0000',bg:'#fff5f5',fg:'#a00',ic:'✕',txt:'OUT OF AREA'};
 }
+// Big route badge under the address: just the route letter, so it is seen right away.
+function renderRouteBadge(rb,v){
+  if(!rb)return;
+  const r=v.routes&&v.routes.ranked.length?v.routes.ranked[0]:null;
+  if(r){
+    rb.className='route-badge'+(v.routes.fallback?' rb-warn':'');
+    rb.innerHTML='<span class="rb-l">'+escHtml(r.name)+'</span>'+(v.routes.fallback?'<span class="rb-s">(outlier, over 1 mi)</span>':'');
+  }else{
+    rb.className='route-badge rb-out';
+    rb.innerHTML='<span class="rb-l">Out of area</span>';
+  }
+  rb.style.display='flex';
+}
 function renderFit(){
   const box=$('fitBox');if(!box)return;
-  if(!ST.fitGeo||!ROUTE_DATA||typeof RouteFit==='undefined'){box.style.display='none';box.innerHTML='';return;}
+  const rb=$('routeBadge');
+  if(!ST.fitGeo||!ROUTE_DATA||typeof RouteFit==='undefined'){box.style.display='none';box.innerHTML='';if(rb){rb.style.display='none';rb.innerHTML='';}return;}
   const v=RouteFit.computeFit({pin:{lat:ST.fitGeo.lat,lng:ST.fitGeo.lng},town:ST.fitGeo.town},ROUTE_DATA);
+  renderRouteBadge(rb,v);
   const c=fitBadge(v.area.status);
   let h='<div style="background:'+c.bg+';border:1.5px solid '+c.bd+';border-radius:10px;padding:10px 14px">';
   h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+c.bd+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">'+c.ic+'</div><div style="font-size:12px;font-weight:700;color:'+c.fg+'">'+c.txt+' · ~'+v.area.distanceMi+' mi from base</div></div>';
