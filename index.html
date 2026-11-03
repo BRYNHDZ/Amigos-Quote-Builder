@@ -634,7 +634,7 @@ function trimHrs(lot){
 }
 const VISIT_SVCS_M={OD3:1,OD4:1};const VISIT_SVCS=Object.keys(VISIT_SVCS_M);
 // Small-lot leaf rule (levels 3-4, Nutrient G1/OD3 + Removal G2/OD4): fixed-dollar discount D (old under-10k price minus new fixed price), full at <=10k sqft, tapering linearly to 0 at 20k. Applied before complexity/rate multipliers; extra visits still add the lot's own base on top.
-const SMALL_LOT_LEAF_D={3:{nut:38,rem:36},4:{nut:96,rem:123}};
+const SMALL_LOT_LEAF_D={3:{nut:38,rem:36},4:{nut:96,rem:123},5:{nut:166,rem:232}};
 function smallLotLeaf(R,lot,leaf){const D=SMALL_LOT_LEAF_D[leaf];if(!D||!(lot>0))return;const w=Math.max(0,Math.min(1,(20000-lot)/10000));if(!w)return;[['G1','nut'],['OD3','nut'],['G2','rem'],['OD4','rem']].forEach(([k,t])=>{if(R[k])R[k]=Math.round(R[k]-D[t]*w);});}
 function leafVisits(id){const v=(ST.leafVisits||{})[id]||1;return Math.max(1,Math.min(4,v));}
 function setLeafVisits(id,v){ST.leafVisits=ST.leafVisits||{};ST.leafVisits[id]=v;render();}
