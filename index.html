@@ -476,7 +476,18 @@ const $=id=>document.getElementById(id);
 function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 let ROUTE_DATA=null;
 async function loadRouteData(){
-  try{ROUTE_DATA=await fetch('routes.json').then(r=>r.json());}catch(e){ROUTE_DATA=null;}
+  try{
+    const [routes, area, income] = await Promise.all([
+      fetch('routes.json').then(r=>r.json()),
+      fetch('service-area.json').then(r=>r.json()).catch(()=>null),
+      fetch('town-income.json').then(r=>r.json()).catch(()=>null)
+    ]);
+    ROUTE_DATA = Object.assign({}, routes, {
+      polygons: area && area.polygons ? area.polygons : null,
+      townIncome: income || null,
+      driveWhitelist: routes.driveWhitelist || ['Glen Ellyn','Wheaton','Winfield']
+    });
+  }catch(e){ROUTE_DATA=null;}
   renderFit();
 }
 async function geocodeForFit(a){
@@ -490,7 +501,7 @@ async function geocodeForFit(a){
 }
 function fitBadge(status){
   return status==='in'?{bd:'#30471F',bg:'#f5f9f4',fg:'#30471F',ic:'✓',txt:'IN AREA'}
-    :status==='borderline'?{bd:'#FFB300',bg:'#fffbec',fg:'#7a5800',ic:'!',txt:'BORDERLINE'}
+    :status==='borderline'?{bd:'#FFB300',bg:'#fffbec',fg:'#7a5800',ic:'!',txt:'CHECK (25–30 min)'}
     :{bd:'#cc0000',bg:'#fff5f5',fg:'#a00',ic:'✕',txt:'OUT OF AREA'};
 }
 // Big route badge under the address: just the route letter, so it is seen right away.
@@ -514,11 +525,24 @@ function renderFit(){
   renderRouteBadge(rb,v);
   const c=fitBadge(v.area.status);
   let h='<div style="background:'+c.bg+';border:1.5px solid '+c.bd+';border-radius:10px;padding:10px 14px">';
-  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+c.bd+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">'+c.ic+'</div><div style="font-size:12px;font-weight:700;color:'+c.fg+'">'+c.txt+' · ~'+v.area.distanceMi+' mi from base</div></div>';
-  h+='<div style="font-size:10px;color:#999;margin-bottom:6px">straight-line proxy — verify surface-street route (no highway/toll)</div>';
+  const distTxt=v.area.distanceMi!=null?' · ~'+v.area.distanceMi+' mi from base':'';
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+c.bd+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">'+c.ic+'</div><div style="font-size:12px;font-weight:700;color:'+c.fg+'">'+c.txt+distTxt+'</div></div>';
+  if(v.area.method==='drive'){
+    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">25-min drive area from base (surface streets preferred; no tolls). '+(v.area.status==='borderline'?'25–30 min — check before quoting.':'')+'</div>';
+  }else if(v.area.method==='whitelist'){
+    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">Whitelist town — drive check skipped (Glen Ellyn / Wheaton / Winfield).</div>';
+  }else{
+    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">straight-line proxy — verify surface-street route (no highway/toll)</div>';
+  }
   if(v.blacklist.blocked){
     const bc=v.blacklist.scope==='both'?'#a00':'#7a5800';
     h+='<div style="font-size:11px;font-weight:700;color:'+bc+';margin-bottom:6px">⛔ '+escHtml(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
+  }else if(v.blacklist.watch){
+    h+='<div style="font-size:11px;font-weight:700;color:#7a5800;margin-bottom:6px">⚠ '+escHtml(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
+  }
+  if(v.income&&v.income.known&&!v.blacklist.blocked){
+    const ic=v.income.band==='affluent'?'#30471F':'#7a5800';
+    h+='<div style="font-size:11px;color:'+ic+';margin-bottom:6px">'+escHtml(v.income.label)+'</div>';
   }
   if(v.routes&&v.routes.ranked.length){
     const top=v.routes.ranked.slice(0,3);

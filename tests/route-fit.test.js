@@ -107,3 +107,75 @@ test('computeFit: mowing-only blacklist still ranks routes', () => {
   assert.strictEqual(r.blacklist.scope, 'mowing');
   assert.ok(r.routes && r.routes.ranked.length === 2);
 });
+
+// ---- drive polygons + whitelist + income (Nov 2026) ----
+
+test('matchBlacklist: watch scope warns but does not block', () => {
+  const r = RouteFit.matchBlacklist('Downers Grove', [{town:'Downers Grove', scope:'watch'}]);
+  assert.strictEqual(r.blocked, false);
+  assert.strictEqual(r.watch, true);
+  assert.strictEqual(r.scope, 'watch');
+});
+
+test('pointInPolygon: simple square', () => {
+  const square = { type:'Polygon', coordinates:[[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]]] };
+  assert.strictEqual(RouteFit.pointInPolygon(0, 0, square), true);
+  assert.strictEqual(RouteFit.pointInPolygon(2, 0, square), false);
+});
+
+test('classifyServiceArea: whitelist town is always in', () => {
+  const r = RouteFit.classifyServiceArea(
+    {lat:42.5, lng:-89}, // far away
+    {lat:41.86, lng:-88.08},
+    null,
+    { town:'Wheaton', driveWhitelist:['Glen Ellyn','Wheaton','Winfield'] }
+  );
+  assert.strictEqual(r.status, 'in');
+  assert.strictEqual(r.method, 'whitelist');
+});
+
+test('classifyServiceArea: uses baked polygons when provided', () => {
+  // Tiny fake 25-min polygon around (0,0)
+  const polys = {
+    in25: { type:'Polygon', coordinates:[[[-0.1,-0.1],[0.1,-0.1],[0.1,0.1],[-0.1,0.1],[-0.1,-0.1]]] },
+    borderline30: { type:'Polygon', coordinates:[[[-0.2,-0.2],[0.2,-0.2],[0.2,0.2],[-0.2,0.2],[-0.2,-0.2]]] }
+  };
+  const base = {lat:0, lng:0};
+  assert.strictEqual(RouteFit.classifyServiceArea({lat:0,lng:0}, base, null, {polygons:polys}).status, 'in');
+  assert.strictEqual(RouteFit.classifyServiceArea({lat:0,lng:0.15}, base, null, {polygons:polys}).status, 'borderline');
+  assert.strictEqual(RouteFit.classifyServiceArea({lat:0,lng:0.5}, base, null, {polygons:polys}).status, 'out');
+  assert.strictEqual(RouteFit.classifyServiceArea({lat:0,lng:0}, base, null, {polygons:polys}).method, 'drive');
+});
+
+test('lookupIncome: affluent vs satellite vs unknown', () => {
+  const data = {
+    threshold: 110000,
+    towns: {
+      wheaton: { name:'Wheaton', median: 119566 },
+      lombard: { name:'Lombard', median: 97253 }
+    }
+  };
+  const a = RouteFit.lookupIncome('Wheaton', data);
+  assert.strictEqual(a.band, 'affluent');
+  assert.match(a.label, /\$110k\+/);
+  const s = RouteFit.lookupIncome('Lombard', data);
+  assert.strictEqual(s.band, 'satellite');
+  assert.match(s.label, /satellite-only/);
+  assert.strictEqual(RouteFit.lookupIncome('Nowhere', data).known, false);
+});
+
+test('computeFit: blacklist both still wins over income', () => {
+  const data = {
+    base: {lat:0, lng:0},
+    blacklist: ['Villa Park'],
+    polygons: {
+      in25: { type:'Polygon', coordinates:[[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]]] },
+      borderline30: { type:'Polygon', coordinates:[[[-2,-2],[2,-2],[2,2],[-2,2],[-2,-2]]] }
+    },
+    townIncome: { threshold:110000, towns:{ 'villa park':{median:94698} } },
+    routes: [{name:'Route X', stops:[{lat:0,lng:0}]}]
+  };
+  const r = RouteFit.computeFit({pin:{lat:0,lng:0}, town:'Villa Park'}, data);
+  assert.strictEqual(r.blacklist.blocked, true);
+  assert.strictEqual(r.routes, null);
+});
