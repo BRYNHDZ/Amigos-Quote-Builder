@@ -5,7 +5,22 @@
     "lat": 41.859261,
     "lng": -88.0755496
   },
-  "blacklist": [],
+  "blacklist": [
+    "West Chicago",
+    "Glendale Heights",
+    "Carol Stream",
+    "Villa Park",
+    "New Lenox",
+    "Melrose Park",
+    "Crystal Lake",
+    "Northlake",
+    "Romeoville",
+    "Manhattan",
+    {
+      "town": "Downers Grove",
+      "scope": "watch"
+    }
+  ],
   "routes": [
     {
       "name": "Route A",
@@ -507,5 +522,12 @@
         }
       ]
     }
-  ]
+  ],
+  "driveWhitelist": [
+    "Glen Ellyn",
+    "Wheaton",
+    "Winfield"
+  ],
+  "incomeThreshold": 110000,
+  "updatedAt": "2026-11-05"
 }
