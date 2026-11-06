@@ -179,3 +179,138 @@ test('computeFit: blacklist both still wins over income', () => {
   assert.strictEqual(r.blacklist.blocked, true);
   assert.strictEqual(r.routes, null);
 });
+
+// --- Busy road heads-up (non-blocking) ---
+const BUSY_MINI = {
+  matchMeters: 50,
+  roads: [
+    {
+      name: 'Illinois Route 59',
+      ref: 'IL 59',
+      highway: 'primary',
+      band: 'busy',
+      lines: [[
+        [-88.2055, 41.7975],
+        [-88.2050, 41.7985],
+        [-88.2045, 41.7995]
+      ]]
+    },
+    {
+      name: 'Roosevelt Road',
+      ref: 'IL 38',
+      highway: 'primary',
+      band: 'busy',
+      lines: [[
+        [-88.0800, 41.8750],
+        [-88.0700, 41.8750],
+        [-88.0600, 41.8750]
+      ]]
+    },
+    {
+      name: 'Main Street',
+      ref: null,
+      highway: 'secondary',
+      band: 'likely',
+      lines: [[
+        [-88.0670, 41.8700],
+        [-88.0670, 41.8720]
+      ]]
+    }
+  ]
+};
+
+test('classifyBusyRoad: pin on Route 59 flags busy via geometry', () => {
+  const r = RouteFit.classifyBusyRoad(
+    { lat: 41.79808, lng: -88.20483 },
+    'Illinois Route 59',
+    BUSY_MINI
+  );
+  assert.strictEqual(r.busy, true);
+  assert.strictEqual(r.band, 'busy');
+  assert.strictEqual(r.method, 'geometry');
+  assert.match(r.label, /Busy road/);
+  assert.match(r.label, /your call/);
+});
+
+test('classifyBusyRoad: pin on Roosevelt Rd flags busy', () => {
+  const r = RouteFit.classifyBusyRoad(
+    { lat: 41.87505, lng: -88.0700 },
+    'Roosevelt Road',
+    BUSY_MINI
+  );
+  assert.strictEqual(r.busy, true);
+  assert.strictEqual(r.band, 'busy');
+  assert.match(r.name || '', /Roosevelt/i);
+});
+
+test('classifyBusyRoad: residential Glen Ellyn street does not flag', () => {
+  // Far from Roosevelt (41.875) and Main Street mini segments
+  const r = RouteFit.classifyBusyRoad(
+    { lat: 41.8680, lng: -88.0685 },
+    'Glenwood Avenue',
+    BUSY_MINI
+  );
+  assert.strictEqual(r.busy, false);
+  assert.strictEqual(r.band, null);
+  assert.strictEqual(r.label, '');
+});
+
+test('classifyBusyRoad: keyword fallback when geometry miss but street says Route', () => {
+  const r = RouteFit.classifyBusyRoad(
+    { lat: 41.90, lng: -88.30 }, // nowhere near mini lines
+    '1200 N Route 59',
+    BUSY_MINI
+  );
+  assert.strictEqual(r.busy, true);
+  assert.strictEqual(r.method, 'keyword');
+});
+
+test('classifyBusyRoad: name match when pin slightly off centerline', () => {
+  const r = RouteFit.classifyBusyRoad(
+    { lat: 41.79808, lng: -88.2100 }, // west of Route 59 line
+    'Illinois Route 59',
+    BUSY_MINI
+  );
+  assert.strictEqual(r.busy, true);
+  assert.ok(r.method === 'name' || r.method === 'geometry');
+});
+
+test('computeFit: busyRoad never blocks routes', () => {
+  const data = {
+    base: { lat: 41.86, lng: -88.07 },
+    routes: [{ name: 'Route E', stops: [{ lat: 41.798, lng: -88.205 }] }],
+    busyRoads: BUSY_MINI,
+    polygons: {
+      in25: { type: 'Polygon', coordinates: [[[-89, 41], [-87, 41], [-87, 43], [-89, 43], [-89, 41]]] },
+      borderline30: { type: 'Polygon', coordinates: [[[-89.5, 40.5], [-86.5, 40.5], [-86.5, 43.5], [-89.5, 43.5], [-89.5, 40.5]]] }
+    }
+  };
+  const r = RouteFit.computeFit(
+    { pin: { lat: 41.79808, lng: -88.20483 }, town: 'Naperville', street: 'Illinois Route 59' },
+    data
+  );
+  assert.strictEqual(r.busyRoad.busy, true);
+  assert.ok(r.routes && r.routes.ranked.length >= 1);
+  assert.strictEqual(r.blacklist.blocked, false);
+});
+
+test('classifyBusyRoad: real baked busy-roads.json flags Route 59, not Glenwood', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const file = path.join(__dirname, '..', 'busy-roads.json');
+  if (!fs.existsSync(file)) return; // skip if bake missing
+  const busy = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const on59 = RouteFit.classifyBusyRoad(
+    { lat: 41.79808, lng: -88.20483 },
+    'Illinois Route 59',
+    busy
+  );
+  assert.strictEqual(on59.busy, true, 'Route 59 should flag');
+  assert.ok(on59.band === 'busy' || on59.band === 'likely');
+  const quiet = RouteFit.classifyBusyRoad(
+    { lat: 41.87458, lng: -88.06851 },
+    'Glenwood Avenue',
+    busy
+  );
+  assert.strictEqual(quiet.busy, false, 'Glenwood Ave should stay quiet');
+});

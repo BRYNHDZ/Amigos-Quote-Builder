@@ -477,14 +477,16 @@ function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){r
 let ROUTE_DATA=null;
 async function loadRouteData(){
   try{
-    const [routes, area, income] = await Promise.all([
+    const [routes, area, income, busy] = await Promise.all([
       fetch('routes.json').then(r=>r.json()),
       fetch('service-area.json').then(r=>r.json()).catch(()=>null),
-      fetch('town-income.json').then(r=>r.json()).catch(()=>null)
+      fetch('town-income.json').then(r=>r.json()).catch(()=>null),
+      fetch('busy-roads.json').then(r=>r.json()).catch(()=>null)
     ]);
     ROUTE_DATA = Object.assign({}, routes, {
       polygons: area && area.polygons ? area.polygons : null,
       townIncome: income || null,
+      busyRoads: busy || null,
       driveWhitelist: routes.driveWhitelist || ['Glen Ellyn','Wheaton','Winfield']
     });
   }catch(e){ROUTE_DATA=null;}
@@ -495,7 +497,7 @@ async function geocodeForFit(a){
     const g=await nomSearch(a);
     if(!g||!g.length){ST.fitGeo=null;renderFit();return;}
     const ad=g[0].address||{};
-    ST.fitGeo={lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||''};
+    ST.fitGeo={lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||'',street:ad.road||ad.pedestrian||ad.residential||ad.highway||''};
   }catch(e){ST.fitGeo=null;}
   renderFit();
 }
@@ -521,7 +523,7 @@ function renderFit(){
   const box=$('fitBox');if(!box)return;
   const rb=$('routeBadge');
   if(!ST.fitGeo||!ROUTE_DATA||typeof RouteFit==='undefined'){box.style.display='none';box.innerHTML='';if(rb){rb.style.display='none';rb.innerHTML='';}return;}
-  const v=RouteFit.computeFit({pin:{lat:ST.fitGeo.lat,lng:ST.fitGeo.lng},town:ST.fitGeo.town},ROUTE_DATA);
+  const v=RouteFit.computeFit({pin:{lat:ST.fitGeo.lat,lng:ST.fitGeo.lng},town:ST.fitGeo.town,street:ST.fitGeo.street||''},ROUTE_DATA);
   renderRouteBadge(rb,v);
   const c=fitBadge(v.area.status);
   let h='<div style="background:'+c.bg+';border:1.5px solid '+c.bd+';border-radius:10px;padding:10px 14px">';
@@ -543,6 +545,13 @@ function renderFit(){
   if(v.income&&v.income.known&&!v.blacklist.blocked){
     const ic=v.income.band==='affluent'?'#30471F':'#7a5800';
     h+='<div style="font-size:11px;color:'+ic+';margin-bottom:6px">'+escHtml(v.income.label)+'</div>';
+  }
+  if(v.busyRoad&&v.busyRoad.busy){
+    h+='<div style="font-size:11px;font-weight:700;color:#7a5800;margin:6px 0 2px">⚠ '+escHtml(v.busyRoad.label)+'</div>';
+    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">Heads-up only — does not block the quote.</div>';
+    if(ST.cornerLot){
+      h+='<div style="font-size:11px;color:#30471F;margin-bottom:6px">Corner lot: crew can likely park on the side street.</div>';
+    }
   }
   if(v.routes&&v.routes.ranked.length){
     const top=v.routes.ranked.slice(0,3);
