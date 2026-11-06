@@ -301,7 +301,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 .route-badge.rb-warn{border-color:#e0a100;background:#fff8e6}.route-badge.rb-warn .rb-l,.route-badge.rb-warn .rb-s{color:#7a5800}
 .route-badge.rb-out{border-color:#cc0000;background:#fff5f5}.route-badge.rb-out .rb-l{color:#a00}
 .fit-card{background:#fff;border:1.5px solid #e0dfd8;border-radius:12px;padding:8px 10px;overflow:hidden;display:flex;gap:10px;align-items:flex-start}
-.fit-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center;flex:1 1 auto;min-width:0;margin:0}
+.fit-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;align-content:flex-start;flex:1 1 auto;min-width:0;margin:0;max-width:calc(100% - 270px)}
 .fit-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:800;line-height:1.15;border:1.5px solid transparent;font-family:'Nunito',sans-serif;white-space:nowrap;max-width:100%}
 .fit-chip .ic{width:15px;height:15px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0;line-height:1}
 .fit-chip.ok{background:#f5f9f4;border-color:#30471F;color:#30471F}.fit-chip.ok .ic{background:#30471F}
@@ -313,6 +313,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 .fit-map{display:block;width:100%;height:100%}
 @media(max-width:620px){
   .fit-card{flex-direction:column;gap:8px}
+  .fit-chips{max-width:100%}
   .fit-map-wrap{flex:0 0 auto;width:100%;height:120px}
   .fit-chip{font-size:11px;padding:4px 8px}
 }
@@ -519,9 +520,9 @@ async function geocodeForFit(a){
   renderFit();
 }
 function fitBadge(status){
-  return status==='in'?{cls:'ok',ic:'✓',txt:'IN',tip:'Inside the 25-min drive area from base'}
-    :status==='borderline'?{cls:'warn',ic:'!',txt:'CHECK',tip:'25–30 min drive — review before quoting'}
-    :{cls:'bad',ic:'✕',txt:'OUT',tip:'Outside the service area'};
+  return status==='in'?{cls:'ok',ic:'✓',txt:'In area',tip:'Inside the 25-min drive area from base'}
+    :status==='borderline'?{cls:'warn',ic:'!',txt:'Check',tip:'25–30 min drive — review before quoting'}
+    :{cls:'bad',ic:'✕',txt:'Out of area',tip:'Outside the service area'};
 }
 function shortRoadName(name){
   if(!name)return 'Busy rd';
@@ -676,25 +677,26 @@ function renderFit(){
   if(v.income&&v.income.known&&!v.blacklist.blocked){
     const k=Math.round(v.income.median/1000);
     const ok=v.income.band==='affluent';
-    chips+=fitChip(ok?'ok':'warn', '$', k+'k', v.income.label);
+    chips+=fitChip(ok?'ok':'warn', '$', 'Income $'+k+'k', v.income.label);
   }
   if(v.busyRoad&&v.busyRoad.busy){
     const nm=shortRoadName(v.busyRoad.name||ST.fitGeo.street||'');
-    chips+=fitChip('warn','!', nm, v.busyRoad.label||('Busy road: '+nm));
+    chips+=fitChip('warn','!', 'Busy road: '+nm, v.busyRoad.label||('Busy road: '+nm));
   }
   if(ST.cornerLot){
-    chips+=fitChip('ok','P', 'Side street OK', 'Corner lot — crew can likely park on the side street');
+    chips+=fitChip('ok','P', 'Corner lot: park on side street', 'Corner lot — crew can likely park on the side street');
   }
   if(v.routes&&v.routes.ranked.length){
     const top=v.routes.ranked[0];
     const shortRoute=(top.name||'').replace(/^Route\s+/i,'').trim()||top.name;
+    const dist=top.nearestMi;
     if(v.routes.fallback){
-      chips+=fitChip('warn','R', shortRoute+' · '+top.nearestMi+' mi', 'Outlier — no route stop within 1 mile. Nearest: '+top.name);
+      chips+=fitChip('warn','R', 'Nearest route: '+shortRoute+' · '+dist+' mi', 'Outlier — no route stop within 1 mile. Nearest: '+top.name);
     }else{
-      chips+=fitChip('info','R', shortRoute+' · '+top.nearestMi+' mi', top.density+' stop(s) within 1 mi');
+      chips+=fitChip('info','R', 'Nearest route: '+shortRoute+' · '+dist+' mi', top.density+' stop(s) within 1 mi');
     }
   }else if(v.area.status==='out'){
-    chips+=fitChip('bad','R', 'No route', 'Outside service area');
+    chips+=fitChip('bad','R', 'No nearby route', 'Outside service area');
   }
 
   let h='<div class="fit-card">';
