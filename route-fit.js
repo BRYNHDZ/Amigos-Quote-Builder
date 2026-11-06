@@ -167,6 +167,127 @@
     return { ranked: ranked, fallback: !anyDensity };
   }
 
+  // Busy-road heads-up (non-blocking). Uses baked OSM trunk/primary/secondary
+  // centerlines in busy-roads.json. Street-name keywords are a fallback only.
+  var BUSY_MATCH_MI = 50 / 1609.344; // ~50 m
+  var BUSY_NAME_RE = /\b(route|rte\.?|hwy\.?|highway|il[\s-]?\d|us[\s-]?\d|i[\s-]?\d)\b/i;
+
+  function normStreet(s) {
+    return (s || '').toString().toLowerCase()
+      .replace(/\./g, ' ')
+      .replace(/\b(street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|court|ct|way|parkway|pkwy|highway|hwy|route|rte)\b/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function distPointToSegMi(pin, a, b) {
+    // a/b are {lat,lng}
+    var ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
+    var px = pin.lng, py = pin.lat;
+    var dx = bx - ax, dy = by - ay;
+    if (!dx && !dy) return haversineMi(pin, a);
+    var t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+    if (t < 0) t = 0; else if (t > 1) t = 1;
+    return haversineMi(pin, { lat: ay + t * dy, lng: ax + t * dx });
+  }
+
+  function busyLabel(band, roadName) {
+    var n = roadName ? (' (' + roadName + ')') : '';
+    if (band === 'busy') return 'Busy road' + n + ': parking may be tricky, your call';
+    return 'Likely busy road' + n + ': parking may be tricky, your call';
+  }
+
+  function bandRank(band) {
+    return band === 'busy' ? 2 : (band === 'likely' ? 1 : 0);
+  }
+
+  function classifyBusyRoad(pin, street, busyData) {
+    var empty = { busy: false, band: null, name: null, highway: null, method: null, meters: null, label: '' };
+    if (!pin || typeof pin.lat !== 'number' || typeof pin.lng !== 'number') return empty;
+
+    var roads = (busyData && busyData.roads) || [];
+    var matchMi = busyData && busyData.matchMeters
+      ? busyData.matchMeters / 1609.344
+      : BUSY_MATCH_MI;
+
+    var best = null; // {rank, meters, road}
+    for (var i = 0; i < roads.length; i++) {
+      var road = roads[i];
+      var lines = road.lines || [];
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li];
+        for (var j = 0; j < line.length - 1; j++) {
+          var a = { lng: line[j][0], lat: line[j][1] };
+          var b = { lng: line[j + 1][0], lat: line[j + 1][1] };
+          var d = distPointToSegMi(pin, a, b);
+          if (d > matchMi) continue;
+          var meters = Math.round(d * 1609.344);
+          var cand = { rank: bandRank(road.band), meters: meters, road: road, method: 'geometry' };
+          if (!best || cand.rank > best.rank || (cand.rank === best.rank && cand.meters < best.meters)) {
+            best = cand;
+          }
+        }
+      }
+    }
+
+    if (best) {
+      var nm = best.road.name || best.road.ref || null;
+      return {
+        busy: true,
+        band: best.road.band,
+        name: nm,
+        highway: best.road.highway,
+        method: 'geometry',
+        meters: best.meters,
+        label: busyLabel(best.road.band, nm)
+      };
+    }
+
+    // Name match against baked road names/refs (when pin is a bit off the centerline).
+    var ns = normStreet(street);
+    if (ns) {
+      var nameHit = null;
+      for (var k = 0; k < roads.length; k++) {
+        var r = roads[k];
+        var candidates = [r.name, r.ref].filter(Boolean);
+        for (var c = 0; c < candidates.length; c++) {
+          var rn = normStreet(candidates[c]);
+          if (!rn) continue;
+          if (ns === rn || ns.indexOf(rn) !== -1 || rn.indexOf(ns) !== -1) {
+            var hit = { rank: bandRank(r.band), road: r, matched: candidates[c] };
+            if (!nameHit || hit.rank > nameHit.rank) nameHit = hit;
+          }
+        }
+      }
+      if (nameHit) {
+        var nm2 = nameHit.matched || nameHit.road.name || nameHit.road.ref;
+        return {
+          busy: true,
+          band: nameHit.road.band,
+          name: nm2,
+          highway: nameHit.road.highway,
+          method: 'name',
+          meters: null,
+          label: busyLabel(nameHit.road.band, nm2)
+        };
+      }
+    }
+
+    // Keyword fallback only (Route / Hwy / IL- / US- in the street string).
+    if (street && BUSY_NAME_RE.test(street)) {
+      return {
+        busy: true,
+        band: 'busy',
+        name: street,
+        highway: null,
+        method: 'keyword',
+        meters: null,
+        label: busyLabel('busy', street)
+      };
+    }
+    return empty;
+  }
+
   function computeFit(input, data) {
     data = data || {};
     var area = classifyServiceArea(input.pin, data.base, data.serviceAreaCfg, {
@@ -176,10 +297,11 @@
     });
     var bl = matchBlacklist(input.town, data.blacklist);
     var income = lookupIncome(input.town, data.townIncome);
+    var busyRoad = classifyBusyRoad(input.pin, input.street, data.busyRoads);
     var routes = (area.status === 'out' || bl.scope === 'both')
       ? null
       : rankRoutes(input.pin, data.routes);
-    return { area: area, blacklist: bl, income: income, routes: routes };
+    return { area: area, blacklist: bl, income: income, busyRoad: busyRoad, routes: routes };
   }
 
   var api = {
@@ -188,13 +310,15 @@
     classifyServiceArea: classifyServiceArea,
     matchBlacklist: matchBlacklist,
     lookupIncome: lookupIncome,
+    classifyBusyRoad: classifyBusyRoad,
     rankRoutes: rankRoutes,
     computeFit: computeFit,
     isDriveWhitelist: isDriveWhitelist,
     SERVICE_AREA: SERVICE_AREA,
     ROUTE_RADIUS_MI: ROUTE_RADIUS_MI,
     DRIVE_WHITELIST: DRIVE_WHITELIST,
-    INCOME_THRESHOLD: INCOME_THRESHOLD
+    INCOME_THRESHOLD: INCOME_THRESHOLD,
+    BUSY_MATCH_MI: BUSY_MATCH_MI
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RouteFit = api;
