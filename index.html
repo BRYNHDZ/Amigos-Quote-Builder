@@ -300,6 +300,22 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 .route-badge .rb-s{font-size:12px;font-weight:700}
 .route-badge.rb-warn{border-color:#e0a100;background:#fff8e6}.route-badge.rb-warn .rb-l,.route-badge.rb-warn .rb-s{color:#7a5800}
 .route-badge.rb-out{border-color:#cc0000;background:#fff5f5}.route-badge.rb-out .rb-l{color:#a00}
+.fit-card{background:#fff;border:1.5px solid #e0dfd8;border-radius:12px;padding:10px;overflow:hidden}
+.fit-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.fit-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800;line-height:1.15;border:1.5px solid transparent;font-family:'Nunito',sans-serif;white-space:nowrap;max-width:100%}
+.fit-chip .ic{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;line-height:1}
+.fit-chip.ok{background:#f5f9f4;border-color:#30471F;color:#30471F}.fit-chip.ok .ic{background:#30471F}
+.fit-chip.warn{background:#fffbec;border-color:#FFB300;color:#7a5800}.fit-chip.warn .ic{background:#FFB300;color:#18240F}
+.fit-chip.bad{background:#fff5f5;border-color:#cc0000;color:#a00}.fit-chip.bad .ic{background:#cc0000}
+.fit-chip.info{background:#eef5fb;border-color:#1565c0;color:#1565c0}.fit-chip.info .ic{background:#1565c0}
+.fit-chip.mute{background:#f5f5f0;border-color:#d8d8d0;color:#555}.fit-chip.mute .ic{background:#888}
+.fit-map-wrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid #e0dfd8;background:#eef3ea}
+.fit-map{display:block;width:100%;height:auto;aspect-ratio:5/3;max-height:240px}
+.fit-legend{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:6px;font-size:10px;font-weight:700;color:#666}
+.fit-legend span{display:inline-flex;align-items:center;gap:4px}
+.fit-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+@media(max-width:520px){.fit-chip{font-size:11px;padding:4px 8px}.fit-map{max-height:180px}}
+
 .addr-pick{margin:2px 0 10px;padding:10px;border-radius:12px;background:#fff8e6;border:2px solid #e0a100}
 .addr-pick .pick-q{font-size:17px;font-weight:800;color:#5a3d00;margin-bottom:8px}
 .addr-pick .pick-btn{display:block;width:100%;text-align:left;margin:0 0 8px;padding:12px 14px;min-height:52px;border-radius:10px;border:2px solid #30471F;background:#fff;color:#18240F;font-family:'Nunito',sans-serif;cursor:pointer}
@@ -502,9 +518,126 @@ async function geocodeForFit(a){
   renderFit();
 }
 function fitBadge(status){
-  return status==='in'?{bd:'#30471F',bg:'#f5f9f4',fg:'#30471F',ic:'✓',txt:'IN AREA'}
-    :status==='borderline'?{bd:'#FFB300',bg:'#fffbec',fg:'#7a5800',ic:'!',txt:'CHECK (25–30 min)'}
-    :{bd:'#cc0000',bg:'#fff5f5',fg:'#a00',ic:'✕',txt:'OUT OF AREA'};
+  return status==='in'?{cls:'ok',ic:'✓',txt:'IN',tip:'Inside the 25-min drive area from base'}
+    :status==='borderline'?{cls:'warn',ic:'!',txt:'CHECK',tip:'25–30 min drive — review before quoting'}
+    :{cls:'bad',ic:'✕',txt:'OUT',tip:'Outside the service area'};
+}
+function shortRoadName(name){
+  if(!name)return 'Busy rd';
+  let s=String(name);
+  s=s.replace(/^((East|West|North|South|E|W|N|S)\s+)/i,'');
+  s=s.replace(/\bIllinois\s+Route\s+/i,'Rt ');
+  s=s.replace(/\b(State\s+)?Route\s+/i,'Rt ');
+  s=s.replace(/\b(Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Street|St|Parkway|Pkwy|Highway|Hwy)\b/gi,'');
+  s=s.replace(/\s+/g,' ').trim();
+  if(/^IL\s*\d+/i.test(s)) s=s.replace(/^IL\s*/i,'Rt ');
+  if(s.length>18) s=s.slice(0,16)+'…';
+  return s||'Busy rd';
+}
+function fitChip(cls, ic, label, tip){
+  return '<span class="fit-chip '+cls+'" title="'+escHtml(tip||label)+'"><span class="ic">'+ic+'</span>'+escHtml(label)+'</span>';
+}
+function lngLatToXY(lng, lat, b, W, H, pad){
+  const x=pad+(lng-b.minLng)/(b.maxLng-b.minLng||1)*(W-2*pad);
+  const y=pad+(b.maxLat-lat)/(b.maxLat-b.minLat||1)*(H-2*pad);
+  return [x,y];
+}
+function simplifyRing(ring, maxPts){
+  if(!ring||ring.length<=maxPts) return ring||[];
+  const step=Math.ceil(ring.length/maxPts);
+  const out=[];
+  for(let i=0;i<ring.length;i+=step) out.push(ring[i]);
+  const last=ring[ring.length-1];
+  if(out[out.length-1]!==last) out.push(last);
+  return out;
+}
+function collectPolyRings(geom){
+  if(!geom) return [];
+  if(geom.type==='Polygon') return [geom.coordinates[0]||[]];
+  if(geom.type==='MultiPolygon') return (geom.coordinates||[]).map(p=>p[0]||[]);
+  return [];
+}
+function buildFitMapSvg(pin, v){
+  const W=640, H=400, pad=18;
+  const base=(ROUTE_DATA&&ROUTE_DATA.base)||{lat:41.859261,lng:-88.0755496};
+  const polys=ROUTE_DATA&&ROUTE_DATA.polygons;
+  const busyData=ROUTE_DATA&&ROUTE_DATA.busyRoads;
+  // View box: prefer a local neighborhood around the pin; expand enough to include base when nearby.
+  const span=0.045; // ~3 mi
+  let minLng=pin.lng-span, maxLng=pin.lng+span, minLat=pin.lat-span*0.75, maxLat=pin.lat+span*0.75;
+  const dBase=RouteFit.haversineMi(pin, base);
+  if(dBase<=8){
+    minLng=Math.min(minLng, base.lng-0.01); maxLng=Math.max(maxLng, base.lng+0.01);
+    minLat=Math.min(minLat, base.lat-0.01); maxLat=Math.max(maxLat, base.lat+0.01);
+  }
+  // Keep aspect ~W/H in lon/lat (rough)
+  const midLng=(minLng+maxLng)/2, midLat=(minLat+maxLat)/2;
+  let w=maxLng-minLng, h=maxLat-minLat;
+  const target=w/h, want=W/H;
+  if(target>want){ const nh=w/want; minLat=midLat-nh/2; maxLat=midLat+nh/2; }
+  else { const nw=h*want; minLng=midLng-nw/2; maxLng=midLng+nw/2; }
+  const b={minLng,maxLng,minLat,maxLat};
+  const xy=(lng,lat)=>lngLatToXY(lng,lat,b,W,H,pad);
+
+  let svg='<svg class="fit-map" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Service area map">';
+  svg+='<rect width="'+W+'" height="'+H+'" fill="#eef3ea"/>';
+
+  // Drive area polygon (in25), clipped visually by view
+  if(polys&&polys.in25){
+    collectPolyRings(polys.in25).forEach(ring=>{
+      const pts=simplifyRing(ring, 120).map(p=>xy(p[0],p[1]));
+      if(pts.length<3) return;
+      svg+='<polygon points="'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="rgba(48,71,31,0.14)" stroke="#30471F" stroke-width="2" stroke-opacity="0.55"/>';
+    });
+    if(polys.borderline30){
+      collectPolyRings(polys.borderline30).forEach(ring=>{
+        const pts=simplifyRing(ring, 100).map(p=>xy(p[0],p[1]));
+        if(pts.length<3) return;
+        svg+='<polygon points="'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="none" stroke="#FFB300" stroke-width="1.5" stroke-dasharray="5 4" stroke-opacity="0.7"/>';
+      });
+    }
+  }
+
+  // Nearby busy roads
+  const flaggedName=((v.busyRoad&&v.busyRoad.name)||'').toLowerCase();
+  const flaggedRef=((v.busyRoad&&v.busyRoad.name)||'').toLowerCase();
+  const roads=(busyData&&busyData.roads)||[];
+  roads.forEach(road=>{
+    const rn=(road.name||'').toLowerCase();
+    const rr=(road.ref||'').toLowerCase();
+    const isFlag=v.busyRoad&&v.busyRoad.busy&&(
+      (flaggedName&&rn&&(rn===flaggedName||rn.indexOf(flaggedName)>=0||flaggedName.indexOf(rn)>=0))||
+      (rr&&flaggedName&&flaggedName.indexOf(rr.replace(/\s+/g,' '))>=0)||
+      (rr&&flaggedName&&flaggedName.indexOf(rr.replace(/^il\s*/i,'rt '))>=0)
+    );
+    (road.lines||[]).forEach(line=>{
+      // quick reject if no point near view
+      let any=false;
+      for(let i=0;i<line.length;i++){
+        const lng=line[i][0], lat=line[i][1];
+        if(lng>=minLng&&lng<=maxLng&&lat>=minLat&&lat<=maxLat){any=true;break;}
+      }
+      if(!any) return;
+      const pts=line.map(p=>xy(p[0],p[1]));
+      const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+      if(isFlag) svg+='<path d="'+d+'" fill="none" stroke="#e65100" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>';
+      else svg+='<path d="'+d+'" fill="none" stroke="#fb8c00" stroke-width="2.2" stroke-linecap="round" opacity="0.55"/>';
+    });
+  });
+
+  // Base marker
+  const [bx,by]=xy(base.lng, base.lat);
+  if(bx>-40&&bx<W+40&&by>-40&&by<H+40){
+    svg+='<circle cx="'+bx.toFixed(1)+'" cy="'+by.toFixed(1)+'" r="7" fill="#30471F" stroke="#fff" stroke-width="2.5"/>';
+  }
+
+  // Address pin
+  const [px,py]=xy(pin.lng, pin.lat);
+  svg+='<path d="M'+px.toFixed(1)+' '+(py-16).toFixed(1)+'c-6 0-11 4.5-11 11 0 8 11 17 11 17s11-9 11-17c0-6.5-5-11-11-11z" fill="#cc0000" stroke="#fff" stroke-width="1.5"/>';
+  svg+='<circle cx="'+px.toFixed(1)+'" cy="'+(py-12).toFixed(1)+'" r="3.2" fill="#fff"/>';
+
+  svg+='</svg>';
+  return svg;
 }
 // Big route badge under the address: just the route letter, so it is seen right away.
 function renderRouteBadge(rb,v){
@@ -523,51 +656,53 @@ function renderFit(){
   const box=$('fitBox');if(!box)return;
   const rb=$('routeBadge');
   if(!ST.fitGeo||!ROUTE_DATA||typeof RouteFit==='undefined'){box.style.display='none';box.innerHTML='';if(rb){rb.style.display='none';rb.innerHTML='';}return;}
-  const v=RouteFit.computeFit({pin:{lat:ST.fitGeo.lat,lng:ST.fitGeo.lng},town:ST.fitGeo.town,street:ST.fitGeo.street||''},ROUTE_DATA);
+  const pin={lat:ST.fitGeo.lat,lng:ST.fitGeo.lng};
+  const v=RouteFit.computeFit({pin:pin,town:ST.fitGeo.town,street:ST.fitGeo.street||''},ROUTE_DATA);
   renderRouteBadge(rb,v);
-  const c=fitBadge(v.area.status);
-  let h='<div style="background:'+c.bg+';border:1.5px solid '+c.bd+';border-radius:10px;padding:10px 14px">';
-  const distTxt=v.area.distanceMi!=null?' · ~'+v.area.distanceMi+' mi from base':'';
-  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+c.bd+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">'+c.ic+'</div><div style="font-size:12px;font-weight:700;color:'+c.fg+'">'+c.txt+distTxt+'</div></div>';
-  if(v.area.method==='drive'){
-    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">25-min drive area from base (surface streets preferred; no tolls). '+(v.area.status==='borderline'?'25–30 min — check before quoting.':'')+'</div>';
-  }else if(v.area.method==='whitelist'){
-    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">Whitelist town — drive check skipped (Glen Ellyn / Wheaton / Winfield).</div>';
-  }else{
-    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">straight-line proxy — verify surface-street route (no highway/toll)</div>';
-  }
+  const area=fitBadge(v.area.status);
+  let areaLabel=area.txt;
+  if(v.area.method==='drive'&&v.area.driveMinutes) areaLabel+=' · '+v.area.driveMinutes+'m';
+  else if(v.area.distanceMi!=null) areaLabel+=' · '+v.area.distanceMi+' mi';
+  let chips='';
+  chips+=fitChip(area.cls, area.ic, areaLabel, area.tip);
   if(v.blacklist.blocked){
-    const bc=v.blacklist.scope==='both'?'#a00':'#7a5800';
-    h+='<div style="font-size:11px;font-weight:700;color:'+bc+';margin-bottom:6px">⛔ '+escHtml(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
+    chips+=fitChip('bad','⛔', (ST.fitGeo.town||'Town')+' blocked', v.blacklist.label);
   }else if(v.blacklist.watch){
-    h+='<div style="font-size:11px;font-weight:700;color:#7a5800;margin-bottom:6px">⚠ '+escHtml(ST.fitGeo.town||'This town')+' — '+v.blacklist.label+'</div>';
+    chips+=fitChip('warn','👁', (ST.fitGeo.town||'Town')+' watch', v.blacklist.label);
   }
   if(v.income&&v.income.known&&!v.blacklist.blocked){
-    const ic=v.income.band==='affluent'?'#30471F':'#7a5800';
-    h+='<div style="font-size:11px;color:'+ic+';margin-bottom:6px">'+escHtml(v.income.label)+'</div>';
+    const k=Math.round(v.income.median/1000);
+    const ok=v.income.band==='affluent';
+    chips+=fitChip(ok?'ok':'warn', '$', k+'k', v.income.label);
   }
   if(v.busyRoad&&v.busyRoad.busy){
-    h+='<div style="font-size:11px;font-weight:700;color:#7a5800;margin:6px 0 2px">⚠ '+escHtml(v.busyRoad.label)+'</div>';
-    h+='<div style="font-size:10px;color:#999;margin-bottom:6px">Heads-up only — does not block the quote.</div>';
-    if(ST.cornerLot){
-      h+='<div style="font-size:11px;color:#30471F;margin-bottom:6px">Corner lot: crew can likely park on the side street.</div>';
-    }
+    const nm=shortRoadName(v.busyRoad.name||ST.fitGeo.street||'');
+    chips+=fitChip('warn','!', nm, v.busyRoad.label||('Busy road: '+nm));
+  }
+  if(ST.cornerLot){
+    chips+=fitChip('ok','P', 'Side street OK', 'Corner lot — crew can likely park on the side street');
   }
   if(v.routes&&v.routes.ranked.length){
-    const top=v.routes.ranked.slice(0,3);
+    const top=v.routes.ranked[0];
+    const shortRoute=(top.name||'').replace(/^Route\s+/i,'').trim()||top.name;
     if(v.routes.fallback){
-      h+='<div style="font-size:11px;color:'+c.fg+'"><b>Outlier — no route within 1 mi.</b> Nearest: '+top[0].name+' ('+top[0].nearestMi+' mi)</div>';
+      chips+=fitChip('warn','R', shortRoute+' · '+top.nearestMi+' mi', 'Outlier — no route stop within 1 mile. Nearest: '+top.name);
     }else{
-      const b=top[0];
-      h+='<div style="font-size:12px;font-weight:700;color:#30471F;margin-bottom:2px">Best route: '+b.name+'</div>';
-      h+='<div style="font-size:11px;color:#666;margin-bottom:4px">'+b.density+' stop'+(b.density===1?'':'s')+' within 1 mi · closest '+b.nearestMi+' mi</div>';
-      const rest=top.slice(1).filter(r=>r.density>0||r.nearestMi<3);/* show runner-up only if it has stops within 1mi OR its nearest stop is <3mi */
-      rest.forEach(r=>{h+='<div style="font-size:11px;color:#888">Runner-up: '+r.name+' — '+r.density+' within 1 mi · '+r.nearestMi+' mi</div>';});
+      chips+=fitChip('info','R', shortRoute+' · '+top.nearestMi+' mi', top.density+' stop(s) within 1 mi');
     }
   }else if(v.area.status==='out'){
-    h+='<div style="font-size:11px;color:#a00">Outside service area — decline politely or hand off.</div>';
+    chips+=fitChip('bad','R', 'No route', 'Outside service area');
   }
-  h+='</div>';
+
+  let h='<div class="fit-card">';
+  h+='<div class="fit-chips">'+chips+'</div>';
+  h+='<div class="fit-map-wrap">'+buildFitMapSvg(pin,v)+'</div>';
+  h+='<div class="fit-legend">';
+  h+='<span><i class="fit-dot" style="background:#30471F"></i>Base</span>';
+  h+='<span><i class="fit-dot" style="background:#cc0000"></i>Address</span>';
+  h+='<span><i class="fit-dot" style="background:#fb8c00"></i>Busy roads</span>';
+  h+='<span><i class="fit-dot" style="background:rgba(48,71,31,0.35);border:1px solid #30471F"></i>25-min area</span>';
+  h+='</div></div>';
   box.style.display='block';box.innerHTML=h;
 }
 const V=35,BEB=200,BER1=60,BER2=40;
