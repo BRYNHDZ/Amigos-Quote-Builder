@@ -374,11 +374,12 @@ ok(a.pv[0].includes(a.pv[1] + '/visit') && a.pv[0].includes(a.pv[2]) && b.pv[0].
     ok(lang === 'es' ? /Cotización|Formas de pago/.test(d.text) && !/Ways to pay/.test(d.text) : /Ways to pay/.test(d.text), k + ': copied text is in the screen language');
   }
 
-  // copy button really copies, and says so
+  // Copy link button copies the page link (the quote's inputs, no wall of text), and says so
   await goto('view=focus&req=mow,leaf'); await u.fill('#iLt', '10890'); await u.waitForTimeout(200);
+  ok(!(await u.locator('#qrCard >> text=Copy quote').count()) && !(await u.locator('#qrCard >> text=Share…').count()), 'Copy quote and Share… are gone');
   await u.locator('#qrCopy').click(); await u.waitForTimeout(250);
   const clip = await u.evaluate(() => navigator.clipboard.readText());
-  ok(/\$44\.57 per visit/.test(clip) && /\$392 per season/.test(clip) && /Pay-As-You-Go: \$1,952/.test(clip) && !/Total: /.test(clip) && /Spread monthly/.test(clip) && /Annual Payment/.test(clip), 'Copy quote puts the quote on the clipboard', { clip });
+  ok(clip === u.url() && /[?&]lot=10890(&|$)/.test(clip) && /view=focus/.test(clip) && /req=mow,leaf/.test(clip) && !/Ways to pay|Pay-As-You-Go/.test(clip), 'Copy link puts the share link on the clipboard', { clip });
   ok(/Copied/.test(await u.locator('#qrCopy').textContent()), 'Copy button confirms with "Copied"');
   // see-quote button scrolls to the summary
   await u.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
