@@ -489,6 +489,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 
 <script src="route-fit.js"></script>
 <script src="addr-match.js"></script>
+<script src="share-link.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -860,8 +861,9 @@ function lookupAddr(){
   box.innerHTML='<iframe width="100%" height="100%" frameborder="0" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'+url+'"></iframe>';
   box.style.display='block';meta.style.display='flex';
   $('mapAddr').textContent=a;
-  lookupLot(a);
+  const pr=lookupLot(a);
   geocodeForFit(a);
+  return pr;
 }
 const DUPAGE_GIS='https://gis.dupageco.org/arcgis/rest/services/DuPage_County_IL/ParcelsWithRealEstateCC/MapServer/0/query';
 const DP_FIELDS='PIN,ACREAGE,PROPADDRL1,PROPCITY,PROPZIP';
@@ -1313,7 +1315,7 @@ function initUI(){
   }
 }
 
-/* ===== usability pass 1: quote summary, copy/share, start over, plain address errors ===== */
+/* ===== usability pass 1: quote summary, copy link, start over, plain address errors ===== */
 UI.arm=false;
 const LEAF_PK_IDS=['G1','G2','G3','OD3','OD4'];
 /* each quote line shows its smallest natural unit: mowing + ongoing weeding per visit, leaf/snow/season-long care per season, everything else per job */
@@ -1375,21 +1377,49 @@ function renderQR(){
     h+='<div class="qr-addr" style="margin:10px 0 4px;font-weight:800">'+tx('Ways to pay','Formas de pago')+'</div>';
     d.plans.forEach(p=>{h+='<div class="qr-plan'+(p.k===cur.k?' on':'')+'"><b>'+p.t+'</b> — '+esc(p.d)+'</div>';});
   }
-  h+='<button type="button" class="qr-btn" id="qrCopy" onclick="copyQuote(this)">'+tx('📋 Copy quote','📋 Copiar cotización')+'</button>';
-  if(navigator.share)h+='<button type="button" class="qr-btn sec" onclick="shareQuote()">'+tx('Share…','Compartir…')+'</button>';
+  h+='<button type="button" class="qr-btn" id="qrCopy" onclick="copyLink(this)">'+tx('🔗 Copy link','🔗 Copiar enlace')+'</button>';
   h+='<button type="button" class="so-btn qr-so">↺ Start over</button>';
   el.innerHTML=h;
   const so=el.querySelector('.qr-so');if(so)so.onclick=startOver;
 }
-async function copyQuote(btn){
-  const txt=quoteText();let ok=false;
+/* ===== share link: the page address holds the quote's inputs (see share-link.js). Copy link copies it; opening it fills the builder back in. ===== */
+const SHARE={restoring:false,lang:new URLSearchParams(location.search).has('lang'),last:null,t:0};
+function shareQS(){return ShareLink.encode(ST,{view:UI.view,focus:UI.focus,prev:UI.prev,lang:SHARE.lang?UI.lang:''},getAddr());}
+function shareURL(){const qs=shareQS();return location.origin+location.pathname+(qs?'?'+qs:'');}
+function syncURL(){if(SHARE.restoring)return;const qs=shareQS();if(qs===SHARE.last)return;SHARE.last=qs;try{history.replaceState(history.state,'',location.pathname+(qs?'?'+qs:'')+location.hash);}catch(e){}}
+async function copyLink(btn){
+  syncURL();const txt=shareURL();let ok=false;
   try{await navigator.clipboard.writeText(txt);ok=true;}catch(e){}
   if(!ok){try{const ta=document.createElement('textarea');ta.value=txt;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,txt.length);ok=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}}
-  if(btn){btn.classList.toggle('ok',ok);btn.textContent=ok?tx('✓ Copied','✓ Copiado'):tx('Could not copy — press and hold the text','No se pudo copiar — mantén presionado el texto');
-    setTimeout(()=>{btn.classList.remove('ok');btn.textContent=tx('📋 Copy quote','📋 Copiar cotización');},2500);}
+  if(btn){btn.classList.toggle('ok',ok);btn.textContent=ok?tx('✓ Copied','✓ Copiado'):tx('Could not copy — copy the page address instead','No se pudo copiar — copia la dirección de la página');
+    setTimeout(()=>{btn.classList.remove('ok');btn.textContent=tx('🔗 Copy link','🔗 Copiar enlace');},2500);}
   return ok;
 }
-function shareQuote(){try{navigator.share({title:'Amigo Landscaping',text:quoteText()});}catch(e){}}
+// Seg buttons up top only light up on tap, so light the ones that match the restored state.
+function syncSegs(){
+  const g={rPg:['rate',[80,90,100]],lPg:['leaf',[0,1,2,3,4,5]],cxPg:['complex',['low','med','high']],bfPg:['bedFootprint',['low','mod','high']],tPg:['oneTier',['remote','driveby','appt']]};
+  for(const id in g){const [f,vals]=g[id];const i=vals.indexOf(ST[f]);if(i<0)continue;document.querySelectorAll('#'+id+' button').forEach((b,k)=>b.classList.toggle('on',k===i));}
+}
+async function restoreShare(){
+  const q=new URLSearchParams(location.search);
+  if(!ShareLink.hasShare(q))return;
+  const r=ShareLink.apply(ST,q,id=>id in CATOF);
+  if(ST.lotUnit==='ac'){$('iLtU').textContent='ac';$('iLt').placeholder='e.g. 0.25';}
+  $('iLt').value=r.lotField;
+  const fld={iLn:'lawn',iPv:'paved',iMu:'mulch',iTr:'trim',iPe:'peren',iHv:'homeVal',iHf:'homeFt',iPk:'parkway'};
+  for(const id in fld){const el=$(id);if(el)el.value=ST[fld[id]]>0?ST[fld[id]]:'';}
+  syncSegs();updLotHint();
+  if(!r.addr)return;
+  // Same lookup as typing the address (map, lot, Route & Fit). The lot in the link is what was quoted, so it wins over the lookup.
+  $('iAddr').value=r.addr;SHARE.restoring=true;
+  try{await lookupAddr();}catch(e){}
+  if(r.lotField){
+    $('iLt').value=r.lotField;upd();hidePick();
+    const msg=$('addrMsg');if(msg)msg.classList.remove('show');
+    const mb=$('mapBox'),mm=$('mapMeta');if(mb&&mb.innerHTML)mb.style.display='block';if(mm&&mb&&mb.innerHTML)mm.style.display='flex';
+  }
+  SHARE.restoring=false;render();
+}
 function startOver(){
   if(!UI.arm){UI.arm=true;uxPass();clearTimeout(UI.armT);UI.armT=setTimeout(()=>{UI.arm=false;uxPass();},4000);return;}
   location.href=location.pathname;
@@ -1399,7 +1429,8 @@ function uxPass(){
   document.querySelectorAll('.so-btn').forEach(b=>{b.classList.toggle('arm',UI.arm);b.textContent=UI.arm?t('so.sure'):t('so.btn');});
   const ia=$('iAddr');if(ia)ia.placeholder=tx('e.g. 303 W Wesley St','Ej.: 303 W Wesley St');const ds=$('detSum');if(ds)ds.textContent=tx('Office details (optional)','Detalles de oficina (opcional)');
 }
-{const _r=render;render=function(){_r.apply(this,arguments);uxPass();};}
+{const _r=render;render=function(){_r.apply(this,arguments);uxPass();syncURL();};}
+{const ia=$('iAddr');if(ia)ia.addEventListener('input',()=>{clearTimeout(SHARE.t);SHARE.t=setTimeout(syncURL,300);});}
 {const _ll=lookupLot;
  lookupLot=async function(a){
   const btn=$('lkBtn'),hint=$('iLtH'),msg=$('addrMsg');if(msg)msg.classList.remove('show');
@@ -1419,7 +1450,7 @@ function uxPass(){
  };}
 uxPass();
 
-initUI();render();loadRouteData();
+initUI();restoreShare();render();loadRouteData();
 </script>
 </body>
 </html>
