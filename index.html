@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.20.6/dist/leaflet-geoman.css" crossorigin="">
+<link rel="stylesheet" href="measure-tool.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Nunito',sans-serif;font-size:14px;background:#F3F4F6;color:#18240F;min-height:100vh}
@@ -383,8 +386,8 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
     <a href="#" onclick="openEarth();return false" class="ext-lnk">🌍 Earth (3D)</a> <span class="desk-only" style="color:#777;font-weight:400">— ctrl+drag to rotate</span> ·
     <a href="#" onclick="openLotSearch();return false" class="ext-lnk">🏠 Zillow/Redfin</a>
   </div>
-  <div id="mapBox" style="display:none;height:380px;border-radius:10px;overflow:hidden;border:1.5px solid #d8d8d0;margin-bottom:6px"></div>
-  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Use the layer toggle inside the map to switch between Map &amp; Satellite</span></div>
+  <div id="mapBox" style="display:none"></div>
+  <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Google photos · tap Measure to draw on older aerials</span></div>
   
   <div class="g2" style="margin-bottom:6px">
     <div><label class="lbl" data-i18n="l.lot">Lot size</label><div style="display:flex;gap:4px"><input type="number" id="iLt" placeholder="e.g. 10890" step="any" oninput="upd()" style="flex:1;min-width:0"><button type="button" id="iLtU" class="unit-btn" onclick="toggleLotUnit()">sqft</button></div><div class="hint" id="iLtH" data-i18n="h.lot0">Enter this alone → all services auto-estimate</div></div>
@@ -490,6 +493,10 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 <script src="route-fit.js"></script>
 <script src="addr-match.js"></script>
 <script src="share-link.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.20.6/dist/leaflet-geoman.min.js" crossorigin=""></script>
+<script src="https://unpkg.com/@turf/turf@7.4.0/turf.min.js" crossorigin=""></script>
+<script src="measure-tool.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -857,9 +864,12 @@ function openLotSearch(){const a=getAddr();if(!a)return;window.open('https://www
 function lookupAddr(){
   const a=getAddr();if(!a)return;
   const box=$('mapBox'),meta=$('mapMeta');
-  const url='https://maps.google.com/maps?q='+encodeURIComponent(a)+'&t=k&z=19&output=embed';
-  box.innerHTML='<iframe width="100%" height="100%" frameborder="0" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'+url+'"></iframe>';
-  box.style.display='block';meta.style.display='flex';
+  if(window.PropertyMap){PropertyMap.show(a);}
+  else{
+    const url='https://maps.google.com/maps?q='+encodeURIComponent(a)+'&t=k&z=19&output=embed';
+    box.innerHTML='<iframe width="100%" height="100%" frameborder="0" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'+url+'"></iframe>';
+    box.style.display='block';if(meta)meta.style.display='flex';
+  }
   $('mapAddr').textContent=a;
   const pr=lookupLot(a);
   geocodeForFit(a);
@@ -917,7 +927,7 @@ function showPick(opts,a){
     const l1=document.createElement('b');l1.textContent='📍 '+AddrMatch.label(s);
     const l2=document.createElement('span');l2.textContent=Math.round(s.acres*43560).toLocaleString()+' sqft';
     b.appendChild(l1);b.appendChild(l2);
-    b.onclick=()=>{hidePick();$('iAddr').value=AddrMatch.full(s);useParcel(s,a,tx('confirmed','confirmado'));const mm=$('mapMeta');if(mm)mm.style.display='flex';try{geocodeForFit($('iAddr').value);}catch(e){}};
+    b.onclick=()=>{hidePick();$('iAddr').value=AddrMatch.full(s);useParcel(s,a,tx('confirmed','confirmado'));const mm=$('mapMeta');if(mm)mm.style.display='flex';try{geocodeForFit($('iAddr').value);}catch(e){}if(window.PropertyMap)PropertyMap.show($('iAddr').value);};
     pk.appendChild(b);
   });
   const n=document.createElement('button');n.type='button';n.className='pick-none';n.textContent=tx('None of these — I will type the lot size','Ninguna — escribo el tamaño del terreno');
