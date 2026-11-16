@@ -1,0 +1,9 @@
+# Preview site only. GitHub Pages ignores this file, so a future merge
+# to main will not noindex the live builder.
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
