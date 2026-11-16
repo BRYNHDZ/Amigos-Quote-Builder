@@ -11,7 +11,7 @@
   var map, naipLayer, countyLayer, parcelLayer, labelLayer;
   var shapes = []; // {id, layer, kind, value, label}
   var selected = null;
-  var view = 'county'; // naip | county | google  (county first: sharp and fast; USGS NAIP is a toggle)
+  var view = 'google'; // google by default (current photos). county/naip only while measuring.
   var drawing = null; // 'area' | 'length' | null
   var inited = false;
   var loading = 0;
@@ -119,19 +119,22 @@
       return '<button type="button" id="' + id + '" class="' + (on ? 'on' : '') + '"'
         + (title ? ' title="' + title + '"' : '') + '>' + label + '</button>';
     };
-    bar.innerHTML =
+    var html =
       b('mBtnArea', t('Measure area', 'Medir área'), drawing === 'area')
-      + b('mBtnLen', t('Measure length', 'Medir largo'), drawing === 'length')
-      + b('mBtnEdit', t('Edit', 'Editar'), !!(map && map.pm && map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()), t('Move corners', 'Mover esquinas'))
-      + '<span class="m-sep"></span>'
-      + b('mBtnNaip', 'USGS', view === 'naip', t('Newer government photos', 'Fotos del gobierno'))
-      + b('mBtnCounty', t('County', 'Condado'), view === 'county', t('DuPage photos, 2016', 'Fotos de DuPage, 2016'))
-      + b('mBtnGoogle', t('Google view', 'Vista Google'), view === 'google');
+      + b('mBtnLen', t('Measure length', 'Medir largo'), drawing === 'length');
+    if (view !== 'google') {
+      html += b('mBtnEdit', t('Edit', 'Editar'), !!(map && map.pm && map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()), t('Move corners', 'Mover esquinas'))
+        + '<span class="m-sep"></span>'
+        + b('mBtnNaip', 'USGS', view === 'naip', t('Newer government photos', 'Fotos del gobierno'))
+        + b('mBtnCounty', t('County', 'Condado'), view === 'county', t('DuPage photos, 2016', 'Fotos de DuPage, 2016'));
+    }
+    html += b('mBtnGoogle', t('Google view', 'Vista Google'), view === 'google');
+    bar.innerHTML = html;
     $('mBtnArea').onclick = function () { toggleDraw('area'); };
     $('mBtnLen').onclick = function () { toggleDraw('length'); };
-    $('mBtnEdit').onclick = function () { toggleEdit(); };
-    $('mBtnNaip').onclick = function () { setView('naip'); };
-    $('mBtnCounty').onclick = function () { setView('county'); };
+    if ($('mBtnEdit')) $('mBtnEdit').onclick = function () { toggleEdit(); };
+    if ($('mBtnNaip')) $('mBtnNaip').onclick = function () { setView('naip'); };
+    if ($('mBtnCounty')) $('mBtnCounty').onclick = function () { setView('county'); };
     $('mBtnGoogle').onclick = function () { setView('google'); };
     var done = $('measureDone'), cancel = $('measureCancel');
     if (done) done.onclick = finishDraw;
@@ -146,7 +149,7 @@
   }
 
   function toggleDraw(kind) {
-    if (view === 'google') setView('naip');
+    if (view === 'google') setView('county');
     if (drawing === kind) { cancelDraw(); return; }
     startDraw(kind);
   }
@@ -180,6 +183,7 @@
   }
 
   function toggleEdit() {
+    if (view === 'google') setView('county');
     if (!map) return;
     cancelDraw();
     if (map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()) map.pm.disableGlobalEditMode();
@@ -208,8 +212,16 @@
     if (next === 'google') {
       cancelDraw();
       fillGoogle();
+      // Leaflet is hidden, so pick the last area shape so Use as stays available.
+      if (!selected || selected.kind !== 'area') {
+        var areas = shapes.filter(function (s) { return s.kind === 'area'; });
+        if (areas.length) selected = areas[areas.length - 1];
+      }
+    } else if (map) {
+      setTimeout(function () { map.invalidateSize(); }, 80);
     }
     renderBar();
+    renderUse();
   }
 
   function fillGoogle() {
@@ -275,7 +287,7 @@
   function renderUse() {
     var el = $('measureUse');
     if (!el) return;
-    if (!selected || view === 'google') { el.classList.remove('show'); el.innerHTML = ''; return; }
+    if (!selected) { el.classList.remove('show'); el.innerHTML = ''; return; }
     var f = fmt(selected.kind, selected.value);
     var fills = '';
     if (selected.kind === 'area') {
@@ -437,15 +449,23 @@
     }).catch(function () {});
   }
 
+  function clearShapes() {
+    shapes.slice().forEach(function (s) { removeShape(s); });
+    selected = null;
+    renderUse();
+  }
+
   function show(addr, lat, lng) {
-    lastAddr = addr || lastAddr;
+    var nextAddr = addr || lastAddr;
+    if (nextAddr && lastAddr && nextAddr !== lastAddr) clearShapes();
+    lastAddr = nextAddr;
     var box = ensureDom();
     if (!box) return Promise.resolve();
     box.style.display = 'block';
     var meta = $('mapMeta');
     if (meta) meta.style.display = 'flex';
     initMap();
-    if (view === 'google') fillGoogle();
+    setView('google');
     function go(la, lo) {
       if (!map) return;
       map.setView([la, lo], 19, { animate: false });
