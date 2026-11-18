@@ -492,6 +492,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
 
 <script src="route-fit.js"></script>
 <script src="addr-match.js"></script>
+<script src="geocode-fallback.js"></script>
 <script src="share-link.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.20.6/dist/leaflet-geoman.min.js" crossorigin=""></script>
@@ -518,13 +519,16 @@ async function loadRouteData(){
   }catch(e){ROUTE_DATA=null;}
   renderFit();
 }
-async function geocodeForFit(a){
+async function geocodeForFit(a,parcel){
   try{
-    const g=await nomSearch(a);
-    if(!g||!g.length){ST.fitGeo=null;renderFit();return;}
-    const ad=g[0].address||{};
-    ST.fitGeo={lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||'',street:ad.road||ad.pedestrian||ad.residential||ad.highway||''};
-  }catch(e){ST.fitGeo=null;}
+    const picked=await resolveGeo(a,parcel);
+    if(picked){
+      ST.fitGeo=picked;
+      if(window.PropertyMap)PropertyMap.show(a,picked.lat,picked.lng);
+    }else if(!ST.fitGeo){
+      ST.fitGeo=null;
+    }
+  }catch(e){if(!ST.fitGeo)ST.fitGeo=null;}
   renderFit();
 }
 function fitBadge(status){
@@ -883,6 +887,41 @@ function nomSearch(a){
   if(!_nomCache[a])_nomCache[a]=fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=us&q='+encodeURIComponent(a)).then(r=>r.json()).catch(()=>{delete _nomCache[a];return [];});
   return _nomCache[a];
 }
+const _geomCache={};
+async function parcelGeometry(pin){
+  if(!pin)return null;
+  const k=String(pin);
+  if(_geomCache[k])return _geomCache[k];
+  try{
+    const r=await fetch(DUPAGE_GIS+'?where='+encodeURIComponent("PIN='"+k.replace(/'/g,"''")+"'")+'&outFields=PIN&returnGeometry=true&outSR=4326&f=json');
+    const j=await r.json();
+    const geom=j&&j.features&&j.features[0]&&j.features[0].geometry;
+    if(geom)_geomCache[k]=geom;
+    return geom||null;
+  }catch(e){return null;}
+}
+function parcelTownStreet(parcel){
+  if(!parcel)return {town:'',street:''};
+  const st=parcel.line1&&typeof AddrMatch!=='undefined'?AddrMatch.parseStreet(parcel.line1):{};
+  const street=[st.name,st.suffix].filter(Boolean).join(' ');
+  const title=typeof AddrMatch!=='undefined'?s=>AddrMatch.titleCase(s):s=>s;
+  return {town:parcel.town?title(parcel.town):'',street:street?title(street):''};
+}
+async function resolveGeo(a,parcel){
+  const g=await nomSearch(a);
+  if(typeof GeoFallback==='undefined'){
+    if(g&&g.length){const ad=g[0].address||{};return {lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||'',street:ad.road||ad.pedestrian||ad.residential||ad.highway||'',source:'nominatim'};}
+    return null;
+  }
+  const nom=GeoFallback.fromNominatim(g);
+  if(nom)return nom;
+  // Nominatim missed (common for DuPage grid numbers like 22W389 / 1N185).
+  // Census finds them but has no CORS in the browser, so use the matched parcel centroid.
+  let geom=parcel&&parcel.geometry;
+  if(!geom&&parcel&&parcel.pin)geom=await parcelGeometry(parcel.pin);
+  const ts=parcelTownStreet(parcel);
+  return GeoFallback.pick({nominatim:[],parcelGeometry:geom,town:ts.town,street:ts.street});
+}
 async function dpQuery(params){
   try{const r=await fetch(DUPAGE_GIS+'?'+params+'&outFields='+DP_FIELDS+'&returnGeometry=false&f=json').then(r=>r.json());return (r&&r.features||[]).map(f=>f.attributes);}catch(e){return [];}
 }
@@ -917,6 +956,7 @@ function useParcel(s,a,note){
   const sqft=Math.round(s.acres*43560),inp=$('iLt');
   inp.value=ST.lotUnit==='ac'?(+s.acres.toFixed(3)):sqft;upd();
   $('mapAddr').textContent=AddrMatch.label(s)+' · '+sqft.toLocaleString()+' sqft ('+s.acres.toFixed(2)+' ac) · PIN '+s.pin+(note?' · '+note:'');
+  if(!ST.fitGeo||ST.fitGeo.source!=='nominatim'){try{geocodeForFit(getAddr()||a,s);}catch(e){}}
 }
 // "Did you mean…?" — big buttons, one per possible property, plus "none of these".
 function showPick(opts,a){
@@ -927,7 +967,7 @@ function showPick(opts,a){
     const l1=document.createElement('b');l1.textContent='📍 '+AddrMatch.label(s);
     const l2=document.createElement('span');l2.textContent=Math.round(s.acres*43560).toLocaleString()+' sqft';
     b.appendChild(l1);b.appendChild(l2);
-    b.onclick=()=>{hidePick();$('iAddr').value=AddrMatch.full(s);useParcel(s,a,tx('confirmed','confirmado'));const mm=$('mapMeta');if(mm)mm.style.display='flex';try{geocodeForFit($('iAddr').value);}catch(e){}if(window.PropertyMap)PropertyMap.show($('iAddr').value);};
+    b.onclick=()=>{hidePick();$('iAddr').value=AddrMatch.full(s);useParcel(s,a,tx('confirmed','confirmado'));const mm=$('mapMeta');if(mm)mm.style.display='flex';};
     pk.appendChild(b);
   });
   const n=document.createElement('button');n.type='button';n.className='pick-none';n.textContent=tx('None of these — I will type the lot size','Ninguna — escribo el tamaño del terreno');
