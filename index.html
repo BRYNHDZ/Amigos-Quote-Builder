@@ -238,6 +238,7 @@ body.v-focus:not(.more) #startRow,body.v-focus:not(.more) #tierRow,body.v-focus:
 body.v-focus:not(.more) #measDet{display:none}
 body.v-focus:not(.more).f-snow #measDet,body.v-focus:not(.more).f-bush #measDet,body.v-focus:not(.more).f-mulch #measDet{display:block;border:none;padding:0;margin:0}
 body.v-focus:not(.more) #measDet>summary{display:none}
+body.v-focus:not(.more) #measDet.has-measured>summary{display:list-item}
 body.v-focus:not(.more) #measDet .mf{display:none}
 body.v-focus:not(.more).f-snow #measDet .mf-snow,body.v-focus:not(.more).f-bush #measDet .mf-bush,body.v-focus:not(.more).f-bush #measDet .mf-mulch,body.v-focus:not(.more).f-mulch #measDet .mf-mulch{display:block}
 .v-focus #measDet input{min-height:48px}
@@ -397,7 +398,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
   <div class="g2" style="margin-bottom:6px">
     <div><label class="lbl" for="iPk" id="iPkL">Parkway sq ft (optional)</label><input type="number" id="iPk" placeholder="e.g. 980" min="0" step="any" inputmode="decimal" autocomplete="off" oninput="upd()"><div class="hint" id="iPkH">Grass strip by the street, not in the lot size</div></div>
   </div>
-  <details class="more-det" id="measDet"><summary data-i18n="l.meas">Measurements</summary>
+  <details class="more-det" id="measDet"><summary><span data-i18n="l.meas">Measurements</span><span id="measCount"></span></summary>
   <div class="g2">
     <div class="mf mf-more"><label class="lbl" data-i18n="l.hf">Home footprint (sq ft)</label> <span class="meas-src" id="srcHf"></span><input type="number" id="iHf" placeholder="e.g. 2000" oninput="upd()"><div class="hint" data-i18n="h.hf">Subtracts home from lot. Zillow "building area" ÷ stories.</div></div>
     <div class="mf mf-more"><label class="lbl" data-i18n="l.ln">Lawn / turf (sq ft)</label> <span class="meas-src" id="srcLn"></span><input type="number" id="iLn" placeholder="auto" oninput="upd()"></div>
@@ -861,12 +862,10 @@ function updateMeasSources(){
     else if(ST.lot>0){src.textContent=tx('Estimated from lot size','Estimado a partir del terreno');src.className='meas-src is-est';}
     else{src.textContent='';src.className='meas-src';}
   });
-  const sum=$('measDet')&&$('measDet').querySelector('summary');
-  if(sum){
-    let label=tx('Measurements','Medidas');
-    if(measured)label+=' · '+measured+' '+tx('measured','medidas');
-    sum.textContent=label;
-  }
+  const det=$('measDet');
+  if(det) det.classList.toggle('has-measured', measured>0);
+  const cnt=$('measCount');
+  if(cnt) cnt.textContent=measured?(' · '+measured+' '+tx('measured','medidas')):'';
 }
 function updLotHint(){const el=$('iLtH');if(!el)return;el.style.color='';el.style.fontWeight='';if(ST.lot>0){el.textContent=ST.lotUnit==='sqft'?'≈ '+(ST.lot/43560).toFixed(2)+' ac':'= '+ST.lot.toLocaleString()+tx(' sqft',' pies²');}else el.textContent=tx('Enter this alone → all services auto-estimate','Escribe solo esto → todos los servicios se calculan solos');}
 function toggleLotUnit(){const btn=$('iLtU'),inp=$('iLt');const val=parseFloat(inp.value);if(ST.lotUnit==='sqft'){ST.lotUnit='ac';btn.textContent='ac';inp.placeholder='e.g. 0.25';if(!isNaN(val)&&val>0){const ac=val/43560;inp.value=+ac.toFixed(3);}}else{ST.lotUnit='sqft';btn.textContent='sqft';inp.placeholder='e.g. 10890';if(!isNaN(val)&&val>0){inp.value=Math.round(val*43560);}}upd();}
@@ -1361,7 +1360,7 @@ function applyUI(){
   const fo=r=>UI.view==='focus'&&UI.focus.has(r);
   b.classList.toggle('f-leaf',fo('leaf'));b.classList.toggle('f-snow',fo('snow'));b.classList.toggle('f-bush',fo('bush'));b.classList.toggle('f-mulch',fo('mulch'));
   b.classList.toggle('f-bed',fo('bush')||fo('mulch'));b.classList.toggle('f-cx',fo('mow')||fo('leaf')||fo('bush'));
-  const md=$('measDet');if(md){const want=UI.view==='focus'&&!UI.more&&(fo('snow')||fo('bush')||fo('mulch'));if(want&&!md.open){md.open=true;UI.measOpen=true;}else if(!want&&UI.measOpen){md.open=false;UI.measOpen=false;}}
+  const md=$('measDet');if(md){const measuredCount=['iHf','iLn','iPv'].filter(id=>{const el=$(id);return el&&(parseFloat(el.value)||0)>0;}).length;const want=measuredCount>0||(UI.view==='focus'&&!UI.more&&(fo('snow')||fo('bush')||fo('mulch')));if(want&&!md.open){md.open=true;UI.measOpen=true;}else if(!want&&UI.measOpen){md.open=false;UI.measOpen=false;}}
   const pm=$('iPlanStart');if(pm)[...pm.options].forEach(o=>{const m=+o.value;const nm=UI.lang==='es'?ES_MONTH[m].charAt(0).toUpperCase()+ES_MONTH[m].slice(1)+(m===3?' (año completo)':''):MONTH_NAMES[m]+(m===3?' (full year)':'');if(o.textContent!==nm)o.textContent=nm;});
   document.documentElement.lang=UI.lang;
   $('lgEn').classList.toggle('on',UI.lang==='en');$('lgEs').classList.toggle('on',UI.lang==='es');
