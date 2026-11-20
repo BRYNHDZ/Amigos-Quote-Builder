@@ -154,14 +154,21 @@
     startDraw(kind);
   }
 
-  function startDraw(kind) {
+  function areaShapeCount() {
+    return shapes.filter(function (sh) { return sh.kind === 'area'; }).length;
+  }
+
+  function startDraw(kind, again) {
     if (!map) return;
     if (map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()) map.pm.disableGlobalEditMode();
     drawing = kind;
     if (kind === 'area') map.pm.enableDraw('Polygon', { continueDrawing: false, snappable: true, snapDistance: 18, finishOn: null });
     else map.pm.enableDraw('Line', { continueDrawing: false, snappable: true, snapDistance: 18, finishOn: null });
+    var keepAdding = !!again || areaShapeCount() > 0;
     setHint(true, kind === 'area'
-      ? t('Tap each corner. Tap Done when the shape is closed.', 'Toca cada esquina. Toca Listo al cerrar.')
+      ? (keepAdding
+        ? t('Added. Trace the next paved area, then Done. Or use the total when you are finished.', 'Sumado. Traza la siguiente área pavimentada y toca Listo. O usa el total cuando termines.')
+        : t('Tap each corner, then Done. Keep adding the driveway and walks — one running total.', 'Toca cada esquina, luego Listo. Sigue sumando la entrada y las banquetas: un solo total.'))
       : t('Tap along the line. Tap Done when you finish.', 'Toca a lo largo de la línea. Toca Listo al terminar.'));
     renderBar();
   }
@@ -284,32 +291,84 @@
     renderUse();
   }
 
+  function turfLib() {
+    if (typeof turf !== 'undefined') return turf;
+    return root.turf || null;
+  }
+
+  function isPavedGroup(shape) {
+    return shape && shape.kind === 'area' && (!shape.use || shape.use === 'paved');
+  }
+
+  function pavedFeatures() {
+    return shapes.filter(isPavedGroup).map(function (sh) {
+      return sh.layer && sh.layer.toGeoJSON ? sh.layer.toGeoJSON() : null;
+    }).filter(Boolean);
+  }
+
+  function pavedTotalNow() {
+    var lib = (root.MeasureTotal || (typeof MeasureTotal !== 'undefined' ? MeasureTotal : null));
+    if (!lib || typeof lib.pavedTotal !== 'function') {
+      var sum = 0, n = 0;
+      shapes.forEach(function (sh) { if (isPavedGroup(sh)) { sum += sh.value || 0; n++; } });
+      return { sqFt: Math.round(sum), sumSqFt: Math.round(sum), overlapSqFt: 0, count: n };
+    }
+    return lib.pavedTotal(pavedFeatures(), turfLib(), SQFT_PER_M2);
+  }
+
   function renderUse() {
     var el = $('measureUse');
     if (!el) return;
-    if (!selected) { el.classList.remove('show'); el.innerHTML = ''; return; }
-    var f = fmt(selected.kind, selected.value);
-    var fills = '';
-    if (selected.kind === 'area') {
-      fills = '<span class="mu-lbl">' + t('Use as', 'Usar como') + '</span>'
+    var total = pavedTotalNow();
+    var showPaved = total.count > 0;
+    if (!selected && !showPaved) { el.classList.remove('show'); el.innerHTML = ''; return; }
+    var html = '';
+    if (showPaved) {
+      var f = fmt('area', total.sqFt);
+      var meta = t('Paved total', 'Total pavimentado') + ' · ' + total.count + ' ' + (total.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
+      if (total.overlapSqFt >= 1) meta += t(' · overlap taken out', ' · sin contar el traslape');
+      html += '<div class="mu-row mu-total-row"><span class="mu-num">' + f.num + '</span><span class="mu-unit">' + f.unit + '</span></div>';
+      html += '<div class="mu-meta">' + meta + '</div>';
+      html += '<div class="mu-row mu-actions">';
+      html += '<button type="button" id="muUndo">' + t('Undo last', 'Deshacer') + '</button>';
+      html += '<button type="button" id="muClear">' + t('Clear', 'Borrar todo') + '</button>';
+      if (selected) html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button>';
+      html += '</div>';
+    } else if (selected) {
+      var one = fmt(selected.kind, selected.value);
+      html += '<div class="mu-row"><span class="mu-num">' + one.num + '</span><span class="mu-unit">' + one.unit + '</span>';
+      html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button></div>';
+    }
+    if (selected && selected.kind === 'area') {
+      html += '<div class="mu-row mu-fills">'
+        + '<span class="mu-lbl">' + t('Use as', 'Usar como') + '</span>'
         + '<button type="button" data-fill="parkway">' + t('Parkway', 'Parkway') + '</button>'
         + '<button type="button" data-fill="lawn">' + t('Lawn', 'Césped') + '</button>'
         + '<button type="button" data-fill="paved">' + t('Paved', 'Pavimento') + '</button>'
-        + '<button type="button" data-fill="lot">' + t('Lot', 'Terreno') + '</button>';
+        + '<button type="button" data-fill="lot">' + t('Lot', 'Terreno') + '</button>'
+        + '</div>';
     }
-    el.innerHTML = '<div class="mu-row"><span class="mu-num">' + f.num + '</span><span class="mu-unit">' + f.unit + '</span>'
-      + '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button></div>'
-      + (fills ? '<div class="mu-row">' + fills + '</div>' : '');
+    el.innerHTML = html;
     el.classList.add('show');
     el.querySelectorAll('[data-fill]').forEach(function (btn) {
-      btn.onclick = function () { applyFill(btn.getAttribute('data-fill'), selected.value, btn); };
+      btn.onclick = function () { applyFill(btn.getAttribute('data-fill'), selected ? selected.value : 0, btn); };
     });
     var del = $('muDel');
     if (del) del.onclick = function () { removeShape(selected); };
+    var undo = $('muUndo');
+    if (undo) undo.onclick = function () { undoLast(); };
+    var clr = $('muClear');
+    if (clr) clr.onclick = function () { clearShapes(); };
   }
 
   function applyFill(field, value, btn) {
     var v = Math.round(value);
+    if (field === 'paved') {
+      v = pavedTotalNow().sqFt;
+      shapes.forEach(function (sh) { if (isPavedGroup(sh)) sh.use = 'paved'; });
+    } else if (selected && (field === 'lawn' || field === 'parkway' || field === 'lot')) {
+      selected.use = field;
+    }
     if (field === 'lot') {
       var inp = $('iLt');
       if (!inp) return;
@@ -323,12 +382,18 @@
       if ((field === 'lawn' || field === 'paved') && $('measDet')) $('measDet').open = true;
     }
     if (typeof upd === 'function') upd();
+    renderUse();
     if (btn) {
       btn.classList.add('used');
       var prev = btn.textContent;
       btn.textContent = '✓ ' + prev.replace(/^✓\s*/, '');
       setTimeout(function () { btn.textContent = prev; }, 1200);
     }
+  }
+
+  function undoLast() {
+    if (!shapes.length) return;
+    removeShape(shapes[shapes.length - 1]);
   }
 
   function removeShape(shape) {
@@ -341,16 +406,9 @@
     else renderUse();
   }
 
-  function onCreated(e) {
-    drawing = null;
-    setHint(false);
-    renderBar();
-    var layer = e.layer;
+  function registerShape(layer, opts) {
     var m = measureLayer(layer);
-    if (!m.value || m.value <= 0) {
-      try { map.removeLayer(layer); } catch (err) {}
-      return;
-    }
+    if (!m.value || m.value <= 0) return null;
     layer.setStyle({
       color: '#30471F',
       weight: 3,
@@ -358,8 +416,14 @@
       fillOpacity: m.kind === 'area' ? 0.28 : 0,
       opacity: 1
     });
-    layer.pm && layer.pm.enable({ allowSelfIntersection: false, snappable: true });
-    var shape = { id: ++seq, layer: layer, kind: m.kind, value: m.value, label: null };
+    var shape = {
+      id: ++seq,
+      layer: layer,
+      kind: m.kind,
+      value: m.value,
+      label: null,
+      use: m.kind === 'area' ? 'paved' : null
+    };
     shapes.push(shape);
     upsertLabel(shape);
     layer.on('click', function (ev) {
@@ -371,9 +435,33 @@
       shape.kind = mm.kind;
       shape.value = mm.value;
       upsertLabel(shape);
-      if (selected === shape) renderUse();
+      renderUse();
     });
     selectShape(shape);
+    return shape;
+  }
+
+  function addAreaFromGeoJSON(gj) {
+    if (!map || typeof L === 'undefined') return null;
+    var layer = L.geoJSON(gj, {
+      style: { color: '#30471F', weight: 3, fillColor: '#30471F', fillOpacity: 0.28, opacity: 1 }
+    }).getLayers()[0];
+    if (!layer) return null;
+    layer.addTo(map);
+    return registerShape(layer);
+  }
+
+  function onCreated(e) {
+    drawing = null;
+    setHint(false);
+    renderBar();
+    var layer = e.layer;
+    var shape = registerShape(layer);
+    if (!shape) {
+      try { map.removeLayer(layer); } catch (err) {}
+      return;
+    }
+    if (shape.kind === 'area') startDraw('area', true);
   }
 
   function initMap() {
@@ -492,6 +580,10 @@
     show: show,
     hide: hide,
     applyFill: applyFill,
+    pavedTotal: pavedTotalNow,
+    undoLast: undoLast,
+    clearShapes: clearShapes,
+    addAreaFromGeoJSON: addAreaFromGeoJSON,
     _shapes: function () { return shapes; },
     _map: function () { return map; },
     _view: function () { return view; },

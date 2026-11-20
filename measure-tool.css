@@ -33,7 +33,7 @@
 .measure-use.show{display:flex}
 .measure-use .mu-num{font-family:'Fredoka',sans-serif;font-size:22px;line-height:1;color:#18240F}
 .measure-use .mu-unit{font-size:11px;font-weight:700;color:#5d6356;margin-left:4px}
-.measure-use .mu-row{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;align-items:center;-webkit-overflow-scrolling:touch}
+.measure-use .mu-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;-webkit-overflow-scrolling:touch}
 .measure-use .mu-lbl{font-size:11px;font-weight:700;color:#888;margin-right:2px}
 .measure-use button{
   min-height:40px;padding:0 10px;border-radius:20px;border:1.5px solid #d8d8d0;background:#f5f9f4;color:#30471F;
@@ -41,7 +41,7 @@
 }
 .measure-use button:hover{border-color:#30471F}
 .measure-use button.used{background:#30471F;color:#fff;border-color:#30471F}
-.measure-use button.mu-del{background:#fff;color:#7a2a2a;border-color:#e8c8c8;margin-left:auto}
+.measure-use button.mu-del{background:#fff;color:#7a2a2a;border-color:#e8c8c8}
 
 .m-label{
   background:#fff;border:1.5px solid #30471F;border-radius:10px;padding:3px 8px 4px;text-align:center;
@@ -61,5 +61,22 @@
   #mapBox{height:400px;min-height:340px;max-height:400px}
   .measure-bar button{padding:0 10px;font-size:12px}
   .measure-use .mu-num{font-size:20px}
-  .measure-use{bottom:10px}
+  .measure-use{bottom:10px;left:6px;right:6px}
+  .measure-use .mu-actions,.measure-use .mu-row{flex-wrap:wrap}
+  .measure-use button.mu-del{margin-left:0}
+}
+
+
+.measure-use .mu-total-row{align-items:baseline;gap:6px}
+.measure-use .mu-total-row .mu-num{font-size:28px;letter-spacing:-0.02em}
+.measure-use .mu-meta{font-size:11px;font-weight:700;color:#5d6356;margin-top:-2px;margin-bottom:2px}
+.measure-use .mu-actions{margin-top:2px}
+.measure-use .mu-actions button{background:#fff}
+@media (max-width:640px){
+  .measure-use .mu-total-row .mu-num{font-size:26px}
+}
+
+@media (min-width:900px){
+  .measure-use{left:12px;right:auto;width:min(440px, calc(100% - 24px));bottom:28px}
+  .measure-use .mu-total-row .mu-num{font-size:30px}
 }
