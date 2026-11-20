@@ -154,14 +154,21 @@
     startDraw(kind);
   }
 
-  function startDraw(kind) {
+  function areaShapeCount() {
+    return shapes.filter(function (sh) { return sh.kind === 'area'; }).length;
+  }
+
+  function startDraw(kind, again) {
     if (!map) return;
     if (map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()) map.pm.disableGlobalEditMode();
     drawing = kind;
     if (kind === 'area') map.pm.enableDraw('Polygon', { continueDrawing: false, snappable: true, snapDistance: 18, finishOn: null });
     else map.pm.enableDraw('Line', { continueDrawing: false, snappable: true, snapDistance: 18, finishOn: null });
+    var keepAdding = !!again || areaShapeCount() > 0;
     setHint(true, kind === 'area'
-      ? t('Tap each corner. Tap Done when the shape is closed.', 'Toca cada esquina. Toca Listo al cerrar.')
+      ? (keepAdding
+        ? t('Added. Trace the next paved area, then Done. Or use the total when you are finished.', 'Sumado. Traza la siguiente área pavimentada y toca Listo. O usa el total cuando termines.')
+        : t('Tap each corner, then Done. Keep adding the driveway and walks to get one total.', 'Toca cada esquina, luego Listo. Sigue sumando la entrada y las banquetas: un solo total.'))
       : t('Tap along the line. Tap Done when you finish.', 'Toca a lo largo de la línea. Toca Listo al terminar.'));
     renderBar();
   }
@@ -262,17 +269,89 @@
     }
   }
 
+  function labelBox(it) {
+    return {
+      x: it.pt.x + it.dx - it.w / 2,
+      y: it.pt.y + it.dy - it.h / 2,
+      w: it.w,
+      h: it.h
+    };
+  }
+
+  function labelsOverlap(a, b, pad) {
+    pad = pad == null ? 6 : pad;
+    var ra = labelBox(a), rb = labelBox(b);
+    return ra.x < rb.x + rb.w + pad && ra.x + ra.w + pad > rb.x
+      && ra.y < rb.y + rb.h + pad && ra.y + ra.h + pad > rb.y;
+  }
+
+  function layoutLabels() {
+    if (!map) return;
+    var items = [];
+    shapes.forEach(function (s) {
+      if (!s.label) return;
+      var root = s.label.getElement && s.label.getElement();
+      var el = root && (root.querySelector('.m-label') || root);
+      if (!el) return;
+      var ll = s.label.getLatLng && s.label.getLatLng();
+      if (!ll) return;
+      var pt = map.latLngToLayerPoint(ll);
+      el.style.visibility = '';
+      el.style.transform = 'translate(-50%, -50%)';
+      items.push({
+        shape: s,
+        el: el,
+        pt: pt,
+        w: Math.max(el.offsetWidth || 0, 72),
+        h: Math.max(el.offsetHeight || 0, 22),
+        value: s.value || 0,
+        dx: 0,
+        dy: 0
+      });
+    });
+    items.sort(function (a, b) { return b.value - a.value; });
+    var kept = [];
+    items.forEach(function (it) {
+      var tries = 0;
+      while (tries < 10) {
+        var hit = null;
+        for (var i = 0; i < kept.length; i++) {
+          if (labelsOverlap(it, kept[i])) { hit = kept[i]; break; }
+        }
+        if (!hit) break;
+        var vx = (it.pt.x + it.dx) - (hit.pt.x + hit.dx);
+        var vy = (it.pt.y + it.dy) - (hit.pt.y + hit.dy);
+        if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) { vx = 0; vy = -1; }
+        var len = Math.sqrt(vx * vx + vy * vy) || 1;
+        var step = Math.max(it.h, hit.h) * 0.7 + 8;
+        it.dx += (vx / len) * step;
+        it.dy += (vy / len) * step;
+        tries++;
+      }
+      var still = kept.some(function (k) { return labelsOverlap(it, k); });
+      if (still) {
+        it.el.style.visibility = 'hidden';
+        return;
+      }
+      kept.push(it);
+      it.el.style.transform = 'translate(calc(-50% + ' + Math.round(it.dx) + 'px), calc(-50% + ' + Math.round(it.dy) + 'px))';
+    });
+  }
+
   function upsertLabel(shape) {
     if (shape.label) { map.removeLayer(shape.label); shape.label = null; }
     var f = fmt(shape.kind, shape.value);
+    var text = f.num + ' ' + f.unit;
     var icon = L.divIcon({
-      className: '',
-      html: '<div class="m-label"><b>' + f.num + '</b><i>' + f.unit + '</i></div>',
+      className: 'm-label-wrap',
+      html: '<div class="m-label">' + text + '</div>',
       iconSize: [0, 0],
       iconAnchor: [0, 0]
     });
     shape.label = L.marker(centroid(shape.layer), { icon: icon, interactive: false, keyboard: false, zIndexOffset: 600 });
     if (labelLayer) shape.label.addTo(labelLayer);
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(layoutLabels);
+    else setTimeout(layoutLabels, 0);
   }
 
   function selectShape(shape) {
@@ -284,32 +363,84 @@
     renderUse();
   }
 
+  function turfLib() {
+    if (typeof turf !== 'undefined') return turf;
+    return root.turf || null;
+  }
+
+  function isPavedGroup(shape) {
+    return shape && shape.kind === 'area' && (!shape.use || shape.use === 'paved');
+  }
+
+  function pavedFeatures() {
+    return shapes.filter(isPavedGroup).map(function (sh) {
+      return sh.layer && sh.layer.toGeoJSON ? sh.layer.toGeoJSON() : null;
+    }).filter(Boolean);
+  }
+
+  function pavedTotalNow() {
+    var lib = (root.MeasureTotal || (typeof MeasureTotal !== 'undefined' ? MeasureTotal : null));
+    if (!lib || typeof lib.pavedTotal !== 'function') {
+      var sum = 0, n = 0;
+      shapes.forEach(function (sh) { if (isPavedGroup(sh)) { sum += sh.value || 0; n++; } });
+      return { sqFt: Math.round(sum), sumSqFt: Math.round(sum), overlapSqFt: 0, count: n };
+    }
+    return lib.pavedTotal(pavedFeatures(), turfLib(), SQFT_PER_M2);
+  }
+
   function renderUse() {
     var el = $('measureUse');
     if (!el) return;
-    if (!selected) { el.classList.remove('show'); el.innerHTML = ''; return; }
-    var f = fmt(selected.kind, selected.value);
-    var fills = '';
-    if (selected.kind === 'area') {
-      fills = '<span class="mu-lbl">' + t('Use as', 'Usar como') + '</span>'
+    var total = pavedTotalNow();
+    var showPaved = total.count > 0;
+    if (!selected && !showPaved) { el.classList.remove('show'); el.innerHTML = ''; return; }
+    var html = '';
+    if (showPaved) {
+      var f = fmt('area', total.sqFt);
+      var meta = t('Paved total', 'Total pavimentado') + ' · ' + total.count + ' ' + (total.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
+      if (total.overlapSqFt >= 1) meta += t(' · overlap taken out', ' · sin contar el traslape');
+      html += '<div class="mu-row mu-total-row"><span class="mu-num">' + f.num + '</span><span class="mu-unit">' + f.unit + '</span></div>';
+      html += '<div class="mu-meta">' + meta + '</div>';
+      html += '<div class="mu-row mu-actions">';
+      html += '<button type="button" id="muUndo">' + t('Undo last', 'Deshacer') + '</button>';
+      html += '<button type="button" id="muClear">' + t('Clear', 'Borrar todo') + '</button>';
+      if (selected) html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button>';
+      html += '</div>';
+    } else if (selected) {
+      var one = fmt(selected.kind, selected.value);
+      html += '<div class="mu-row"><span class="mu-num">' + one.num + '</span><span class="mu-unit">' + one.unit + '</span>';
+      html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button></div>';
+    }
+    if (selected && selected.kind === 'area') {
+      html += '<div class="mu-row mu-fills">'
+        + '<span class="mu-lbl">' + t('Use as', 'Usar como') + '</span>'
         + '<button type="button" data-fill="parkway">' + t('Parkway', 'Parkway') + '</button>'
         + '<button type="button" data-fill="lawn">' + t('Lawn', 'Césped') + '</button>'
         + '<button type="button" data-fill="paved">' + t('Paved', 'Pavimento') + '</button>'
-        + '<button type="button" data-fill="lot">' + t('Lot', 'Terreno') + '</button>';
+        + '<button type="button" data-fill="lot">' + t('Lot', 'Terreno') + '</button>'
+        + '</div>';
     }
-    el.innerHTML = '<div class="mu-row"><span class="mu-num">' + f.num + '</span><span class="mu-unit">' + f.unit + '</span>'
-      + '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button></div>'
-      + (fills ? '<div class="mu-row">' + fills + '</div>' : '');
+    el.innerHTML = html;
     el.classList.add('show');
     el.querySelectorAll('[data-fill]').forEach(function (btn) {
-      btn.onclick = function () { applyFill(btn.getAttribute('data-fill'), selected.value, btn); };
+      btn.onclick = function () { applyFill(btn.getAttribute('data-fill'), selected ? selected.value : 0, btn); };
     });
     var del = $('muDel');
     if (del) del.onclick = function () { removeShape(selected); };
+    var undo = $('muUndo');
+    if (undo) undo.onclick = function () { undoLast(); };
+    var clr = $('muClear');
+    if (clr) clr.onclick = function () { clearShapes(); };
   }
 
   function applyFill(field, value, btn) {
     var v = Math.round(value);
+    if (field === 'paved') {
+      v = pavedTotalNow().sqFt;
+      shapes.forEach(function (sh) { if (isPavedGroup(sh)) sh.use = 'paved'; });
+    } else if (selected && (field === 'lawn' || field === 'parkway' || field === 'lot')) {
+      selected.use = field;
+    }
     if (field === 'lot') {
       var inp = $('iLt');
       if (!inp) return;
@@ -323,12 +454,18 @@
       if ((field === 'lawn' || field === 'paved') && $('measDet')) $('measDet').open = true;
     }
     if (typeof upd === 'function') upd();
+    renderUse();
     if (btn) {
       btn.classList.add('used');
       var prev = btn.textContent;
       btn.textContent = '✓ ' + prev.replace(/^✓\s*/, '');
       setTimeout(function () { btn.textContent = prev; }, 1200);
     }
+  }
+
+  function undoLast() {
+    if (!shapes.length) return;
+    removeShape(shapes[shapes.length - 1]);
   }
 
   function removeShape(shape) {
@@ -339,18 +476,12 @@
     if (selected === shape) selected = shapes[shapes.length - 1] || null;
     if (selected) selectShape(selected);
     else renderUse();
+    layoutLabels();
   }
 
-  function onCreated(e) {
-    drawing = null;
-    setHint(false);
-    renderBar();
-    var layer = e.layer;
+  function registerShape(layer, opts) {
     var m = measureLayer(layer);
-    if (!m.value || m.value <= 0) {
-      try { map.removeLayer(layer); } catch (err) {}
-      return;
-    }
+    if (!m.value || m.value <= 0) return null;
     layer.setStyle({
       color: '#30471F',
       weight: 3,
@@ -358,8 +489,14 @@
       fillOpacity: m.kind === 'area' ? 0.28 : 0,
       opacity: 1
     });
-    layer.pm && layer.pm.enable({ allowSelfIntersection: false, snappable: true });
-    var shape = { id: ++seq, layer: layer, kind: m.kind, value: m.value, label: null };
+    var shape = {
+      id: ++seq,
+      layer: layer,
+      kind: m.kind,
+      value: m.value,
+      label: null,
+      use: m.kind === 'area' ? 'paved' : null
+    };
     shapes.push(shape);
     upsertLabel(shape);
     layer.on('click', function (ev) {
@@ -371,9 +508,33 @@
       shape.kind = mm.kind;
       shape.value = mm.value;
       upsertLabel(shape);
-      if (selected === shape) renderUse();
+      renderUse();
     });
     selectShape(shape);
+    return shape;
+  }
+
+  function addAreaFromGeoJSON(gj) {
+    if (!map || typeof L === 'undefined') return null;
+    var layer = L.geoJSON(gj, {
+      style: { color: '#30471F', weight: 3, fillColor: '#30471F', fillOpacity: 0.28, opacity: 1 }
+    }).getLayers()[0];
+    if (!layer) return null;
+    layer.addTo(map);
+    return registerShape(layer);
+  }
+
+  function onCreated(e) {
+    drawing = null;
+    setHint(false);
+    renderBar();
+    var layer = e.layer;
+    var shape = registerShape(layer);
+    if (!shape) {
+      try { map.removeLayer(layer); } catch (err) {}
+      return;
+    }
+    if (shape.kind === 'area') startDraw('area', true);
   }
 
   function initMap() {
@@ -410,6 +571,7 @@
     });
     map.on('pm:create', onCreated);
     map.on('pm:drawend', function () { /* keep hint until create or cancel */ });
+    map.on('zoomend moveend', function () { layoutLabels(); });
     inited = true;
     renderBar();
     var done = $('measureDone'), cancel = $('measureCancel');
@@ -492,6 +654,10 @@
     show: show,
     hide: hide,
     applyFill: applyFill,
+    pavedTotal: pavedTotalNow,
+    undoLast: undoLast,
+    clearShapes: clearShapes,
+    addAreaFromGeoJSON: addAreaFromGeoJSON,
     _shapes: function () { return shapes; },
     _map: function () { return map; },
     _view: function () { return view; },
