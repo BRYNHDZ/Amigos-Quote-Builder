@@ -310,38 +310,69 @@
       });
     });
     items.sort(function (a, b) { return b.value - a.value; });
+    var size = map.getSize ? map.getSize() : { x: 0, y: 0 };
+    var topLeft = map.containerPointToLayerPoint ? map.containerPointToLayerPoint([0, 0]) : { x: 0, y: 0 };
+    var box = { x: topLeft.x, y: topLeft.y, w: size.x, h: size.y };
+    function clampLabel(it) {
+      var pad = 8;
+      var hw = it.w / 2, hh = it.h / 2;
+      var x = it.pt.x + it.dx, y = it.pt.y + it.dy;
+      var minX = box.x + pad + hw, maxX = box.x + box.w - pad - hw;
+      var minY = box.y + pad + hh, maxY = box.y + box.h - pad - hh;
+      if (maxX >= minX) x = Math.min(maxX, Math.max(minX, x));
+      else x = box.x + box.w / 2;
+      if (maxY >= minY) y = Math.min(maxY, Math.max(minY, y));
+      else y = box.y + box.h / 2;
+      it.dx = x - it.pt.x;
+      it.dy = y - it.pt.y;
+    }
+    items.forEach(clampLabel);
+    var steps = [];
+    (function buildSteps() {
+      var r, a, i;
+      for (r = 1; r <= 8; r++) {
+        for (i = 0; i < 16; i++) {
+          a = (i / 16) * Math.PI * 2;
+          steps.push({ dx: Math.cos(a) * r * 18, dy: Math.sin(a) * r * 18 });
+        }
+      }
+    })();
     var kept = [];
     items.forEach(function (it) {
-      var tries = 0;
-      while (tries < 10) {
-        var hit = null;
-        for (var i = 0; i < kept.length; i++) {
-          if (labelsOverlap(it, kept[i])) { hit = kept[i]; break; }
+      function clear() { return !kept.some(function (k) { return labelsOverlap(it, k); }); }
+      if (!clear()) {
+        var odx = it.dx, ody = it.dy, found = false;
+        for (var s = 0; s < steps.length; s++) {
+          it.dx = odx + steps[s].dx;
+          it.dy = ody + steps[s].dy;
+          clampLabel(it);
+          if (clear()) { found = true; break; }
         }
-        if (!hit) break;
-        var vx = (it.pt.x + it.dx) - (hit.pt.x + hit.dx);
-        var vy = (it.pt.y + it.dy) - (hit.pt.y + hit.dy);
-        if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) { vx = 0; vy = -1; }
-        var len = Math.sqrt(vx * vx + vy * vy) || 1;
-        var step = Math.max(it.h, hit.h) * 0.7 + 8;
-        it.dx += (vx / len) * step;
-        it.dy += (vy / len) * step;
-        tries++;
-      }
-      var still = kept.some(function (k) { return labelsOverlap(it, k); });
-      if (still) {
-        it.el.style.visibility = 'hidden';
-        return;
+        if (!found) {
+          it.dx = odx;
+          it.dy = ody;
+          clampLabel(it);
+          it.el.style.visibility = 'hidden';
+          return;
+        }
       }
       kept.push(it);
       it.el.style.transform = 'translate(calc(-50% + ' + Math.round(it.dx) + 'px), calc(-50% + ' + Math.round(it.dy) + 'px))';
     });
   }
 
+  function useName(use) {
+    if (use === 'lawn') return t('Lawn', 'Césped');
+    if (use === 'parkway') return t('Parkway', 'Parkway');
+    if (use === 'lot') return t('Lot', 'Terreno');
+    return t('Paved', 'Pavimento');
+  }
+
   function upsertLabel(shape) {
     if (shape.label) { map.removeLayer(shape.label); shape.label = null; }
     var f = fmt(shape.kind, shape.value);
     var text = f.num + ' ' + f.unit;
+    if (shape.kind === 'area') text = useName(shape.use || 'paved') + ' ' + text;
     var icon = L.divIcon({
       className: 'm-label-wrap',
       html: '<div class="m-label">' + text + '</div>',
@@ -437,9 +468,10 @@
     var v = Math.round(value);
     if (field === 'paved') {
       v = pavedTotalNow().sqFt;
-      shapes.forEach(function (sh) { if (isPavedGroup(sh)) sh.use = 'paved'; });
+      shapes.forEach(function (sh) { if (isPavedGroup(sh)) { sh.use = 'paved'; upsertLabel(sh); } });
     } else if (selected && (field === 'lawn' || field === 'parkway' || field === 'lot')) {
       selected.use = field;
+      upsertLabel(selected);
     }
     if (field === 'lot') {
       var inp = $('iLt');
@@ -455,6 +487,7 @@
     }
     if (typeof upd === 'function') upd();
     renderUse();
+    notifyChange();
     if (btn) {
       btn.classList.add('used');
       var prev = btn.textContent;
@@ -477,6 +510,7 @@
     if (selected) selectShape(selected);
     else renderUse();
     layoutLabels();
+    notifyChange();
   }
 
   function registerShape(layer, opts) {
@@ -509,9 +543,72 @@
       shape.value = mm.value;
       upsertLabel(shape);
       renderUse();
+      notifyChange();
     });
     selectShape(shape);
+    notifyChange();
     return shape;
+  }
+
+  function notifyChange() {
+    if (typeof root.PropertyMap !== 'undefined' && typeof root.PropertyMap.onChange === 'function') {
+      try { root.PropertyMap.onChange(); } catch (e) {}
+    }
+  }
+
+  function ringFromLayer(layer) {
+    if (!layer || !layer.toGeoJSON) return [];
+    var gj = layer.toGeoJSON();
+    var feat = gj.type === 'Feature' ? gj : (gj.features && gj.features[0]) || gj;
+    var g = (feat && feat.geometry) || feat;
+    if (!g) return [];
+    if (g.type === 'Polygon') return g.coordinates[0] || [];
+    if (g.type === 'MultiPolygon') return (g.coordinates[0] && g.coordinates[0][0]) || [];
+    if (g.type === 'LineString') return g.coordinates || [];
+    return [];
+  }
+
+  function exportShapes() {
+    var out = [];
+    shapes.forEach(function (s) {
+      if (s.kind !== 'area' || !s.layer) return;
+      var ring = ringFromLayer(s.layer);
+      if (ring.length < 3) return;
+      out.push({ use: s.use || 'paved', coords: ring });
+    });
+    return out;
+  }
+
+  function importShapes(list) {
+    if (!list || !list.length) return 0;
+    var box = ensureDom();
+    if (box) { box.style.display = 'block'; var meta = $('mapMeta'); if (meta) meta.style.display = 'flex'; }
+    initMap();
+    if (!map) return 0;
+    var n = 0;
+    list.forEach(function (s) {
+      var ring = (s && s.coords) ? s.coords.slice() : [];
+      if (ring.length < 3) return;
+      var a = ring[0], b = ring[ring.length - 1];
+      if (!a || !b || a[0] !== b[0] || a[1] !== b[1]) ring = ring.concat([ring[0]]);
+      var gj = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } };
+      var shape = addAreaFromGeoJSON(gj);
+      if (shape) {
+        shape.use = s.use || 'paved';
+        upsertLabel(shape);
+        n++;
+      }
+    });
+    var layers = shapes.map(function (s) { return s.layer; }).filter(Boolean);
+    if (layers.length) {
+      try {
+        map.fitBounds(L.featureGroup(layers).getBounds(), {
+          paddingTopLeft: [80, 72], paddingBottomRight: [80, 220], maxZoom: 21, animate: false
+        });
+      } catch (e) {}
+    }
+    setView('county');
+    return n;
   }
 
   function addAreaFromGeoJSON(gj) {
@@ -571,7 +668,7 @@
     });
     map.on('pm:create', onCreated);
     map.on('pm:drawend', function () { /* keep hint until create or cancel */ });
-    map.on('zoomend moveend', function () { layoutLabels(); });
+    map.on('zoomend moveend resize', function () { layoutLabels(); });
     inited = true;
     renderBar();
     var done = $('measureDone'), cancel = $('measureCancel');
@@ -658,6 +755,9 @@
     undoLast: undoLast,
     clearShapes: clearShapes,
     addAreaFromGeoJSON: addAreaFromGeoJSON,
+    exportShapes: exportShapes,
+    importShapes: importShapes,
+    onChange: null,
     _shapes: function () { return shapes; },
     _map: function () { return map; },
     _view: function () { return view; },

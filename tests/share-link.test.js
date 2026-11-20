@@ -110,3 +110,106 @@ test('example small-lot leaf + mow link stays short', () => {
   const qs = ShareLink.encode(st, { view: 'focus', focus: new Set(['mow', 'leaf']) }, '303 W Wesley St, Wheaton, IL');
   assert.strictEqual(qs, 'view=focus&req=mow,leaf&a=303+W+Wesley+St,+Wheaton,+IL&lot=7500&lv=3&cx=low&r=80&s=A1,G1');
 });
+
+function box(lng, lat, w, h) {
+  return [
+    [lng, lat], [lng + w, lat], [lng + w, lat + h], [lng, lat + h], [lng, lat]
+  ];
+}
+function fiveShapes() {
+  const uses = ['paved', 'paved', 'lawn', 'parkway', 'lot'];
+  return uses.map((use, i) => ({ use, coords: box(-88.11 + i * 0.0004, 41.869, 0.00025, 0.00018) }));
+}
+function almostEqualRing(a, b) {
+  const open = (r) => {
+    if (r.length >= 2 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1]) return r.slice(0, -1);
+    return r;
+  };
+  const aa = open(a), bb = open(b);
+  assert.strictEqual(aa.length, bb.length);
+  aa.forEach((c, i) => {
+    assert.ok(Math.abs(c[0] - bb[i][0]) <= 1e-6, 'lng ' + c[0] + ' vs ' + bb[i][0]);
+    assert.ok(Math.abs(c[1] - bb[i][1]) <= 1e-6, 'lat ' + c[1] + ' vs ' + bb[i][1]);
+  });
+}
+
+test('traced shapes round-trip in the link (5 shapes), and stay short', () => {
+  const src = fiveShapes();
+  const packed = ShareLink.encodeShapes(src);
+  const back = ShareLink.decodeShapes(packed);
+  assert.strictEqual(back.length, 5);
+  back.forEach((s, i) => {
+    assert.strictEqual(s.use, src[i].use);
+    almostEqualRing(s.coords, src[i].coords);
+  });
+  const c = load();
+  const st = samQuote(c.__fresh());
+  const qs = ShareLink.encode(st, UI_FOCUS, ADDR, src);
+  assert.match(qs, /&sh=/);
+  assert.ok(qs.length < 1500, 'typical 5-shape quote link should stay short, got ' + qs.length);
+  const dst = c.__fresh();
+  const r = ShareLink.apply(dst, Q(qs));
+  assert.strictEqual(r.addr, ADDR);
+  assert.strictEqual(r.shapes.length, 5);
+  r.shapes.forEach((s, i) => {
+    assert.strictEqual(s.use, src[i].use);
+    almostEqualRing(s.coords, src[i].coords);
+  });
+  // sq ft fields, not the shapes, still hold the measurements used for price
+  assert.strictEqual(dst.paved, st.paved);
+  assert.strictEqual(dst.lawn, st.lawn);
+  assert.strictEqual(dst.parkway, st.parkway);
+});
+
+test('old links without shapes still work exactly as before', () => {
+  const c = load();
+  const old = 'view=focus&req=mow,leaf&a=303+W+Wesley+St,+Wheaton,+IL&lot=7500&lv=3&cx=low&r=80&s=A1,G1';
+  assert.strictEqual(ShareLink.hasShare(Q(old)), true);
+  const st = c.__fresh();
+  const r = ShareLink.apply(st, Q(old));
+  assert.strictEqual(r.addr, '303 W Wesley St, Wheaton, IL');
+  assert.strictEqual(r.lotField, '7500');
+  assert.deepStrictEqual(r.shapes, []);
+  assert.strictEqual(st.lot, 7500);
+  assert.strictEqual(st.leaf, 3);
+  assert.strictEqual(st.complex, 'low');
+  assert.strictEqual(st.rate, 80);
+  assert.deepStrictEqual([...st.sel], ['A1', 'G1']);
+  // encoding without shapes does not add sh, so old-style links stay identical
+  const st2 = c.__fresh(); Object.assign(st2, { lot: 7500, leaf: 3, complex: 'low', rate: 80 }); st2.sel = new Set(['A1', 'G1']);
+  assert.strictEqual(ShareLink.encode(st2, { view: 'focus', focus: new Set(['mow', 'leaf']) }, '303 W Wesley St, Wheaton, IL'), old);
+  assert.strictEqual(ShareLink.encode(st2, { view: 'focus', focus: new Set(['mow', 'leaf']) }, '303 W Wesley St, Wheaton, IL', []), old);
+});
+
+test('shapes in the link do not change prices; getSug still uses the sq ft fields', () => {
+  const c = load();
+  const src = c.__fresh();
+  Object.assign(src, { lot: 10890, leaf: 3, complex: 'low', rate: 80, paved: 2000, lawn: 6000, parkway: 0 });
+  src.sel = new Set(['H1', 'H2', 'H4', 'A1']);
+  const noShapes = c.__fresh();
+  Object.assign(noShapes, { lot: src.lot, leaf: src.leaf, complex: src.complex, rate: src.rate, paved: src.paved, lawn: src.lawn, parkway: src.parkway });
+  noShapes.sel = new Set([...src.sel]);
+  const want = (function () { Object.assign(c.__fresh(), noShapes); c.__st().sel = new Set([...src.sel]); return c.__sug(); })();
+
+  const qs = ShareLink.encode(src, { view: 'all' }, ADDR, fiveShapes());
+  assert.ok(!/=795\b|=1193\b/.test(qs), 'no computed snow price in the link');
+  const dst = c.__fresh();
+  ShareLink.apply(dst, Q(qs));
+  Object.assign(c.__st(), dst);
+  c.__st().sel = dst.sel;
+  const got = c.__sug();
+  assert.strictEqual(dst.paved, 2000);
+  assert.strictEqual(got.H1, 795);
+  assert.strictEqual(got.H2, 1193);
+  assert.strictEqual(got.H4, 2147);
+  assert.strictEqual(got.H1, want.H1);
+  assert.strictEqual(got.A1, want.A1);
+});
+
+test('junk in the sh param is ignored and the rest of the link still applies', () => {
+  const c = load();
+  const st = c.__fresh();
+  const r = ShareLink.apply(st, Q('lot=7500&sh=!!!&s=A1'));
+  assert.strictEqual(st.lot, 7500);
+  assert.deepStrictEqual(r.shapes, []);
+});
