@@ -213,3 +213,59 @@ test('junk in the sh param is ignored and the rest of the link still applies', (
   assert.strictEqual(st.lot, 7500);
   assert.deepStrictEqual(r.shapes, []);
 });
+
+test('house traces round-trip in the link, and old parkway/lot letters still decode', () => {
+  const house = box(-88.1084, 41.8690, 0.0003, 0.00025);
+  const packed = ShareLink.encodeShapes([
+    { use: 'house', coords: house },
+    { use: 'lawn', coords: box(-88.1080, 41.8690, 0.0003, 0.0002) },
+    { use: 'paved', coords: box(-88.1077, 41.8690, 0.0002, 0.0003) }
+  ]);
+  assert.match(packed, /^h/);
+  const back = ShareLink.decodeShapes(packed);
+  assert.strictEqual(back.length, 3);
+  assert.strictEqual(back[0].use, 'house');
+  assert.strictEqual(back[1].use, 'lawn');
+  assert.strictEqual(back[2].use, 'paved');
+  almostEqualRing(back[0].coords, house);
+  const old = ShareLink.decodeShapes(ShareLink.encodeShapes([
+    { use: 'parkway', coords: house },
+    { use: 'lot', coords: house }
+  ]));
+  assert.strictEqual(old[0].use, 'parkway');
+  assert.strictEqual(old[1].use, 'lot');
+});
+
+test('a measured lawn or paved number is not replaced by the lot-size guess; prices stay on that number', () => {
+  const c = load();
+  const st = c.__fresh();
+  Object.assign(st, { lot: 7500, leaf: 3, complex: 'low', rate: 80, lawn: 4000, paved: 2000, homeFt: 1600 });
+  st.sel = new Set(['A1', 'H1']);
+  Object.assign(c.__st(), st); c.__st().sel = new Set([...st.sel]);
+  const first = c.__sug();
+  assert.strictEqual(first.H1, 795);
+  // bigger lot would guess a different lawn/paved, but measured values stay in ST
+  st.lot = 20000;
+  Object.assign(c.__st(), st); c.__st().sel = new Set([...st.sel]);
+  const second = c.__sug();
+  assert.strictEqual(c.__st().lawn, 4000);
+  assert.strictEqual(c.__st().paved, 2000);
+  assert.strictEqual(c.__st().homeFt, 1600);
+  assert.strictEqual(second.H1, 795);
+  assert.strictEqual(second.A1, first.A1);
+});
+
+test('when lawn and paved are already measured, changing home footprint does not change those prices', () => {
+  const c = load();
+  function prices(home) {
+    const st = c.__fresh();
+    Object.assign(st, { lot: 10890, leaf: 3, complex: 'low', rate: 80, lawn: 6000, paved: 2000, homeFt: home });
+    st.sel = new Set(['A1', 'H1', 'H2']);
+    Object.assign(c.__st(), st); c.__st().sel = new Set([...st.sel]);
+    return c.__sug();
+  }
+  const a = prices(1200), b = prices(2800);
+  assert.strictEqual(a.H1, 795);
+  assert.strictEqual(a.H1, b.H1);
+  assert.strictEqual(a.A1, b.A1);
+});

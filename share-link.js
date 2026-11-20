@@ -28,9 +28,9 @@
   function enc(v) { return encodeURIComponent(v).replace(/%2C/gi, ',').replace(/%3A/gi, ':').replace(/%20/g, '+'); }
 
   // Compact traces for the sh= param: use-letter + zigzag-delta coords at 6 decimals, base64url, shapes joined by "."
-  // p paved, n lawn, k parkway, t lot. Prices do not come from these shapes.
-  var SHAPE_USE = { p: 'paved', n: 'lawn', k: 'parkway', t: 'lot' };
-  var USE_CHAR = { paved: 'p', lawn: 'n', parkway: 'k', lot: 't' };
+  // p paved, n lawn, h house, k parkway, t lot. Prices do not come from these shapes.
+  var SHAPE_USE = { p: 'paved', n: 'lawn', h: 'house', k: 'parkway', t: 'lot' };
+  var USE_CHAR = { paved: 'p', lawn: 'n', house: 'h', parkway: 'k', lot: 't' };
   var PREC = 1e6;
   var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 

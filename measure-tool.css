@@ -59,6 +59,7 @@
 .m-label-lawn{border-color:#2563eb;color:#1e40af}
 .m-label-parkway{border-color:#7c3aed;color:#5b21b6}
 .m-label-lot{border-color:#0f766e;color:#115e59}
+.m-label-house{border-color:#b45309;color:#92400e}
 #leafletMap .leaflet-overlay-pane path.m-shape{
   filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1.25px #18240F)
 }
@@ -113,3 +114,7 @@
 @media (min-width:900px){
   .measure-use.is-collapsed{left:12px;right:auto;width:auto;max-width:min(420px, calc(100% - 24px));bottom:16px}
 }
+
+.meas-src{display:inline-block;margin-left:8px;font-size:11px;font-weight:700;vertical-align:middle;font-family:'Nunito',sans-serif}
+.meas-src.is-measured{color:#30471F}
+.meas-src.is-est{color:#888}
