@@ -23,7 +23,7 @@
   var USE_STYLE = {
     paved: { color: '#ea580c', fillColor: '#ea580c' },
     lawn: { color: '#2563eb', fillColor: '#2563eb' },
-    house: { color: '#b45309', fillColor: '#b45309' },
+    house: { color: '#dc2626', fillColor: '#dc2626' },
     parkway: { color: '#7c3aed', fillColor: '#7c3aed' },
     lot: { color: '#0f766e', fillColor: '#0f766e' }
   };
@@ -463,6 +463,12 @@
     return t('New', 'Nuevo');
   }
 
+  function useLegend(use) {
+    var name = useName(use);
+    if (use !== 'paved' && use !== 'lawn' && use !== 'house') return name;
+    return '<span class="mu-key mu-key-' + use + '"></span><span class="mu-name-' + use + '">' + name + '</span>';
+  }
+
   function upsertLabel(shape) {
     if (shape.label) { map.removeLayer(shape.label); shape.label = null; }
     var f = fmt(shape.kind, shape.value);
@@ -544,10 +550,10 @@
       var uses = [];
       shapes.forEach(function (sh) {
         if (sh.kind !== 'area') return;
-        var name = useName(sh.use);
-        if (uses.indexOf(name) === -1) uses.push(name);
+        var use = sh.use || 'new';
+        if (uses.indexOf(use) === -1) uses.push(use);
       });
-      var summary = uses.join(', ') + ' · ' + areaCount + ' ' + (areaCount === 1 ? t('trace', 'trazo') : t('traces', 'trazos'));
+      var summary = uses.map(useLegend).join(' · ');
       el.innerHTML = '<div class="mu-sum">' + summary + '</div>'
         + '<button type="button" id="muExpand">' + t('Edit traces', 'Editar trazos') + '</button>';
       el.classList.add('show', 'is-collapsed');
@@ -560,7 +566,7 @@
       var tot = useTotalNow(use);
       if (!tot.count) return;
       var f = fmt('area', tot.sqFt);
-      var meta = useName(use) + ' · ' + tot.count + ' ' + (tot.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
+      var meta = useLegend(use) + ' · ' + tot.count + ' ' + (tot.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
       if (tot.overlapSqFt >= 1) meta += t(' · overlap taken out', ' · sin contar el traslape');
       html += '<div class="mu-row mu-total-row"><span class="mu-num">' + f.num + '</span><span class="mu-unit">' + f.unit + '</span></div>';
       html += '<div class="mu-meta">' + meta + '</div>';

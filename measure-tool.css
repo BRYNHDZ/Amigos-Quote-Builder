@@ -59,7 +59,7 @@
 .m-label-lawn{border-color:#2563eb;color:#1e40af}
 .m-label-parkway{border-color:#7c3aed;color:#5b21b6}
 .m-label-lot{border-color:#0f766e;color:#115e59}
-.m-label-house{border-color:#b45309;color:#92400e}
+.m-label-house{border-color:#dc2626;color:#991b1b}
 #leafletMap .leaflet-overlay-pane path.m-shape{
   filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1.25px #18240F)
 }
@@ -103,7 +103,7 @@
   padding:6px 8px 6px 12px;bottom:8px
 }
 .measure-use.is-collapsed .mu-sum{
-  flex:1;min-width:0;font-size:13px;font-weight:700;color:#18240F;line-height:1.25
+  flex:1;min-width:0;font-size:13px;font-weight:700;color:#18240F;line-height:1.25;white-space:nowrap
 }
 .measure-use.is-collapsed button{flex:0 0 auto;min-height:36px;padding:0 12px;background:#fff}
 .measure-use .mu-review{margin-top:2px}
@@ -118,3 +118,11 @@
 .meas-src{display:inline-block;margin-left:8px;font-size:11px;font-weight:700;vertical-align:middle;font-family:'Nunito',sans-serif}
 .meas-src.is-measured{color:#30471F}
 .meas-src.is-est{color:#888}
+
+.mu-key{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;box-shadow:0 0 0 1px #fff}
+.mu-key-paved{background:#ea580c}
+.mu-key-lawn{background:#2563eb}
+.mu-key-house{background:#dc2626}
+.mu-name-paved{color:#9a3412;font-weight:800}
+.mu-name-lawn{color:#1e40af;font-weight:800}
+.mu-name-house{color:#991b1b;font-weight:800}
