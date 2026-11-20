@@ -168,7 +168,7 @@
     setHint(true, kind === 'area'
       ? (keepAdding
         ? t('Added. Trace the next paved area, then Done. Or use the total when you are finished.', 'Sumado. Traza la siguiente área pavimentada y toca Listo. O usa el total cuando termines.')
-        : t('Tap each corner, then Done. Keep adding the driveway and walks — one running total.', 'Toca cada esquina, luego Listo. Sigue sumando la entrada y las banquetas: un solo total.'))
+        : t('Tap each corner, then Done. Keep adding the driveway and walks to get one total.', 'Toca cada esquina, luego Listo. Sigue sumando la entrada y las banquetas: un solo total.'))
       : t('Tap along the line. Tap Done when you finish.', 'Toca a lo largo de la línea. Toca Listo al terminar.'));
     renderBar();
   }
@@ -269,17 +269,89 @@
     }
   }
 
+  function labelBox(it) {
+    return {
+      x: it.pt.x + it.dx - it.w / 2,
+      y: it.pt.y + it.dy - it.h / 2,
+      w: it.w,
+      h: it.h
+    };
+  }
+
+  function labelsOverlap(a, b, pad) {
+    pad = pad == null ? 6 : pad;
+    var ra = labelBox(a), rb = labelBox(b);
+    return ra.x < rb.x + rb.w + pad && ra.x + ra.w + pad > rb.x
+      && ra.y < rb.y + rb.h + pad && ra.y + ra.h + pad > rb.y;
+  }
+
+  function layoutLabels() {
+    if (!map) return;
+    var items = [];
+    shapes.forEach(function (s) {
+      if (!s.label) return;
+      var root = s.label.getElement && s.label.getElement();
+      var el = root && (root.querySelector('.m-label') || root);
+      if (!el) return;
+      var ll = s.label.getLatLng && s.label.getLatLng();
+      if (!ll) return;
+      var pt = map.latLngToLayerPoint(ll);
+      el.style.visibility = '';
+      el.style.transform = 'translate(-50%, -50%)';
+      items.push({
+        shape: s,
+        el: el,
+        pt: pt,
+        w: Math.max(el.offsetWidth || 0, 72),
+        h: Math.max(el.offsetHeight || 0, 22),
+        value: s.value || 0,
+        dx: 0,
+        dy: 0
+      });
+    });
+    items.sort(function (a, b) { return b.value - a.value; });
+    var kept = [];
+    items.forEach(function (it) {
+      var tries = 0;
+      while (tries < 10) {
+        var hit = null;
+        for (var i = 0; i < kept.length; i++) {
+          if (labelsOverlap(it, kept[i])) { hit = kept[i]; break; }
+        }
+        if (!hit) break;
+        var vx = (it.pt.x + it.dx) - (hit.pt.x + hit.dx);
+        var vy = (it.pt.y + it.dy) - (hit.pt.y + hit.dy);
+        if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) { vx = 0; vy = -1; }
+        var len = Math.sqrt(vx * vx + vy * vy) || 1;
+        var step = Math.max(it.h, hit.h) * 0.7 + 8;
+        it.dx += (vx / len) * step;
+        it.dy += (vy / len) * step;
+        tries++;
+      }
+      var still = kept.some(function (k) { return labelsOverlap(it, k); });
+      if (still) {
+        it.el.style.visibility = 'hidden';
+        return;
+      }
+      kept.push(it);
+      it.el.style.transform = 'translate(calc(-50% + ' + Math.round(it.dx) + 'px), calc(-50% + ' + Math.round(it.dy) + 'px))';
+    });
+  }
+
   function upsertLabel(shape) {
     if (shape.label) { map.removeLayer(shape.label); shape.label = null; }
     var f = fmt(shape.kind, shape.value);
+    var text = f.num + ' ' + f.unit;
     var icon = L.divIcon({
-      className: '',
-      html: '<div class="m-label"><b>' + f.num + '</b><i>' + f.unit + '</i></div>',
+      className: 'm-label-wrap',
+      html: '<div class="m-label">' + text + '</div>',
       iconSize: [0, 0],
       iconAnchor: [0, 0]
     });
     shape.label = L.marker(centroid(shape.layer), { icon: icon, interactive: false, keyboard: false, zIndexOffset: 600 });
     if (labelLayer) shape.label.addTo(labelLayer);
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(layoutLabels);
+    else setTimeout(layoutLabels, 0);
   }
 
   function selectShape(shape) {
@@ -404,6 +476,7 @@
     if (selected === shape) selected = shapes[shapes.length - 1] || null;
     if (selected) selectShape(selected);
     else renderUse();
+    layoutLabels();
   }
 
   function registerShape(layer, opts) {
@@ -498,6 +571,7 @@
     });
     map.on('pm:create', onCreated);
     map.on('pm:drawend', function () { /* keep hint until create or cancel */ });
+    map.on('zoomend moveend', function () { layoutLabels(); });
     inited = true;
     renderBar();
     var done = $('measureDone'), cancel = $('measureCancel');

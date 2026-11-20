@@ -1,5 +1,5 @@
 /* Paved-area total for the measure tool. Unions polygons so overlap is
-   counted once. Does not change prices — it only returns a square-foot total. */
+   counted once. Does not change prices; it only returns a square-foot total. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.MeasureTotal = factory();

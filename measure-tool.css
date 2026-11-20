@@ -43,12 +43,21 @@
 .measure-use button.used{background:#30471F;color:#fff;border-color:#30471F}
 .measure-use button.mu-del{background:#fff;color:#7a2a2a;border-color:#e8c8c8}
 
-.m-label{
-  background:#fff;border:1.5px solid #30471F;border-radius:10px;padding:3px 8px 4px;text-align:center;
-  box-shadow:0 2px 8px rgba(24,36,15,.18);pointer-events:none;white-space:nowrap
+.m-label-wrap.leaflet-div-icon{
+  width:0!important;height:0!important;border:0!important;background:transparent!important;
+  overflow:visible!important
 }
-.m-label b{display:block;font-family:'Fredoka',sans-serif;font-size:16px;line-height:1.1;color:#18240F}
-.m-label i{display:block;font-style:normal;font-size:10px;font-weight:700;color:#5d6356}
+.m-label{
+  position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  background:#fff;border:1.5px solid #30471F;border-radius:999px;padding:4px 9px;
+  box-shadow:0 2px 8px rgba(24,36,15,.18);pointer-events:none;
+  white-space:nowrap;width:max-content;max-width:none;
+  font-family:'Fredoka',sans-serif;font-size:14px;font-weight:600;line-height:1.2;color:#18240F;
+  text-align:center;letter-spacing:0
+}
+@media (max-width:640px){
+  .m-label{font-size:13px;padding:4px 8px}
+}
 
 .measure-load{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);z-index:400;display:none;
   background:rgba(24,36,15,.78);color:#fff;font-size:13px;font-weight:700;border-radius:20px;padding:8px 14px;white-space:nowrap}
