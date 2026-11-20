@@ -19,7 +19,7 @@
     pay: { f: 'payView', ok: ['visit', 'monthly', 'annual'] }
   };
   var DEF = { leaf: null, complex: null, rate: 0, bedFootprint: null, snow: null, trimDensity: 'light', weedPressure: 'light', oneTier: 'remote', payView: 'visit' };
-  var SHARE_KEYS = ['a', 'lot', 'lu', 's', 'o', 'vis', 'cl', 'sm', 'vr', 'buf', 'mo'].concat(Object.keys(NUM), Object.keys(ENUM));
+  var SHARE_KEYS = ['a', 'lot', 'lu', 's', 'o', 'vis', 'cl', 'sm', 'vr', 'buf', 'mo', 'sh'].concat(Object.keys(NUM), Object.keys(ENUM));
   var ID = /^[A-Z]{1,2}\d{1,2}$/;
 
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -27,8 +27,118 @@
   // Like encodeURIComponent, but keeps , : and spaces (as +) readable so the link stays short.
   function enc(v) { return encodeURIComponent(v).replace(/%2C/gi, ',').replace(/%3A/gi, ':').replace(/%20/g, '+'); }
 
+  // Compact traces for the sh= param: use-letter + zigzag-delta coords at 6 decimals, base64url, shapes joined by "."
+  // p paved, n lawn, k parkway, t lot. Prices do not come from these shapes.
+  var SHAPE_USE = { p: 'paved', n: 'lawn', k: 'parkway', t: 'lot' };
+  var USE_CHAR = { paved: 'p', lawn: 'n', parkway: 'k', lot: 't' };
+  var PREC = 1e6;
+  var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+  function openRing(coords) {
+    if (!coords || coords.length < 2) return coords || [];
+    var a = coords[0], b = coords[coords.length - 1];
+    if (a && b && a[0] === b[0] && a[1] === b[1]) return coords.slice(0, -1);
+    return coords;
+  }
+
+  function writeZigzag(bytes, n) {
+    var z = n < 0 ? ((-n) * 2 - 1) : (n * 2);
+    while (z >= 0x80) {
+      bytes.push((z & 0x7f) | 0x80);
+      z = Math.floor(z / 128);
+    }
+    bytes.push(z);
+  }
+
+  function readZigzag(bytes, cur) {
+    var x = 0, s = 0, b;
+    do {
+      if (cur.i >= bytes.length) return 0;
+      b = bytes[cur.i++];
+      x += (b & 0x7f) * Math.pow(2, s);
+      s += 7;
+    } while (b & 0x80);
+    x = Math.round(x);
+    return (x % 2) ? -((x + 1) / 2) : (x / 2);
+  }
+
+  function bytesToB64(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    var b64;
+    if (typeof btoa === 'function') b64 = btoa(bin);
+    else if (typeof Buffer !== 'undefined') b64 = Buffer.from(bytes).toString('base64');
+    else {
+      b64 = '';
+      return b64;
+    }
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function b64ToBytes(s) {
+    s = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin;
+    if (typeof atob === 'function') bin = atob(s);
+    else if (typeof Buffer !== 'undefined') bin = Buffer.from(s, 'base64').toString('binary');
+    else return [];
+    var out = [];
+    for (var i = 0; i < bin.length; i++) out.push(bin.charCodeAt(i) & 255);
+    return out;
+  }
+
+  function encodeRing(coords) {
+    var ring = openRing(coords);
+    var bytes = [], plat = 0, plng = 0;
+    for (var i = 0; i < ring.length; i++) {
+      var lng = Math.round(ring[i][0] * PREC);
+      var lat = Math.round(ring[i][1] * PREC);
+      writeZigzag(bytes, lat - plat);
+      writeZigzag(bytes, lng - plng);
+      plat = lat; plng = lng;
+    }
+    return bytesToB64(bytes);
+  }
+
+  function decodeRing(token) {
+    var bytes = b64ToBytes(token);
+    var cur = { i: 0 }, plat = 0, plng = 0, ring = [];
+    while (cur.i < bytes.length) {
+      plat += readZigzag(bytes, cur);
+      plng += readZigzag(bytes, cur);
+      ring.push([plng / PREC, plat / PREC]);
+    }
+    return ring;
+  }
+
+  function encodeShapes(list) {
+    var parts = [];
+    (list || []).forEach(function (s) {
+      var ch = USE_CHAR[s.use] || USE_CHAR.paved;
+      var coords = s.coords || [];
+      if (coords.length < 3) return;
+      parts.push(ch + encodeRing(coords));
+    });
+    return parts.join('.');
+  }
+
+  function decodeShapes(raw) {
+    var out = [];
+    if (!raw) return out;
+    String(raw).split('.').forEach(function (part) {
+      if (!part || part.length < 2) return;
+      var use = SHAPE_USE[part.charAt(0)];
+      if (!use) return;
+      var ring = decodeRing(part.slice(1));
+      if (ring.length < 3) return;
+      out.push({ use: use, coords: ring });
+    });
+    return out;
+  }
+
   // st: the builder's ST. ui: {view, focus:Set|Array, prev, lang?}. addr: the address box text.
-  function encode(st, ui, addr) {
+  // shapes: optional traced areas [{use, coords:[[lng,lat],...]}]. Omitted or empty keeps old links unchanged.
+  function encode(st, ui, addr, shapes) {
     ui = ui || {};
     var p = [];
     var add = function (k, v) { p.push(k + '=' + enc(v)); };
@@ -67,6 +177,8 @@
     var isDefSel = sel.length === 1 && sel[0] === 'A1';
     var hasState = p.some(function (x) { return !/^(lang|view|req)=/.test(x); });
     if (!isDefSel || hasState) add('s', sel.join(','));
+    var packed = encodeShapes(shapes);
+    if (packed) add('sh', packed);
     return p.join('&');
   }
 
@@ -77,9 +189,10 @@
   // Returns {addr, lotField} so the page can fill the address box and the lot box.
   function apply(st, q, validId) {
     var okId = function (id) { return ID.test(id) && (!validId || validId(id)); };
-    var out = { addr: '', lotField: '' };
-    if (!hasShare(q)) return out;
+    var out = { addr: '', lotField: '', shapes: [] };
+    if (!hasShare(q)) return { addr: '', lotField: '' };
     out.addr = (q.get('a') || '').trim();
+    if (q.has('sh')) out.shapes = decodeShapes(q.get('sh'));
     st.lotUnit = q.get('lu') === 'ac' ? 'ac' : 'sqft';
     var lt = num(q.get('lot'));
     if (lt > 0) { st.lot = st.lotUnit === 'ac' ? Math.round(lt * 43560) : Math.round(lt); out.lotField = fmt(lt); }
@@ -114,7 +227,7 @@
     return out;
   }
 
-  var api = { encode: encode, apply: apply, hasShare: hasShare, SHARE_KEYS: SHARE_KEYS };
+  var api = { encode: encode, apply: apply, hasShare: hasShare, SHARE_KEYS: SHARE_KEYS, encodeShapes: encodeShapes, decodeShapes: decodeShapes };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShareLink = api;
 })(typeof self !== 'undefined' ? self : this);

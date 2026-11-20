@@ -388,6 +388,7 @@ header{flex-wrap:nowrap;padding:10px 12px;margin-bottom:10px}
   </div>
   <div id="mapBox" style="display:none"></div>
   <div id="mapMeta" style="display:none;font-size:10px;color:#888;margin-bottom:10px;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span id="mapAddr"></span><span style="color:#aaa">Google photos · tap Measure to draw on older aerials</span></div>
+  <div id="traceNote" class="hint" style="display:none;margin:-4px 0 10px"></div>
   
   <div class="g2" style="margin-bottom:6px">
     <div><label class="lbl" data-i18n="l.lot">Lot size</label><div style="display:flex;gap:4px"><input type="number" id="iLt" placeholder="e.g. 10890" step="any" oninput="upd()" style="flex:1;min-width:0"><button type="button" id="iLtU" class="unit-btn" onclick="toggleLotUnit()">sqft</button></div><div class="hint" id="iLtH" data-i18n="h.lot0">Enter this alone → all services auto-estimate</div></div>
@@ -1435,7 +1436,9 @@ function renderQR(){
 }
 /* ===== share link: the page address holds the quote's inputs (see share-link.js). Copy link copies it; opening it fills the builder back in. ===== */
 const SHARE={restoring:false,lang:new URLSearchParams(location.search).has('lang'),last:null,t:0};
-function shareQS(){return ShareLink.encode(ST,{view:UI.view,focus:UI.focus,prev:UI.prev,lang:SHARE.lang?UI.lang:''},getAddr());}
+if(typeof PropertyMap!=='undefined')PropertyMap.onChange=function(){syncURL();if(typeof PropertyMap.exportShapes==='function'&&!PropertyMap.exportShapes().length)setTraceNote(false);};
+function shareQS(){const shapes=(typeof PropertyMap!=='undefined'&&PropertyMap.exportShapes)?PropertyMap.exportShapes():[];return ShareLink.encode(ST,{view:UI.view,focus:UI.focus,prev:UI.prev,lang:SHARE.lang?UI.lang:''},getAddr(),shapes);}
+function setTraceNote(on){const el=$('traceNote');if(!el)return;el.style.display=on?'block':'none';if(on)el.textContent=tx('Traces from the link. Edit them, then Copy link to save a new link.','Trazos del enlace. Edítalos y toca Copiar enlace para guardar un enlace nuevo.');}
 function shareURL(){const qs=shareQS();return location.origin+location.pathname+(qs?'?'+qs:'');}
 function syncURL(){if(SHARE.restoring)return;const qs=shareQS();if(qs===SHARE.last)return;SHARE.last=qs;try{history.replaceState(history.state,'',location.pathname+(qs?'?'+qs:'')+location.hash);}catch(e){}}
 async function copyLink(btn){
@@ -1468,6 +1471,10 @@ async function restoreShare(){
     $('iLt').value=r.lotField;upd();hidePick();
     const msg=$('addrMsg');if(msg)msg.classList.remove('show');
     const mb=$('mapBox'),mm=$('mapMeta');if(mb&&mb.innerHTML)mb.style.display='block';if(mm&&mb&&mb.innerHTML)mm.style.display='flex';
+  }
+  if(r.shapes&&r.shapes.length&&typeof PropertyMap!=='undefined'&&PropertyMap.importShapes){
+    const n=PropertyMap.importShapes(r.shapes);
+    if(n)setTraceNote(true);
   }
   SHARE.restoring=false;render();
 }

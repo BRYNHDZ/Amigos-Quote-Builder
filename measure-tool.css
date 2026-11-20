@@ -49,14 +49,21 @@
 }
 .m-label{
   position:absolute;left:0;top:0;transform:translate(-50%,-50%);
-  background:#fff;border:1.5px solid #30471F;border-radius:999px;padding:4px 9px;
-  box-shadow:0 2px 8px rgba(24,36,15,.18);pointer-events:none;
+  background:#fff;border:1.5px solid #30471F;border-radius:999px;padding:2px 7px;
+  box-shadow:0 1px 4px rgba(24,36,15,.16);pointer-events:none;
   white-space:nowrap;width:max-content;max-width:none;
-  font-family:'Fredoka',sans-serif;font-size:14px;font-weight:600;line-height:1.2;color:#18240F;
+  font-family:'Fredoka',sans-serif;font-size:11px;font-weight:600;line-height:1.2;color:#18240F;
   text-align:center;letter-spacing:0
 }
+.m-label-paved{border-color:#ea580c;color:#9a3412}
+.m-label-lawn{border-color:#2563eb;color:#1e40af}
+.m-label-parkway{border-color:#7c3aed;color:#5b21b6}
+.m-label-lot{border-color:#0f766e;color:#115e59}
+#leafletMap .leaflet-overlay-pane path.m-shape{
+  filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1.25px #18240F)
+}
 @media (max-width:640px){
-  .m-label{font-size:13px;padding:4px 8px}
+  .m-label{font-size:11px;padding:2px 6px}
 }
 
 .measure-load{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);z-index:400;display:none;
@@ -88,4 +95,21 @@
 @media (min-width:900px){
   .measure-use{left:12px;right:auto;width:min(440px, calc(100% - 24px));bottom:28px}
   .measure-use .mu-total-row .mu-num{font-size:30px}
+}
+
+.measure-use.is-collapsed{
+  flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px;
+  padding:6px 8px 6px 12px;bottom:8px
+}
+.measure-use.is-collapsed .mu-sum{
+  flex:1;min-width:0;font-size:13px;font-weight:700;color:#18240F;line-height:1.25
+}
+.measure-use.is-collapsed button{flex:0 0 auto;min-height:36px;padding:0 12px;background:#fff}
+.measure-use .mu-review{margin-top:2px}
+.measure-use .mu-review button{background:#fff;font-size:12px}
+@media (max-width:640px){
+  .measure-use.is-collapsed{left:6px;right:6px;bottom:8px}
+}
+@media (min-width:900px){
+  .measure-use.is-collapsed{left:12px;right:auto;width:auto;max-width:min(420px, calc(100% - 24px));bottom:16px}
 }
