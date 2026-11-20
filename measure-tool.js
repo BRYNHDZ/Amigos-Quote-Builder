@@ -19,12 +19,15 @@
   var seq = 0;
   var reviewMode = false;
   var importing = false;
+  var activeUse = null;
   var USE_STYLE = {
     paved: { color: '#ea580c', fillColor: '#ea580c' },
     lawn: { color: '#2563eb', fillColor: '#2563eb' },
+    house: { color: '#dc2626', fillColor: '#dc2626' },
     parkway: { color: '#7c3aed', fillColor: '#7c3aed' },
     lot: { color: '#0f766e', fillColor: '#0f766e' }
   };
+  var QUOTE_FIELDS = { house: 'iHf', lawn: 'iLn', paved: 'iPv' };
 
   function $(id) { return document.getElementById(id); }
   function t(en, es) { return (typeof tx === 'function') ? tx(en, es) : en; }
@@ -453,17 +456,25 @@
 
   function useName(use) {
     if (use === 'lawn') return t('Lawn', 'Césped');
+    if (use === 'house') return t('House', 'Casa');
     if (use === 'parkway') return t('Parkway', 'Parkway');
     if (use === 'lot') return t('Lot', 'Terreno');
-    return t('Paved', 'Pavimento');
+    if (use === 'paved') return t('Paved', 'Pavimento');
+    return t('New', 'Nuevo');
+  }
+
+  function useLegend(use) {
+    var name = useName(use);
+    if (use !== 'paved' && use !== 'lawn' && use !== 'house') return name;
+    return '<span class="mu-key mu-key-' + use + '"></span><span class="mu-name-' + use + '">' + name + '</span>';
   }
 
   function upsertLabel(shape) {
     if (shape.label) { map.removeLayer(shape.label); shape.label = null; }
     var f = fmt(shape.kind, shape.value);
     var text = f.num + ' ' + f.unit;
-    if (shape.kind === 'area') text = useName(shape.use || 'paved') + ' ' + text;
-    var use = shape.use || 'paved';
+    if (shape.kind === 'area') text = useName(shape.use) + ' ' + text;
+    var use = shape.use || 'new';
     var icon = L.divIcon({
       className: 'm-label-wrap',
       html: '<div class="m-label m-label-' + use + '">' + text + '</div>',
@@ -490,47 +501,59 @@
     return root.turf || null;
   }
 
-  function isPavedGroup(shape) {
-    return shape && shape.kind === 'area' && (!shape.use || shape.use === 'paved');
+  function isUseGroup(shape, use) {
+    return shape && shape.kind === 'area' && shape.use === use;
   }
 
-  function pavedFeatures() {
-    return shapes.filter(isPavedGroup).map(function (sh) {
+  function isPavedGroup(shape) {
+    return isUseGroup(shape, 'paved');
+  }
+
+  function useFeatures(use) {
+    return shapes.filter(function (sh) { return isUseGroup(sh, use); }).map(function (sh) {
       return sh.layer && sh.layer.toGeoJSON ? sh.layer.toGeoJSON() : null;
     }).filter(Boolean);
   }
 
-  function pavedTotalNow() {
+  function useTotalNow(use) {
     var lib = (root.MeasureTotal || (typeof MeasureTotal !== 'undefined' ? MeasureTotal : null));
+    var feats = useFeatures(use);
     if (!lib || typeof lib.pavedTotal !== 'function') {
       var sum = 0, n = 0;
-      shapes.forEach(function (sh) { if (isPavedGroup(sh)) { sum += sh.value || 0; n++; } });
+      shapes.forEach(function (sh) { if (isUseGroup(sh, use)) { sum += sh.value || 0; n++; } });
       return { sqFt: Math.round(sum), sumSqFt: Math.round(sum), overlapSqFt: 0, count: n };
     }
-    return lib.pavedTotal(pavedFeatures(), turfLib(), SQFT_PER_M2);
+    return lib.pavedTotal(feats, turfLib(), SQFT_PER_M2);
+  }
+
+  function pavedTotalNow() { return useTotalNow('paved'); }
+
+  function syncUseToQuote(use) {
+    if (importing) return;
+    if (!QUOTE_FIELDS[use]) return;
+    var el = $(QUOTE_FIELDS[use]);
+    if (!el) return;
+    var total = useTotalNow(use);
+    if (total.count > 0) el.value = String(total.sqFt);
+    else el.value = '';
+    if ($('measDet')) $('measDet').open = true;
+    if (typeof upd === 'function') upd();
+    if (typeof updateMeasSources === 'function') updateMeasSources();
   }
 
   function renderUse() {
     var el = $('measureUse');
     if (!el) return;
-    var total = pavedTotalNow();
-    var showPaved = total.count > 0;
     var areaCount = areaShapeCount();
-    if (!selected && !showPaved && !areaCount) { el.classList.remove('show', 'is-collapsed'); el.innerHTML = ''; return; }
+    if (!selected && !areaCount) { el.classList.remove('show', 'is-collapsed'); el.innerHTML = ''; return; }
     if (reviewMode) {
       var uses = [];
       shapes.forEach(function (sh) {
         if (sh.kind !== 'area') return;
-        var name = useName(sh.use || 'paved');
-        if (uses.indexOf(name) === -1) uses.push(name);
+        var use = sh.use || 'new';
+        if (uses.indexOf(use) === -1) uses.push(use);
       });
-      var summary;
-      if (showPaved && uses.length === 1) {
-        var f0 = fmt('area', total.sqFt);
-        summary = f0.num + ' ' + f0.unit + ' ' + t('paved', 'pavimentado') + ' · ' + total.count + ' ' + (total.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
-      } else {
-        summary = uses.join(', ') + ' · ' + areaCount + ' ' + (areaCount === 1 ? t('trace', 'trazo') : t('traces', 'trazos'));
-      }
+      var summary = uses.map(useLegend).join(' · ');
       el.innerHTML = '<div class="mu-sum">' + summary + '</div>'
         + '<button type="button" id="muExpand">' + t('Edit traces', 'Editar trazos') + '</button>';
       el.classList.add('show', 'is-collapsed');
@@ -539,29 +562,34 @@
       return;
     }
     var html = '';
-    if (showPaved) {
-      var f = fmt('area', total.sqFt);
-      var meta = t('Paved total', 'Total pavimentado') + ' · ' + total.count + ' ' + (total.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
-      if (total.overlapSqFt >= 1) meta += t(' · overlap taken out', ' · sin contar el traslape');
+    ['paved', 'lawn', 'house'].forEach(function (use) {
+      var tot = useTotalNow(use);
+      if (!tot.count) return;
+      var f = fmt('area', tot.sqFt);
+      var meta = useLegend(use) + ' · ' + tot.count + ' ' + (tot.count === 1 ? t('area', 'área') : t('areas', 'áreas'));
+      if (tot.overlapSqFt >= 1) meta += t(' · overlap taken out', ' · sin contar el traslape');
       html += '<div class="mu-row mu-total-row"><span class="mu-num">' + f.num + '</span><span class="mu-unit">' + f.unit + '</span></div>';
       html += '<div class="mu-meta">' + meta + '</div>';
-      html += '<div class="mu-row mu-actions">';
-      html += '<button type="button" id="muUndo">' + t('Undo last', 'Deshacer') + '</button>';
-      html += '<button type="button" id="muClear">' + t('Clear', 'Borrar todo') + '</button>';
-      if (selected) html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button>';
-      html += '</div>';
-    } else if (selected) {
+    });
+    if (selected) {
       var one = fmt(selected.kind, selected.value);
-      html += '<div class="mu-row"><span class="mu-num">' + one.num + '</span><span class="mu-unit">' + one.unit + '</span>';
-      html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button></div>';
+      if (!selected.use) {
+        html += '<div class="mu-row"><span class="mu-num">' + one.num + '</span><span class="mu-unit">' + one.unit + '</span></div>';
+        html += '<div class="mu-meta">' + t('Tap House, Lawn, or Paved to add this to the quote.', 'Toca Casa, Césped o Pavimento para sumarlo a la cotización.') + '</div>';
+      }
     }
-    if (selected && selected.kind === 'area') {
+    html += '<div class="mu-row mu-actions">';
+    html += '<button type="button" id="muUndo">' + t('Undo last', 'Deshacer') + '</button>';
+    html += '<button type="button" id="muClear">' + t('Clear', 'Borrar todo') + '</button>';
+    if (selected) html += '<button type="button" class="mu-del" id="muDel">' + t('Delete', 'Borrar') + '</button>';
+    html += '</div>';
+    if (areaCount && (selected && selected.kind === 'area' || !selected)) {
+      var cur = (selected && selected.use) || activeUse;
       html += '<div class="mu-row mu-fills">'
         + '<span class="mu-lbl">' + t('Use as', 'Usar como') + '</span>'
-        + '<button type="button" data-fill="parkway">' + t('Parkway', 'Parkway') + '</button>'
-        + '<button type="button" data-fill="lawn">' + t('Lawn', 'Césped') + '</button>'
-        + '<button type="button" data-fill="paved">' + t('Paved', 'Pavimento') + '</button>'
-        + '<button type="button" data-fill="lot">' + t('Lot', 'Terreno') + '</button>'
+        + '<button type="button" data-fill="house"' + (cur === 'house' ? ' class="used"' : '') + '>' + t('House', 'Casa') + '</button>'
+        + '<button type="button" data-fill="lawn"' + (cur === 'lawn' ? ' class="used"' : '') + '>' + t('Lawn', 'Césped') + '</button>'
+        + '<button type="button" data-fill="paved"' + (cur === 'paved' ? ' class="used"' : '') + '>' + t('Paved', 'Pavimento') + '</button>'
         + '</div>';
     }
     html += '<div class="mu-row mu-review"><button type="button" id="muCollapse">' + t('Hide tools', 'Ocultar herramientas') + '</button></div>';
@@ -582,35 +610,31 @@
   }
 
   function applyFill(field, value, btn) {
-    var v = Math.round(value);
-    if (field === 'paved') {
-      v = pavedTotalNow().sqFt;
-      shapes.forEach(function (sh) { if (isPavedGroup(sh)) { sh.use = 'paved'; applyShapeStyle(sh); upsertLabel(sh); } });
-    } else if (selected && (field === 'lawn' || field === 'parkway' || field === 'lot')) {
+    if (field !== 'house' && field !== 'lawn' && field !== 'paved') return;
+    activeUse = field;
+    var prev = null;
+    if (selected && selected.kind === 'area') {
+      prev = selected.use;
       selected.use = field;
       applyShapeStyle(selected);
       upsertLabel(selected);
     }
-    if (field === 'lot') {
-      var inp = $('iLt');
-      if (!inp) return;
-      var unit = (typeof ST !== 'undefined' && ST.lotUnit === 'ac') ? 'ac' : 'sqft';
-      inp.value = unit === 'ac' ? +(v / SQFT_PER_AC).toFixed(3) : String(v);
-    } else {
-      var id = { parkway: 'iPk', lawn: 'iLn', paved: 'iPv' }[field];
-      var el = $(id);
-      if (!el) return;
-      el.value = String(v);
-      if ((field === 'lawn' || field === 'paved') && $('measDet')) $('measDet').open = true;
-    }
-    if (typeof upd === 'function') upd();
+    shapes.forEach(function (sh) {
+      if (sh.kind === 'area' && !sh.use) {
+        sh.use = field;
+        applyShapeStyle(sh);
+        upsertLabel(sh);
+      }
+    });
+    if (prev && prev !== field && QUOTE_FIELDS[prev]) syncUseToQuote(prev);
+    syncUseToQuote(field);
     renderUse();
     notifyChange();
     if (btn) {
       btn.classList.add('used');
-      var prev = btn.textContent;
-      btn.textContent = '✓ ' + prev.replace(/^✓\s*/, '');
-      setTimeout(function () { btn.textContent = prev; }, 1200);
+      var label = btn.textContent;
+      btn.textContent = '✓ ' + label.replace(/^✓\s*/, '');
+      setTimeout(function () { btn.textContent = label; }, 1200);
     }
   }
 
@@ -621,6 +645,7 @@
 
   function removeShape(shape) {
     if (!shape) return;
+    var prev = shape.use;
     try { map.removeLayer(shape.layer); } catch (e) {}
     if (shape.label) try { map.removeLayer(shape.label); } catch (e) {}
     shapes = shapes.filter(function (s) { return s !== shape; });
@@ -628,6 +653,7 @@
     if (selected) selectShape(selected);
     else renderUse();
     layoutLabels();
+    if (prev) syncUseToQuote(prev);
     notifyChange();
   }
 
@@ -640,7 +666,7 @@
       kind: m.kind,
       value: m.value,
       label: null,
-      use: m.kind === 'area' ? 'paved' : null
+      use: m.kind === 'area' ? ((opts && opts.use) || activeUse || null) : null
     };
     layer.setStyle(styleFor(shape, false));
     shapes.push(shape);
@@ -655,10 +681,12 @@
       shape.value = mm.value;
       upsertLabel(shape);
       renderUse();
+      if (shape.use) syncUseToQuote(shape.use);
       notifyChange();
     });
     if (!importing) {
       selectShape(shape);
+      if (shape.use) syncUseToQuote(shape.use);
       notifyChange();
     } else {
       applyShapeStyle(shape);
@@ -829,6 +857,7 @@
     shapes.slice().forEach(function (s) { removeShape(s); });
     selected = null;
     renderUse();
+    ['paved', 'lawn', 'house'].forEach(syncUseToQuote);
   }
 
   function show(addr, lat, lng) {
