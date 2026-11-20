@@ -20,6 +20,12 @@
   var reviewMode = false;
   var importing = false;
   var activeUse = null;
+  var showGen = 0;
+  var lastCenter = null;
+  var lastParcelBounds = null;
+  var mapFull = false;
+  var leavingDraw = false;
+  var tileRefreshTimer = null;
   var USE_STYLE = {
     paved: { color: '#ea580c', fillColor: '#ea580c' },
     lawn: { color: '#2563eb', fillColor: '#2563eb' },
@@ -140,13 +146,18 @@
         + b('mBtnCounty', t('County', 'Condado'), view === 'county', t('DuPage photos, 2016', 'Fotos de DuPage, 2016'));
     }
     html += b('mBtnGoogle', t('Google view', 'Vista Google'), view === 'google');
-    bar.innerHTML = html;
+    var closeHtml = '';
+    if (mapFull) {
+      closeHtml = b('mBtnClose', t('Close map', 'Cerrar mapa'), false, t('Leave the full-size map', 'Salir del mapa grande'));
+    }
+    bar.innerHTML = '<div class="measure-bar-tools">' + html + '</div>' + closeHtml;
     $('mBtnArea').onclick = function () { toggleDraw('area'); };
     $('mBtnLen').onclick = function () { toggleDraw('length'); };
     if ($('mBtnEdit')) $('mBtnEdit').onclick = function () { toggleEdit(); };
     if ($('mBtnNaip')) $('mBtnNaip').onclick = function () { setView('naip'); };
     if ($('mBtnCounty')) $('mBtnCounty').onclick = function () { setView('county'); };
     $('mBtnGoogle').onclick = function () { setView('google'); };
+    if ($('mBtnClose')) $('mBtnClose').onclick = function () { exitMapFull(); };
     var done = $('measureDone'), cancel = $('measureCancel');
     if (done) done.onclick = finishDraw;
     if (cancel) cancel.onclick = cancelDraw;
@@ -161,6 +172,7 @@
 
   function toggleDraw(kind) {
     if (view === 'google') setView('county');
+    if (!mapFull) enterMapFull();
     if (drawing === kind) { cancelDraw(); return; }
     startDraw(kind);
   }
@@ -185,12 +197,52 @@
     renderBar();
   }
 
+  function activeDrawTool() {
+    if (!map || !map.pm || !map.pm.Draw || typeof map.pm.Draw.getActiveShape !== 'function') return null;
+    var name = map.pm.Draw.getActiveShape();
+    return name ? map.pm.Draw[name] : null;
+  }
+
+  function drawVertexCount(tool) {
+    if (!tool) return 0;
+    if (tool._markers && tool._markers.length) return tool._markers.length;
+    if (typeof tool.getVertexCount === 'function') return tool.getVertexCount() || 0;
+    var layer = tool._layer;
+    if (layer && typeof layer.getLatLngs === 'function') {
+      var ll = layer.getLatLngs();
+      if (Array.isArray(ll) && Array.isArray(ll[0])) ll = ll[0];
+      return (ll && ll.length) || 0;
+    }
+    return 0;
+  }
+
+  function removeLastDrawVertex() {
+    var tool = activeDrawTool();
+    if (!tool || drawVertexCount(tool) < 1) return false;
+    if (typeof tool._removeLastVertex === 'function') {
+      tool._removeLastVertex();
+      return true;
+    }
+    return false;
+  }
+
   function finishDraw() {
     if (!map) return;
-    if (typeof map.pm.finishDraw === 'function') map.pm.finishDraw();
-    else if (map.pm.Draw && map.pm.Draw.getActiveShape && map.pm.Draw.getActiveShape()) {
-      var sh = map.pm.Draw[map.pm.Draw.getActiveShape()];
-      if (sh && sh._finishShape) sh._finishShape();
+    var tool = activeDrawTool();
+    var name = map.pm.Draw && map.pm.Draw.getActiveShape && map.pm.Draw.getActiveShape();
+    var need = (name === 'Line' || drawing === 'length') ? 2 : 3;
+    var n = drawVertexCount(tool);
+    if (tool && n >= need) {
+      leavingDraw = true;
+      try {
+        if (typeof map.pm.finishDraw === 'function') map.pm.finishDraw();
+        else if (tool._finishShape) tool._finishShape();
+      } finally {
+        cancelDraw();
+        leavingDraw = false;
+      }
+    } else {
+      cancelDraw();
     }
   }
 
@@ -211,20 +263,83 @@
     renderBar();
   }
 
+  function rememberView() {
+    if (!map) return;
+    var c = map.getCenter();
+    lastCenter = { lat: c.lat, lng: c.lng, zoom: map.getZoom() };
+  }
+
+  function refreshCountyTiles() {
+    if (!map || !countyLayer || view === 'google') return;
+    try {
+      if (map.hasLayer(countyLayer)) map.removeLayer(countyLayer);
+      countyLayer.addTo(map);
+      if (view === 'naip') {
+        if (!map.hasLayer(naipLayer)) naipLayer.addTo(map);
+        try { naipLayer.bringToFront(); } catch (e) {}
+      }
+      if (labelLayer) labelLayer.bringToFront();
+      if (parcelLayer) parcelLayer.bringToFront();
+      shapes.forEach(function (sh) {
+        if (sh.layer && sh.layer.bringToFront) try { sh.layer.bringToFront(); } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  function afterMapResize() {
+    if (!map) return;
+    map.invalidateSize({ animate: false });
+    if (lastCenter) {
+      map.setView([lastCenter.lat, lastCenter.lng], lastCenter.zoom || map.getZoom(), { animate: false });
+    }
+    refreshCountyTiles();
+    layoutLabels();
+  }
+
+  function enterMapFull() {
+    var box = $('mapBox');
+    if (!box) return;
+    mapFull = true;
+    box.classList.add('is-full');
+    document.body.classList.add('map-full');
+    renderBar();
+    afterMapResize();
+    setTimeout(afterMapResize, 80);
+    setTimeout(afterMapResize, 250);
+  }
+
+  function exitMapFull() {
+    var box = $('mapBox');
+    mapFull = false;
+    if (box) box.classList.remove('is-full');
+    document.body.classList.remove('map-full');
+    cancelDraw();
+    renderBar();
+    afterMapResize();
+    setTimeout(afterMapResize, 80);
+    setTimeout(afterMapResize, 250);
+  }
+
   function setView(next) {
+    if (next === 'google' && mapFull) {
+      mapFull = false;
+      var fullBox = $('mapBox');
+      if (fullBox) fullBox.classList.remove('is-full');
+      document.body.classList.remove('map-full');
+    }
     view = next;
     var box = $('mapBox');
     if (box) box.classList.toggle('is-google', next === 'google');
     if (map) {
       if (next === 'naip') {
-        if (!map.hasLayer(countyLayer)) countyLayer.addTo(map);
-        if (!map.hasLayer(naipLayer)) naipLayer.addTo(map);
+        if (map.hasLayer(naipLayer) === false) naipLayer.addTo(map);
+        refreshCountyTiles();
         try { naipLayer.bringToFront(); } catch (e) {}
         if (labelLayer) labelLayer.bringToFront();
         if (parcelLayer) parcelLayer.bringToFront();
       } else if (next === 'county') {
         if (map.hasLayer(naipLayer)) map.removeLayer(naipLayer);
-        if (!map.hasLayer(countyLayer)) countyLayer.addTo(map);
+        refreshCountyTiles();
         hideLoading();
       }
     }
@@ -238,7 +353,8 @@
         if (areas.length) selected = areas[areas.length - 1];
       }
     } else if (map) {
-      setTimeout(function () { map.invalidateSize(); }, 80);
+      setTimeout(afterMapResize, 80);
+      setTimeout(afterMapResize, 250);
     }
     renderBar();
     renderUse();
@@ -439,17 +555,22 @@
     if (!map) return;
     var layers = shapes.map(function (s) { return s.layer; }).filter(Boolean);
     if (!layers.length) return;
-    var bottom = 72;
     var el = $('measureUse');
-    if (el && el.classList.contains('show')) bottom = Math.max(72, (el.offsetHeight || 0) + 28);
+    var isNarrow = (typeof window !== 'undefined' && window.innerWidth < 900);
+    var top = 18, left = 18, right = 18, bottom = 28;
+    if (el && el.classList.contains('show')) {
+      if (mapFull && !isNarrow) right = Math.max(28, (el.offsetWidth || 0) + 28);
+      else bottom = Math.max(28, (el.offsetHeight || 0) + 28);
+    }
     try {
       map.invalidateSize({ animate: false });
       map.fitBounds(L.featureGroup(layers).getBounds(), {
-        paddingTopLeft: [18, 14],
-        paddingBottomRight: [18, bottom],
+        paddingTopLeft: [left, top],
+        paddingBottomRight: [right, bottom],
         maxZoom: 21,
         animate: false
       });
+      rememberView();
     } catch (e) {}
     layoutLabels();
   }
@@ -639,8 +760,15 @@
   }
 
   function undoLast() {
+    if (removeLastDrawVertex()) {
+      renderBar();
+      return;
+    }
     if (!shapes.length) return;
+    var keepKind = drawing || 'area';
+    var keep = !!drawing || mapFull;
     removeShape(shapes[shapes.length - 1]);
+    if (keep) startDraw(keepKind, true);
   }
 
   function removeShape(shape) {
@@ -767,6 +895,7 @@
   }
 
   function onCreated(e) {
+    var restart = !leavingDraw;
     drawing = null;
     setHint(false);
     renderBar();
@@ -776,7 +905,14 @@
       try { map.removeLayer(layer); } catch (err) {}
       return;
     }
-    if (shape.kind === 'area') startDraw('area', true);
+    if (shape.kind === 'area' && restart) startDraw('area', true);
+  }
+
+  function onIntersect() {
+    setHint(true, t(
+      'That line crosses itself. Move the point so the lines do not cross.',
+      'Esa línea se cruza. Mueve el punto para que las líneas no se crucen.'
+    ));
   }
 
   function initMap() {
@@ -788,6 +924,8 @@
       attribution: 'DuPage County GIS (2016–2017)',
       maxZoom: 21,
       maxNativeZoom: 20,
+      updateWhenIdle: false,
+      keepBuffer: 6,
       errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
     });
     map = L.map('leafletMap', {
@@ -812,8 +950,35 @@
       pathOptions: { color: '#30471F', fillColor: '#30471F', fillOpacity: 0.28, weight: 3 }
     });
     map.on('pm:create', onCreated);
+    map.on('pm:intersect', onIntersect);
     map.on('pm:drawend', function () { /* keep hint until create or cancel */ });
-    map.on('zoomend moveend resize', function () { layoutLabels(); });
+    map.on('zoomend', function () {
+      layoutLabels();
+      rememberView();
+      if (view !== 'google' && map.getZoom() >= 20) {
+        clearTimeout(tileRefreshTimer);
+        tileRefreshTimer = setTimeout(function () {
+          if (countyLayer && countyLayer.redraw) countyLayer.redraw();
+          var loaded = document.querySelectorAll('#leafletMap img.leaflet-tile').length;
+          var ok = 0;
+          document.querySelectorAll('#leafletMap img.leaflet-tile').forEach(function (img) {
+            if (img.complete && img.naturalWidth > 1) ok++;
+          });
+          if (!ok) refreshCountyTiles();
+        }, 200);
+      }
+    });
+    map.on('moveend resize', function () { layoutLabels(); rememberView(); });
+    ['measureBar', 'measureHint', 'measureUse'].forEach(function (id) {
+      var el = $(id);
+      if (el && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el);
+        L.DomEvent.disableScrollPropagation(el);
+      }
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && mapFull) exitMapFull();
+    });
     inited = true;
     renderBar();
     var done = $('measureDone'), cancel = $('measureCancel');
@@ -821,18 +986,22 @@
     if (cancel) cancel.onclick = cancelDraw;
   }
 
-  function loadParcel(lat, lng) {
+  function loadParcel(lat, lng, gen) {
     if (!parcelLayer) return;
     parcelLayer.clearLayers();
+    lastParcelBounds = null;
     var url = gisUrl() + '?geometry=' + lng + ',' + lat
       + '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects'
       + '&outFields=ACREAGE,PIN,PROPADDRL1&returnGeometry=true&outSR=4326&f=json';
     fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+      if (gen != null && gen !== showGen) return;
       var feats = (data && data.features) || [];
+      var all = [];
       feats.forEach(function (f) {
         var rings = (f.geometry && f.geometry.rings) || [];
         rings.forEach(function (ring) {
           var latlngs = ring.map(function (p) { return [p[1], p[0]]; });
+          all = all.concat(latlngs);
           L.polygon(latlngs, {
             color: '#fff',
             weight: 3,
@@ -850,6 +1019,15 @@
           }).addTo(parcelLayer);
         });
       });
+      if (all.length && typeof L.latLngBounds === 'function') {
+        lastParcelBounds = L.latLngBounds(all);
+        if (!shapes.length && !drawing) {
+          try {
+            map.fitBounds(lastParcelBounds, { padding: [28, 28], maxZoom: 20, animate: false });
+            rememberView();
+          } catch (e) {}
+        }
+      }
     }).catch(function () {});
   }
 
@@ -861,6 +1039,7 @@
   }
 
   function show(addr, lat, lng) {
+    var gen = ++showGen;
     var nextAddr = addr || lastAddr;
     if (nextAddr && lastAddr && nextAddr !== lastAddr) clearShapes();
     lastAddr = nextAddr;
@@ -872,10 +1051,12 @@
     initMap();
     setView('google');
     function go(la, lo) {
+      if (gen !== showGen) return;
       if (!map) return;
+      lastCenter = { lat: +la, lng: +lo, zoom: 19 };
+      lastParcelBounds = null;
       map.setView([la, lo], 19, { animate: false });
-      setTimeout(function () { map.invalidateSize(); }, 80);
-      loadParcel(la, lo);
+      loadParcel(la, lo, gen);
     }
     if (lat != null && lng != null) {
       go(+lat, +lng);
@@ -883,6 +1064,7 @@
     }
     if (typeof nomSearch !== 'function') return Promise.resolve();
     return nomSearch(lastAddr).then(function (g) {
+      if (gen !== showGen) return;
       if (g && g.length) go(+g[0].lat, +g[0].lon);
     }).catch(function () {});
   }
@@ -904,10 +1086,15 @@
     exportShapes: exportShapes,
     importShapes: importShapes,
     onChange: null,
+    finishDraw: finishDraw,
+    enterMapFull: enterMapFull,
+    exitMapFull: exitMapFull,
     _shapes: function () { return shapes; },
     _map: function () { return map; },
     _view: function () { return view; },
     _setView: setView,
+    _isFull: function () { return mapFull; },
+    _showGen: function () { return showGen; },
     SQFT_PER_M2: SQFT_PER_M2
   };
 })(window);

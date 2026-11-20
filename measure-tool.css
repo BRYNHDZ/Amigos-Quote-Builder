@@ -9,7 +9,8 @@
 #mapBox.is-google #googleMap{visibility:visible}
 .leaflet-host{touch-action:none}
 
-.measure-bar{position:absolute;top:0;left:0;right:0;z-index:500;display:flex;gap:6px;align-items:center;padding:8px;background:#fff;border-bottom:1px solid #e0dfd8;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.measure-bar{position:absolute;top:0;left:0;right:0;z-index:500;display:flex;gap:6px;align-items:center;padding:8px;background:#fff;border-bottom:1px solid #e0dfd8}
+.measure-bar-tools{display:flex;gap:6px;align-items:center;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .measure-bar button{
   flex:0 0 auto;min-height:44px;padding:0 12px;border-radius:22px;border:1.5px solid #d8d8d0;
   background:#fafaf8;color:#18240F;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;
@@ -76,7 +77,8 @@
 
 @media (max-width:640px){
   #mapBox{height:400px;min-height:340px;max-height:400px}
-  .measure-bar button{padding:0 10px;font-size:12px}
+  .measure-bar-tools{display:flex;gap:6px;align-items:center;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.measure-bar button{padding:0 10px;font-size:12px}
   .measure-use .mu-num{font-size:20px}
   .measure-use{bottom:10px;left:6px;right:6px}
   .measure-use .mu-actions,.measure-use .mu-row{flex-wrap:wrap}
@@ -126,3 +128,34 @@
 .mu-name-paved{color:#9a3412;font-weight:800}
 .mu-name-lawn{color:#1e40af;font-weight:800}
 .mu-name-house{color:#991b1b;font-weight:800}
+
+
+body.map-full{overflow:hidden}
+#mapBox.is-full{
+  position:fixed;inset:0;z-index:80;margin:0;border:0;border-radius:0;
+  height:100%;height:100dvh;max-height:none;min-height:0;width:100%;
+  background:#eef3ea
+}
+#mapBox.is-full #leafletMap,#mapBox.is-full #googleMap{top:56px;bottom:0;left:0;right:0}
+#mapBox.is-full .measure-bar{padding-right:10px}
+#mapBox.is-full #mBtnClose{margin-left:auto;background:#30471F;color:#fff;border-color:#30471F}
+#mapBox.is-full #mBtnClose:hover{background:#18240F;border-color:#18240F}
+
+/* Dock tools so they do not cover the lower-left of the property. */
+#mapBox.is-full .measure-use{
+  left:auto;right:12px;bottom:16px;width:min(340px, calc(100% - 24px));
+  max-height:46%;overflow:auto
+}
+#mapBox.is-full .measure-use.is-collapsed{
+  left:auto;right:12px;width:auto;max-width:min(420px, calc(100% - 24px));bottom:12px
+}
+@media (max-width:640px){
+  #mapBox.is-full .measure-use{
+    left:8px;right:8px;width:auto;bottom:8px;max-height:36%;padding:6px 8px
+  }
+  #mapBox.is-full .measure-use .mu-total-row .mu-num{font-size:22px}
+  #mapBox.is-full .measure-use.is-collapsed{left:8px;right:8px;width:auto}
+}
+
+#mapBox.is-full .leaflet-control-zoom{margin-top:58px}
+#mapBox.is-full #mBtnClose{flex:0 0 auto;margin-left:8px}
