@@ -126,8 +126,11 @@ test('labels and the address chip are never snap targets', () => {
   assert.match(js, /propMarker = L\.marker\(at, \{[\s\S]*?snapIgnore: true/);
 });
 
-test('the property being quoted is dimmed outside and labeled with its street address', () => {
-  assert.match(js, /className: 'm-prop-mask'/);
+test('the property being quoted is outlined and labeled, and nothing outside it is dimmed', () => {
+  // Bryan measures the city parkway too, so the area outside the lot must stay clear.
+  assert.doesNotMatch(js, /m-prop-mask/);
+  assert.doesNotMatch(js, /fillOpacity: 0\.55/);
+  assert.match(js, /color: '#fff', weight: 3, opacity: 1, fill: false/);
   const src = js.match(/function streetOnly\(a\) \{[\s\S]*?\n  \}/)[0];
   const streetOnly = new Function(src + '; return streetOnly;')();
   assert.strictEqual(streetOnly('855 Ellynwood Dr, Glen Ellyn, IL 60137'), '855 Ellynwood Dr');
@@ -176,4 +179,18 @@ test('stale lookup guard: only the newest address moves the map', async () => {
   ADDR_SEQ++; const pB = geocodeForFit('B', 5);
   await Promise.all([pA, pB]);
   assert.deepStrictEqual(moved, ['B']);
+});
+
+test('full map zoom leaves margin around the lot for the parkway and street', () => {
+  assert.match(js, /map\.fitBounds\(withMargin\(lastParcelBounds, MARGIN_M\)/);
+  const m = js.match(/var MARGIN_M = (\d+);/);
+  assert.ok(m && +m[1] >= 12);
+});
+
+test('sharpening touches only the photo tiles and stays light', () => {
+  assert.match(css, /#leafletMap \.leaflet-tile-pane\{filter:contrast\(1\.1\) saturate\(1\.06\)\}/);
+  assert.doesNotMatch(css, /leaflet-(overlay|marker|shadow|tooltip)-pane\{filter/);
+  // Phones get contrast only; the sharpen filter is desktop-only for speed.
+  assert.match(css, /@media \(hover:hover\) and \(pointer:fine\) and \(min-width:900px\)\{\s*#leafletMap \.leaflet-tile-pane\{filter:url\(#mSharpen\)/);
+  assert.match(js, /kernelMatrix="0 -0\.15 0 -0\.15 1\.6 -0\.15 0 -0\.15 0"/);
 });
