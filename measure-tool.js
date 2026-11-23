@@ -34,6 +34,16 @@
     lot: { color: '#0f766e', fillColor: '#0f766e' }
   };
   var QUOTE_FIELDS = { house: 'iHf', lawn: 'iLn', paved: 'iPv' };
+  // Tracing: a point only snaps when the tap is this close (px). 18 px swallowed taps near
+  // the first corner on small shapes (it snapped to the start and nothing was added).
+  var SNAP_PX = 8;
+  // A press that moves less than this (px) still counts as a tap, not a pan.
+  var CLICK_SLOP_PX = 10;
+  var DRAW_COLOR = '#22d3ee';
+  var hintText = '';
+  var propMarker = null;
+  var propPoint = null; // map point for the current address (parcel center when known)
+  var addrDirty = false; // address box typed in since the last lookup
 
   function $(id) { return document.getElementById(id); }
   function t(en, es) { return (typeof tx === 'function') ? tx(en, es) : en; }
@@ -119,6 +129,7 @@
       box.innerHTML =
         '<div id="measureBar" class="measure-bar" role="toolbar" aria-label="Measure"></div>'
         + '<div id="measureHint" class="measure-hint"><span id="measureHintT"></span>'
+        + '<button type="button" class="m-undo" id="measureUndo">Undo last</button>'
         + '<button type="button" id="measureDone">Done</button>'
         + '<button type="button" class="m-cancel" id="measureCancel">Cancel</button></div>'
         + '<div id="leafletMap" class="leaflet-host"></div>'
@@ -146,11 +157,15 @@
         + b('mBtnCounty', t('County', 'Condado'), view === 'county', t('DuPage photos, 2016', 'Fotos de DuPage, 2016'));
     }
     html += b('mBtnGoogle', t('Google view', 'Vista Google'), view === 'google');
+    var eh = earthUrl(lastAddr, propPoint);
+    var earthHtml = eh ? '<a id="mBtnEarth" class="m-earth" target="_blank" rel="noopener" href="' + eh + '">' + t('Open in Google Earth', 'Abrir en Google Earth') + '</a>' : '';
+    // Full map: it scrolls with the tools. Small map: pinned on the right so it is always in view.
+    if (mapFull) html += earthHtml;
     var closeHtml = '';
     if (mapFull) {
       closeHtml = b('mBtnClose', t('Close map', 'Cerrar mapa'), false, t('Leave the full-size map', 'Salir del mapa grande'));
     }
-    bar.innerHTML = '<div class="measure-bar-tools">' + html + '</div>' + closeHtml;
+    bar.innerHTML = '<div class="measure-bar-tools">' + html + '</div>' + (mapFull ? '' : earthHtml) + closeHtml;
     $('mBtnArea').onclick = function () { toggleDraw('area'); };
     $('mBtnLen').onclick = function () { toggleDraw('length'); };
     if ($('mBtnEdit')) $('mBtnEdit').onclick = function () { toggleEdit(); };
@@ -161,6 +176,20 @@
     var done = $('measureDone'), cancel = $('measureCancel');
     if (done) done.onclick = finishDraw;
     if (cancel) cancel.onclick = cancelDraw;
+    var hu = $('measureUndo');
+    if (hu) { hu.textContent = t('Undo last', 'Deshacer'); hu.onclick = function () { undoLast(); }; }
+    if (done) done.textContent = t('Done', 'Listo');
+    if (cancel) cancel.textContent = t('Cancel', 'Cancelar');
+  }
+
+  function earthUrl(addr, pt) {
+    var a = String(addr || '').trim();
+    var base = 'https://earth.google.com/web/';
+    var at = (pt && isFinite(pt.lat) && isFinite(pt.lng))
+      ? '@' + (+pt.lat).toFixed(6) + ',' + (+pt.lng).toFixed(6) + ',230a,300d,35y,0h,0t,0r'
+      : '';
+    if (a) return base + 'search/' + encodeURIComponent(a).replace(/'/g, '%27') + (at ? '/' + at : '');
+    return at ? base + at : '';
   }
 
   function setHint(on, text) {
@@ -170,7 +199,28 @@
     if (text) $('measureHintT').textContent = text;
   }
 
+  function setDrawingUi(on) {
+    var box = $('mapBox');
+    if (box) {
+      box.classList.toggle('is-drawing', !!on);
+      if (!on) box.classList.remove('is-tracing');
+    }
+    if (!map || !map.doubleClickZoom) return;
+    // Two quick corner taps were zooming the map mid-trace.
+    if (on) map.doubleClickZoom.disable();
+    else map.doubleClickZoom.enable();
+  }
+
+  function onVertexAdded() {
+    var box = $('mapBox');
+    if (box) box.classList.add('is-tracing');
+    if (hintText) setHint(true, hintText);
+  }
+
   function toggleDraw(kind) {
+    // Address typed but not looked up yet: look it up so the map moves to it.
+    var cur = (typeof getAddr === 'function') ? getAddr() : '';
+    if (addrDirty && cur && cur !== lastAddr && typeof root.lookupAddr === 'function') root.lookupAddr();
     if (view === 'google') setView('county');
     if (!mapFull) enterMapFull();
     if (drawing === kind) { cancelDraw(); return; }
@@ -186,14 +236,16 @@
     setReviewMode(false);
     if (map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()) map.pm.disableGlobalEditMode();
     drawing = kind;
-    if (kind === 'area') map.pm.enableDraw('Polygon', { continueDrawing: false, snappable: true, snapDistance: 18, finishOn: null });
-    else map.pm.enableDraw('Line', { continueDrawing: false, snappable: true, snapDistance: 18, finishOn: null });
+    if (kind === 'area') map.pm.enableDraw('Polygon', { continueDrawing: false, snappable: true, snapDistance: SNAP_PX, finishOn: null });
+    else map.pm.enableDraw('Line', { continueDrawing: false, snappable: true, snapDistance: SNAP_PX, finishOn: null });
+    setDrawingUi(true);
     var keepAdding = !!again || areaShapeCount() > 0;
-    setHint(true, kind === 'area'
+    hintText = (kind === 'area'
       ? (keepAdding
         ? t('Added. Trace the next paved area, then Done. Or use the total when you are finished.', 'Sumado. Traza la siguiente área pavimentada y toca Listo. O usa el total cuando termines.')
         : t('Tap each corner, then Done. Keep adding the driveway and walks to get one total.', 'Toca cada esquina, luego Listo. Sigue sumando la entrada y las banquetas: un solo total.'))
       : t('Tap along the line. Tap Done when you finish.', 'Toca a lo largo de la línea. Toca Listo al terminar.'));
+    setHint(true, hintText);
     renderBar();
   }
 
@@ -249,6 +301,7 @@
   function cancelDraw() {
     if (map) map.pm.disableDraw();
     drawing = null;
+    setDrawingUi(false);
     setHint(false);
     renderBar();
   }
@@ -259,7 +312,7 @@
     setReviewMode(false);
     cancelDraw();
     if (map.pm.globalEditModeEnabled && map.pm.globalEditModeEnabled()) map.pm.disableGlobalEditMode();
-    else map.pm.enableGlobalEditMode({ snappable: true, snapDistance: 18, allowSelfIntersection: false });
+    else map.pm.enableGlobalEditMode({ snappable: true, snapDistance: SNAP_PX, allowSelfIntersection: false });
     renderBar();
   }
 
@@ -286,10 +339,29 @@
     } catch (e) {}
   }
 
+  function fitParcelFull() {
+    if (!map || !mapFull || !lastParcelBounds || shapes.length) return false;
+    var tool = activeDrawTool();
+    if (tool && drawVertexCount(tool) > 0) return false;
+    var narrow = (typeof window !== 'undefined' && window.innerWidth < 640);
+    try {
+      map.fitBounds(lastParcelBounds, {
+        paddingTopLeft: [24, narrow ? 120 : 84],
+        paddingBottomRight: [narrow ? 24 : 64, 36],
+        maxZoom: 21,
+        animate: false
+      });
+      rememberView();
+      return true;
+    } catch (e) { return false; }
+  }
+
   function afterMapResize() {
     if (!map) return;
     map.invalidateSize({ animate: false });
-    if (lastCenter) {
+    if (fitParcelFull()) {
+      // Filled the screen with the property being quoted.
+    } else if (lastCenter) {
       map.setView([lastCenter.lat, lastCenter.lng], lastCenter.zoom || map.getZoom(), { animate: false });
     }
     refreshCountyTiles();
@@ -502,8 +574,8 @@
     return {
       color: pal.color,
       fillColor: pal.fillColor,
-      weight: isSel ? 4 : 3,
-      fillOpacity: isSel ? 0.2 : 0.12,
+      weight: isSel ? 5 : 2.5,
+      fillOpacity: isSel ? 0.32 : 0.1,
       opacity: 1,
       className: 'm-shape'
     };
@@ -598,21 +670,30 @@
     var use = shape.use || 'new';
     var icon = L.divIcon({
       className: 'm-label-wrap',
-      html: '<div class="m-label m-label-' + use + '">' + text + '</div>',
+      html: '<div class="m-label m-label-' + use + (shape === selected ? ' is-sel' : '') + '">' + text + '</div>',
       iconSize: [0, 0],
       iconAnchor: [0, 0]
     });
     var at = labelLatLng(shape) || centroid(shape.layer);
-    shape.label = L.marker(at, { icon: icon, interactive: false, keyboard: false, zIndexOffset: 600 });
+    shape.label = L.marker(at, { icon: icon, interactive: false, keyboard: false, zIndexOffset: 600, snapIgnore: true, pmIgnore: true });
     if (labelLayer) shape.label.addTo(labelLayer);
     setLabelVisible(shape, !reviewMode || shape === selected);
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(layoutLabels);
     else setTimeout(layoutLabels, 0);
   }
 
+  function markSelectedLabels() {
+    shapes.forEach(function (s) {
+      var r = s.label && s.label.getElement && s.label.getElement();
+      var el = r && r.querySelector('.m-label');
+      if (el) el.classList.toggle('is-sel', s === selected);
+    });
+  }
+
   function selectShape(shape) {
     selected = shape;
     shapes.forEach(function (s) { applyShapeStyle(s); });
+    markSelectedLabels();
     syncLabelVisibility();
     renderUse();
   }
@@ -699,6 +780,16 @@
         html += '<div class="mu-meta">' + t('Tap House, Lawn, or Paved to add this to the quote.', 'Toca Casa, Césped o Pavimento para sumarlo a la cotización.') + '</div>';
       }
     }
+    if (shapes.length > 1) {
+      html += '<div class="mu-row mu-shapes">';
+      shapes.forEach(function (sh) {
+        var f1 = fmt(sh.kind, sh.value);
+        var nm = sh.kind === 'area' ? useName(sh.use) : t('Length', 'Largo');
+        html += '<button type="button" class="mu-chip mu-chip-' + (sh.kind === 'area' ? (sh.use || 'new') : 'len') + (sh === selected ? ' on' : '') + '" data-shape="' + sh.id + '">'
+          + '<span class="mu-dot"></span>' + nm + ' ' + f1.num + '</button>';
+      });
+      html += '</div>';
+    }
     html += '<div class="mu-row mu-actions">';
     html += '<button type="button" id="muUndo">' + t('Undo last', 'Deshacer') + '</button>';
     html += '<button type="button" id="muClear">' + t('Clear', 'Borrar todo') + '</button>';
@@ -721,6 +812,13 @@
     if (hide) hide.onclick = function () { selected = null; shapes.forEach(function (s) { applyShapeStyle(s); }); setReviewMode(true); fitToShapes(); };
     el.querySelectorAll('[data-fill]').forEach(function (btn) {
       btn.onclick = function () { applyFill(btn.getAttribute('data-fill'), selected ? selected.value : 0, btn); };
+    });
+    el.querySelectorAll('[data-shape]').forEach(function (btn) {
+      btn.onclick = function () {
+        var id = +btn.getAttribute('data-shape');
+        var sh = shapes.filter(function (x) { return x.id === id; })[0];
+        if (sh) selectShape(sh);
+      };
     });
     var del = $('muDel');
     if (del) del.onclick = function () { removeShape(selected); };
@@ -761,6 +859,9 @@
 
   function undoLast() {
     if (removeLastDrawVertex()) {
+      // Removing the only corner turns drawing off; keep the tool on.
+      if (drawing && !activeDrawTool()) startDraw(drawing, true);
+      else if (drawVertexCount(activeDrawTool()) === 0) { var bx = $('mapBox'); if (bx) bx.classList.remove('is-tracing'); }
       renderBar();
       return;
     }
@@ -800,6 +901,8 @@
     shapes.push(shape);
     upsertLabel(shape);
     layer.on('click', function (ev) {
+      // While tracing, a tap on a finished shape must reach the map and add a corner.
+      if (drawing) return;
       if (ev && ev.originalEvent) L.DomEvent.stop(ev);
       selectShape(shape);
     });
@@ -897,6 +1000,7 @@
   function onCreated(e) {
     var restart = !leavingDraw;
     drawing = null;
+    setDrawingUi(false);
     setHint(false);
     renderBar();
     var layer = e.layer;
@@ -941,13 +1045,21 @@
     parcelLayer = L.layerGroup().addTo(map);
     map.pm.setGlobalOptions({
       snappable: true,
-      snapDistance: 18,
+      snapDistance: SNAP_PX,
       allowSelfIntersection: false,
       finishOn: null,
-      markerStyle: { radius: 7, fillColor: '#30471F', color: '#fff', weight: 2, fillOpacity: 1 },
-      templineStyle: { color: '#30471F', weight: 3 },
-      hintlineStyle: { color: '#30471F', weight: 3, dashArray: '6,6' },
-      pathOptions: { color: '#30471F', fillColor: '#30471F', fillOpacity: 0.28, weight: 3 }
+      markerStyle: { radius: 7, fillColor: DRAW_COLOR, color: '#fff', weight: 2, fillOpacity: 1 },
+      templineStyle: { color: DRAW_COLOR, weight: 4 },
+      hintlineStyle: { color: DRAW_COLOR, weight: 3, dashArray: '6,6' },
+      pathOptions: { color: DRAW_COLOR, fillColor: DRAW_COLOR, fillOpacity: 0.28, weight: 4 }
+    });
+    // Small hand or mouse wiggles during a tap were starting a pan, so the tap was dropped.
+    if (map.dragging && map.dragging._draggable && map.dragging._draggable.options) {
+      map.dragging._draggable.options.clickTolerance = CLICK_SLOP_PX;
+    }
+    map.on('pm:drawstart', function (e) {
+      var wl = e && e.workingLayer;
+      if (wl && wl.on) wl.on('pm:vertexadded', onVertexAdded);
     });
     map.on('pm:create', onCreated);
     map.on('pm:intersect', onIntersect);
@@ -979,6 +1091,8 @@
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape' && mapFull) exitMapFull();
     });
+    var addrBox = $('iAddr');
+    if (addrBox) addrBox.addEventListener('input', function () { addrDirty = true; });
     inited = true;
     renderBar();
     var done = $('measureDone'), cancel = $('measureCancel');
@@ -989,6 +1103,7 @@
   function loadParcel(lat, lng, gen) {
     if (!parcelLayer) return;
     parcelLayer.clearLayers();
+    propMarker = null;
     lastParcelBounds = null;
     var url = gisUrl() + '?geometry=' + lng + ',' + lat
       + '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects'
@@ -997,31 +1112,39 @@
       if (gen != null && gen !== showGen) return;
       var feats = (data && data.features) || [];
       var all = [];
+      var holes = [];
       feats.forEach(function (f) {
         var rings = (f.geometry && f.geometry.rings) || [];
         rings.forEach(function (ring) {
           var latlngs = ring.map(function (p) { return [p[1], p[0]]; });
           all = all.concat(latlngs);
-          L.polygon(latlngs, {
-            color: '#fff',
-            weight: 3,
-            opacity: 0.95,
-            fill: false,
-            interactive: false,
-            dashArray: null
-          }).addTo(parcelLayer);
-          L.polygon(latlngs, {
-            color: '#18240F',
-            weight: 1.5,
-            opacity: 0.9,
-            fill: false,
-            interactive: false
-          }).addTo(parcelLayer);
+          holes.push(latlngs);
         });
       });
+      if (holes.length) {
+        // Dim everything outside the property being quoted.
+        var la0 = +lat, lo0 = +lng;
+        var world = [[la0 + 1, lo0 - 1.5], [la0 + 1, lo0 + 1.5], [la0 - 1, lo0 + 1.5], [la0 - 1, lo0 - 1.5]];
+        L.polygon([world].concat(holes), {
+          stroke: false, fillColor: '#0b1206', fillOpacity: 0.55,
+          interactive: false, snapIgnore: true, pmIgnore: true, className: 'm-prop-mask'
+        }).addTo(parcelLayer);
+        holes.forEach(function (latlngs) {
+          L.polygon(latlngs, {
+            color: '#0b1206', weight: 6, opacity: 0.5, fill: false,
+            interactive: false, snapIgnore: true, pmIgnore: true
+          }).addTo(parcelLayer);
+          L.polygon(latlngs, {
+            color: '#fff', weight: 3, opacity: 1, fill: false,
+            interactive: false, pmIgnore: true
+          }).addTo(parcelLayer);
+        });
+      }
       if (all.length && typeof L.latLngBounds === 'function') {
         lastParcelBounds = L.latLngBounds(all);
-        if (!shapes.length && !drawing) {
+        addPropChip(lastParcelBounds);
+        if (mapFull) fitParcelFull();
+        else if (!shapes.length && !drawing) {
           try {
             map.fitBounds(lastParcelBounds, { padding: [28, 28], maxZoom: 20, animate: false });
             rememberView();
@@ -1029,6 +1152,22 @@
         }
       }
     }).catch(function () {});
+  }
+
+  function streetOnly(a) {
+    return String(a || '').split(',')[0].trim();
+  }
+
+  function addPropChip(bounds) {
+    if (!parcelLayer || !bounds) return;
+    var street = streetOnly(lastAddr);
+    if (!street) return;
+    var safe = street.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+    var at = L.latLng(bounds.getNorth(), (bounds.getWest() + bounds.getEast()) / 2);
+    propMarker = L.marker(at, {
+      icon: L.divIcon({ className: 'm-prop-wrap', html: '<div class="m-prop"><span class="m-prop-pin"></span>' + safe + '</div>', iconSize: [0, 0], iconAnchor: [0, 0] }),
+      interactive: false, keyboard: false, zIndexOffset: 500, snapIgnore: true, pmIgnore: true
+    }).addTo(parcelLayer);
   }
 
   function clearShapes() {
@@ -1040,8 +1179,18 @@
 
   function show(addr, lat, lng) {
     var gen = ++showGen;
+    addrDirty = false;
     var nextAddr = addr || lastAddr;
-    if (nextAddr && lastAddr && nextAddr !== lastAddr) clearShapes();
+    var prevAddr = lastAddr;
+    if (nextAddr && lastAddr && nextAddr !== lastAddr) {
+      // New address: drop the last property's traces, outline and address chip right away.
+      clearShapes();
+      if (parcelLayer) parcelLayer.clearLayers();
+      propMarker = null;
+      lastParcelBounds = null;
+      lastCenter = null;
+      propPoint = null;
+    }
     lastAddr = nextAddr;
     var box = ensureDom();
     if (!box) return Promise.resolve();
@@ -1049,11 +1198,15 @@
     var meta = $('mapMeta');
     if (meta) meta.style.display = 'flex';
     initMap();
-    setView('google');
+    var addrChanged = !!(prevAddr && nextAddr !== prevAddr);
+    if (!mapFull) setView('google');
+    else if (addrChanged && drawing) { var k = drawing; cancelDraw(); startDraw(k); }
     function go(la, lo) {
       if (gen !== showGen) return;
       if (!map) return;
       lastCenter = { lat: +la, lng: +lo, zoom: 19 };
+      propPoint = { lat: +la, lng: +lo };
+      renderBar();
       lastParcelBounds = null;
       map.setView([la, lo], 19, { animate: false });
       loadParcel(la, lo, gen);
@@ -1094,6 +1247,7 @@
     _view: function () { return view; },
     _setView: setView,
     _isFull: function () { return mapFull; },
+    earthUrl: earthUrl,
     _showGen: function () { return showGen; },
     SQFT_PER_M2: SQFT_PER_M2
   };

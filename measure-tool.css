@@ -159,3 +159,48 @@ body.map-full{overflow:hidden}
 
 #mapBox.is-full .leaflet-control-zoom{margin-top:58px}
 #mapBox.is-full #mBtnClose{flex:0 0 auto;margin-left:8px}
+
+/* Tracing: what you are drawing now is bright cyan; finished shapes let taps through. */
+#mapBox.is-drawing #leafletMap path.m-shape{pointer-events:none}
+#mapBox.is-tracing .measure-use{display:none!important}
+#leafletMap .marker-icon{background:#22d3ee;border:2px solid #fff;box-shadow:0 0 0 1.5px #0b1206}
+#leafletMap .marker-icon-middle{background:#fff}
+.measure-hint button.m-undo{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.45)}
+@media (max-width:640px){
+  .measure-hint{flex-wrap:wrap}
+  .measure-hint span{flex:1 1 100%}
+  .measure-hint button{flex:1 1 0;min-height:38px;padding:0 8px}
+}
+
+/* Selected shape label is filled so it is easy to see which one Delete will remove. */
+.m-label.is-sel{background:#18240F;color:#fff;border-color:#fff}
+.m-label-paved.is-sel{background:#ea580c}
+.m-label-lawn.is-sel{background:#2563eb}
+.m-label-house.is-sel{background:#dc2626}
+
+/* Property being quoted: address chip on the lot line. */
+.m-prop-wrap.leaflet-div-icon{width:0!important;height:0!important;border:0!important;background:transparent!important;overflow:visible!important}
+.m-prop{position:absolute;left:0;top:0;transform:translate(-50%,calc(-100% - 6px));display:flex;align-items:center;gap:5px;
+  background:#fff;color:#18240F;border:2px solid #18240F;border-radius:999px;padding:3px 9px 3px 6px;white-space:nowrap;
+  font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none}
+.m-prop-pin{width:10px;height:10px;border-radius:50%;background:#30471F;box-shadow:0 0 0 2px #fff,0 0 0 3px #30471F}
+#mapBox.is-google .m-prop{display:none}
+
+/* Shape list: one chip per shape, the selected one filled. */
+.measure-use .mu-shapes{gap:5px}
+.measure-use button.mu-chip{min-height:32px;padding:0 9px;font-size:11px;background:#fff;color:#18240F;display:inline-flex;align-items:center;gap:5px}
+.measure-use .mu-dot{width:8px;height:8px;border-radius:50%;background:#30471F}
+.mu-chip-paved .mu-dot{background:#ea580c}
+.mu-chip-lawn .mu-dot{background:#2563eb}
+.mu-chip-house .mu-dot{background:#dc2626}
+.mu-chip-len .mu-dot{background:#18240F}
+.measure-use button.mu-chip.on{background:#18240F;color:#fff;border-color:#18240F}
+.measure-use button.mu-chip.on .mu-dot{box-shadow:0 0 0 2px #fff}
+@media (max-width:640px){
+  #mapBox.is-full.is-drawing .leaflet-control-zoom{margin-top:122px}
+}
+.measure-bar a.m-earth{flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:22px;
+  border:1.5px solid #d8d8d0;background:#fff;color:#30471F;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;
+  text-decoration:none;white-space:nowrap}
+.measure-bar a.m-earth:hover{background:#e6f0e0;border-color:#30471F}
+@media (max-width:640px){.measure-bar a.m-earth{padding:0 10px;font-size:12px}}

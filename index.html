@@ -522,9 +522,13 @@ async function loadRouteData(){
   }catch(e){ROUTE_DATA=null;}
   renderFit();
 }
+// Each new lookup gets a number so a slow answer for the last address can't move the map back.
+let ADDR_SEQ=0;
 async function geocodeForFit(a,parcel){
+  const seq=ADDR_SEQ;
   try{
     const picked=await resolveGeo(a,parcel);
+    if(seq!==ADDR_SEQ)return;
     if(picked){
       ST.fitGeo=picked;
       if(window.PropertyMap)PropertyMap.show(a,picked.lat,picked.lng);
@@ -886,6 +890,9 @@ function openEarth(){const a=getAddr();if(!a)return;window.open('https://earth.g
 function openLotSearch(){const a=getAddr();if(!a)return;window.open('https://www.google.com/search?q='+encodeURIComponent(a+' Zillow OR Realtor OR Redfin lot size'),'_blank');}
 function lookupAddr(){
   const a=getAddr();if(!a)return;
+  ADDR_SEQ++;
+  // New address: forget the last one's map point so it can't block the new one.
+  ST.fitGeo=null;renderFit();
   const box=$('mapBox'),meta=$('mapMeta');
   if(window.PropertyMap){PropertyMap.show(a);}
   else{
@@ -976,6 +983,16 @@ function useParcel(s,a,note){
   inp.value=ST.lotUnit==='ac'?(+s.acres.toFixed(3)):sqft;upd();
   $('mapAddr').textContent=AddrMatch.label(s)+' · '+sqft.toLocaleString()+' sqft ('+s.acres.toFixed(2)+' ac) · PIN '+s.pin+(note?' · '+note:'');
   if(!ST.fitGeo||ST.fitGeo.source!=='nominatim'){try{geocodeForFit(getAddr()||a,s);}catch(e){}}
+  centerMapOnParcel(s);
+}
+// The map always goes to the parcel the lot size came from, even when the address search missed.
+async function centerMapOnParcel(s){
+  if(!s||!s.pin||!window.PropertyMap||typeof GeoFallback==='undefined')return;
+  const seq=ADDR_SEQ;
+  const geom=await parcelGeometry(s.pin);
+  if(seq!==ADDR_SEQ)return;
+  const c=GeoFallback.centroidFromEsriGeometry(geom);
+  if(c)PropertyMap.show(getAddr(),c.lat,c.lng);
 }
 // "Did you mean…?" — big buttons, one per possible property, plus "none of these".
 function showPick(opts,a){
@@ -995,12 +1012,14 @@ function showPick(opts,a){
   pk.style.display='block';
 }
 async function lookupLot(a){
+  const seq=ADDR_SEQ;
   const btn=$('lkBtn');const orig='📍 Look up';const hint=$('iLtH');
   btn.textContent='⏳ Finding lot…';btn.disabled=true;hidePick();
   hint.innerHTML='<span class="spinner"></span> Looking up lot size…';
   hint.style.color='#30471F';hint.style.fontWeight='700';
   const typed=AddrMatch.parseAddress(a);
   const [pt,txt]=await Promise.all([parcelsByPoint(a).catch(()=>[]),parcelsByText(typed).catch(()=>[])]);
+  if(seq!==ADDR_SEQ)return; // a newer address was looked up while this one was loading
   const cands=pt.map(x=>({attrs:x,viaPoint:true})).concat(txt.map(x=>({attrs:x})));
   const d=AddrMatch.decide(typed,cands,serviceTowns());
   if(d.action==='auto'){
