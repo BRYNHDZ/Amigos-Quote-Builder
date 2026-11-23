@@ -135,7 +135,10 @@
         + '<div id="leafletMap" class="leaflet-host"></div>'
         + '<div id="googleMap" class="google-host"></div>'
         + '<div id="measureLoad" class="measure-load">Loading photos…</div>'
-        + '<div id="measureUse" class="measure-use"></div>';
+        + '<div id="measureUse" class="measure-use"></div>'
+        // Light sharpen for the photo tiles only (used on desktop; phones get contrast only).
+        + '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="mSharpen" color-interpolation-filters="sRGB">'
+        + '<feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="0 -0.15 0 -0.15 1.6 -0.15 0 -0.15 0"/></filter></svg>';
     }
     return box;
   }
@@ -339,13 +342,22 @@
     } catch (e) {}
   }
 
+  // Extra ground around the lot so the parkway, sidewalk and street edge stay in view.
+  var MARGIN_M = 18;
+  function withMargin(b, meters) {
+    var dLat = meters / 111320;
+    var mid = (b.getNorth() + b.getSouth()) / 2;
+    var dLng = meters / (111320 * Math.max(0.2, Math.cos(mid * Math.PI / 180)));
+    return L.latLngBounds([b.getSouth() - dLat, b.getWest() - dLng], [b.getNorth() + dLat, b.getEast() + dLng]);
+  }
+
   function fitParcelFull() {
     if (!map || !mapFull || !lastParcelBounds || shapes.length) return false;
     var tool = activeDrawTool();
     if (tool && drawVertexCount(tool) > 0) return false;
     var narrow = (typeof window !== 'undefined' && window.innerWidth < 640);
     try {
-      map.fitBounds(lastParcelBounds, {
+      map.fitBounds(withMargin(lastParcelBounds, MARGIN_M), {
         paddingTopLeft: [24, narrow ? 120 : 84],
         paddingBottomRight: [narrow ? 24 : 64, 36],
         maxZoom: 21,
@@ -1122,13 +1134,7 @@
         });
       });
       if (holes.length) {
-        // Dim everything outside the property being quoted.
-        var la0 = +lat, lo0 = +lng;
-        var world = [[la0 + 1, lo0 - 1.5], [la0 + 1, lo0 + 1.5], [la0 - 1, lo0 + 1.5], [la0 - 1, lo0 - 1.5]];
-        L.polygon([world].concat(holes), {
-          stroke: false, fillColor: '#0b1206', fillOpacity: 0.55,
-          interactive: false, snapIgnore: true, pmIgnore: true, className: 'm-prop-mask'
-        }).addTo(parcelLayer);
+        // No dimming outside the lot: the city parkway and street edge get measured too.
         holes.forEach(function (latlngs) {
           L.polygon(latlngs, {
             color: '#0b1206', weight: 6, opacity: 0.5, fill: false,

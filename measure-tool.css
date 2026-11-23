@@ -204,3 +204,10 @@ body.map-full{overflow:hidden}
   text-decoration:none;white-space:nowrap}
 .measure-bar a.m-earth:hover{background:#e6f0e0;border-color:#30471F}
 @media (max-width:640px){.measure-bar a.m-earth{padding:0 10px;font-size:12px}}
+
+/* Slightly crisper aerial photos so driveway and pavement edges read better.
+   Only the photo tiles: outlines, shapes, labels and pins are in other panes. */
+#leafletMap .leaflet-tile-pane{filter:contrast(1.1) saturate(1.06)}
+@media (hover:hover) and (pointer:fine) and (min-width:900px){
+  #leafletMap .leaflet-tile-pane{filter:url(#mSharpen) contrast(1.1) saturate(1.06)}
+}
