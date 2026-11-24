@@ -72,3 +72,34 @@ test('a tiny sliver parcel at the same address does not block the house lot', ()
   const d = A.decide(A.parseAddress('9684 Duane St, Glen Ellyn, IL 60137'), [P('9684 DUANE ST', 'GLEN ELLYN', '60137', 0.24, 'A'), P('9684 DUANE ST', 'GLEN ELLYN', '60137', 0.004, 'B')]);
   assert.strictEqual(d.action, 'auto'); assert.strictEqual(d.pick.pin, 'A');
 });
+
+test('completeAddress: 248 n montclair uses Glen Ellyn Ave, not Naperville Dr or a New Jersey city', () => {
+  const rows = [
+    { PROPADDRL1: '246 N MONTCLAIR AVE', PROPCITY: 'GLEN ELLYN        ' },
+    { PROPADDRL1: '249 N MONTCLAIR AVE', PROPCITY: 'GLEN ELLYN        ' },
+    { PROPADDRL1: '252 MONTCLAIR AVE', PROPCITY: 'GLEN ELLYN        ' },
+    { PROPADDRL1: '1936 MONTCLAIR DR', PROPCITY: 'NAPERVILLE        ' },
+    { PROPADDRL1: '1908 MONTCLAIR DR', PROPCITY: 'NAPERVILLE        ' }
+  ];
+  const c = A.completeAddress(A.parseAddress('248 n montclair'), rows);
+  assert.ok(c, 'should complete the street');
+  assert.strictEqual(c.town, 'GLEN ELLYN');
+  assert.strictEqual(c.query, '248 N Montclair Ave, Glen Ellyn, IL');
+  assert.strictEqual(c.street, 'N Montclair Ave');
+});
+
+test('completeAddress: full address still completes, and two core-area streets stay ambiguous', () => {
+  const c = A.completeAddress(A.parseAddress('248 N Montclair Ave, Glen Ellyn'), [
+    { PROPADDRL1: '246 N MONTCLAIR AVE', PROPCITY: 'GLEN ELLYN' }
+  ]);
+  assert.strictEqual(c.query, '248 N Montclair Ave, Glen Ellyn, IL');
+
+  const amb = A.completeAddress(A.parseAddress('100 Oak'), [
+    { PROPADDRL1: '200 OAK ST', PROPCITY: 'GLEN ELLYN' },
+    { PROPADDRL1: '200 OAK AVE', PROPCITY: 'WHEATON' }
+  ]);
+  assert.strictEqual(amb, null);
+
+  assert.strictEqual(A.completeAddress(A.parseAddress('248 n montclair'), []), null);
+  assert.strictEqual(A.completeAddress(A.parseAddress('montclair'), [{ PROPADDRL1: '246 N MONTCLAIR AVE', PROPCITY: 'GLEN ELLYN' }]), null);
+});
