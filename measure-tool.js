@@ -1224,7 +1224,9 @@
     if (typeof nomSearch !== 'function') return Promise.resolve();
     return nomSearch(lastAddr).then(function (g) {
       if (gen !== showGen) return;
-      if (g && g.length) go(+g[0].lat, +g[0].lon);
+      var typed = typeof AddrMatch !== 'undefined' ? AddrMatch.parseAddress(lastAddr) : null;
+      var nom = typeof GeoFallback !== 'undefined' ? GeoFallback.fromNominatim(g, typed) : (g && g.length ? { lat: +g[0].lat, lng: +g[0].lon } : null);
+      if (nom) go(nom.lat, nom.lng);
     }).catch(function () {});
   }
 

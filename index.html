@@ -535,6 +535,7 @@ async function geocodeForFit(a,parcel){
     }else if(!ST.fitGeo){
       ST.fitGeo=null;
     }
+    // else: this answer missed, but a pin from the same lookup (parcel or a better geocode) already landed — leave it.
   }catch(e){if(!ST.fitGeo)ST.fitGeo=null;}
   renderFit();
 }
@@ -934,19 +935,20 @@ function parcelTownStreet(parcel){
   return {town:parcel.town?title(parcel.town):'',street:street?title(street):''};
 }
 async function resolveGeo(a,parcel){
+  const typed=typeof AddrMatch!=='undefined'?AddrMatch.parseAddress(a):null;
   const g=await nomSearch(a);
   if(typeof GeoFallback==='undefined'){
     if(g&&g.length){const ad=g[0].address||{};return {lat:+g[0].lat,lng:+g[0].lon,town:ad.town||ad.city||ad.village||ad.hamlet||ad.municipality||'',street:ad.road||ad.pedestrian||ad.residential||ad.highway||'',source:'nominatim'};}
     return null;
   }
-  const nom=GeoFallback.fromNominatim(g);
+  const nom=GeoFallback.fromNominatim(g,typed);
   if(nom)return nom;
   // Nominatim missed (common for DuPage grid numbers like 22W389 / 1N185).
   // Census finds them but has no CORS in the browser, so use the matched parcel centroid.
   let geom=parcel&&parcel.geometry;
   if(!geom&&parcel&&parcel.pin)geom=await parcelGeometry(parcel.pin);
   const ts=parcelTownStreet(parcel);
-  return GeoFallback.pick({nominatim:[],parcelGeometry:geom,town:ts.town,street:ts.street});
+  return GeoFallback.pick({nominatim:[],parcelGeometry:geom,town:ts.town,street:ts.street,typed:typed});
 }
 async function dpQuery(params){
   try{const r=await fetch(DUPAGE_GIS+'?'+params+'&outFields='+DP_FIELDS+'&returnGeometry=false&f=json').then(r=>r.json());return (r&&r.features||[]).map(f=>f.attributes);}catch(e){return [];}
@@ -971,6 +973,13 @@ async function parcelsByText(p){
   if(!rows.length)rows=await q('');
   if(g)rows=rows.filter(r=>AddrMatch.normNum(String(r.PROPADDRL1||'').split(' ')[0])===p.num);
   return rows;
+}
+// Street-only search when the house number is missing from the county file.
+async function parcelsByStreet(p){
+  if(!p||!p.name)return [];
+  const words=p.name.split(' ').filter(w=>w.length>1).sort((x,y)=>y.length-x.length);
+  if(!words[0])return [];
+  return dpQuery('where='+encodeURIComponent("UPPER(PROPADDRL1) LIKE '%"+words[0].replace(/'/g,"''")+"%'")+'&resultRecordCount=80');
 }
 function serviceTowns(){
   const s=new Set(AddrMatch.CORE_AREA);
@@ -1037,6 +1046,14 @@ async function lookupLot(a){
     hint.innerHTML="✕ Couldn't find a lot size for this address — please enter it manually";
     hint.style.color='#cc0000';hint.style.fontWeight='700';
     $('mapAddr').textContent=a+' · no DuPage parcel match — enter lot size manually';
+    // County file may still know the street. Complete the address so the area check
+    // uses the house that the map already found, not a later city hit (Montclair, NJ).
+    try{
+      const rows=await parcelsByStreet(typed);
+      if(seq!==ADDR_SEQ)return;
+      const done=typeof AddrMatch!=='undefined'?AddrMatch.completeAddress(typed,rows):null;
+      if(done&&done.query)await geocodeForFit(done.query);
+    }catch(e){}
     btn.textContent=orig;btn.disabled=false;
   }
 }
@@ -1534,11 +1551,14 @@ function uxPass(){
   await pr;
   if(btn&&btn.textContent.indexOf('Lot found')>-1)btn.textContent=tx('✓ Lot found','✓ Terreno encontrado');
   const failed=hint&&hint.textContent.trim().charAt(0)==='✕';
-  if(failed){
+  const mb=$('mapBox');
+  const mapVisible=!!(mb&&mb.style.display!=='none'&&mb.innerHTML);
+  const keep=typeof GeoFallback!=='undefined'&&GeoFallback.keepFoundResult?GeoFallback.keepFoundResult(mapVisible,ST.fitGeo):(mapVisible||!!ST.fitGeo);
+  if(failed&&!keep){
     const m=tx("We couldn't find this address. Check the spelling, or type the lot size below.","No encontramos esta dirección. Revisa cómo está escrita, o escribe el tamaño del terreno abajo.");
     hint.innerHTML=tx("✕ Type the lot size here","✕ Escribe aquí el tamaño del terreno");
     if(msg){msg.textContent=m;msg.classList.add('show');}
-    const mb=$('mapBox');if(mb){mb.style.display='none';}const mm=$('mapMeta');if(mm)mm.style.display='none';
+    if(mb){mb.style.display='none';}const mm=$('mapMeta');if(mm)mm.style.display='none';
     const li=$('iLt');if(li&&li.scrollIntoView)li.scrollIntoView({block:'center',behavior:'smooth'});
   }
  };}

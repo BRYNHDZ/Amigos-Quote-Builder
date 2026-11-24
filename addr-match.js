@@ -151,6 +151,58 @@
     return { action: 'ask', options: list.slice(0, 3) };
   }
 
+  // When the county file has the street but not this house number, build a full
+  // "248 N Montclair Ave, Glen Ellyn, IL" query so the map and area check can use it.
+  // rows: parcel attribute objects (or {attrs}). Returns null when the street is ambiguous.
+  function completeAddress(typed, rows) {
+    if (!typed || !typed.num || !typed.name || !rows || !rows.length) return null;
+    var hits = [];
+    (rows || []).forEach(function (row) {
+      var attrs = row && row.attrs ? row.attrs : row;
+      if (!attrs || !attrs.PROPADDRL1) return;
+      var p = parseStreet(attrs.PROPADDRL1);
+      var nameExact = p.name && p.name.replace(/ /g, '') === typed.name.replace(/ /g, '');
+      if (!nameExact && !close(p.name, typed.name)) return;
+      if (typed.suffix && p.suffix && typed.suffix !== p.suffix) return;
+      var town = String(attrs.PROPCITY || '').trim().toUpperCase();
+      hits.push({
+        name: p.name,
+        suffix: p.suffix || typed.suffix || '',
+        dir: p.dir || '',
+        town: town,
+        inArea: CORE_AREA.indexOf(town) > -1
+      });
+    });
+    if (!hits.length) return null;
+    if (typed.dir) {
+      var withDir = hits.filter(function (h) { return h.dir === typed.dir; });
+      hits = withDir.length ? withDir : hits.filter(function (h) { return !h.dir || h.dir === typed.dir; });
+    }
+    if (!hits.length) return null;
+    var groups = {};
+    hits.forEach(function (h) {
+      var k = [typed.dir || h.dir || '', h.name, h.suffix, h.town].join('|');
+      if (!groups[k]) groups[k] = { n: 0, inArea: false, dir: typed.dir || h.dir || '', name: h.name, suffix: h.suffix, town: h.town };
+      groups[k].n++;
+      if (h.inArea) groups[k].inArea = true;
+    });
+    var list = Object.keys(groups).map(function (k) { return groups[k]; });
+    var cand = list.filter(function (g) { return g.inArea; });
+    if (!cand.length) cand = list;
+    var uniq = {};
+    cand.forEach(function (g) { uniq[g.name + '|' + g.suffix + '|' + g.town] = g; });
+    cand = Object.keys(uniq).map(function (k) { return uniq[k]; });
+    if (cand.length !== 1 || !cand[0].town) return null;
+    var best = cand[0];
+    var dir = typed.dir || best.dir || '';
+    var words = [typed.num, dir, best.name, best.suffix].filter(Boolean).join(' ');
+    return {
+      query: titleCase(words) + ', ' + titleCase(best.town) + ', IL',
+      town: best.town,
+      street: titleCase([dir, best.name, best.suffix].filter(Boolean).join(' '))
+    };
+  }
+
   function titleCase(s) {
     return String(s || '').toLowerCase().replace(/\b([a-z])([a-z]*)/g, function (m, a, b) { return a.toUpperCase() + b; })
       .replace(/\b(\d+[nsew]\d+)\b/gi, function (m) { return m.toUpperCase(); })
@@ -160,6 +212,7 @@
   function label(s) { return titleCase(s.line1) + ', ' + titleCase(s.town) + (s.zip ? ' ' + s.zip : ''); }
 
   var api = { parseAddress: parseAddress, parseStreet: parseStreet, scoreParcel: scoreParcel, decide: decide,
+    completeAddress: completeAddress,
     normNum: normNum, resolveTown: resolveTown, label: label, full: full, titleCase: titleCase, TOWNS: TOWNS, CORE_AREA: CORE_AREA };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AddrMatch = api;

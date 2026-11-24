@@ -194,3 +194,10 @@ test('sharpening touches only the photo tiles and stays light', () => {
   assert.match(css, /@media \(hover:hover\) and \(pointer:fine\) and \(min-width:900px\)\{\s*#leafletMap \.leaflet-tile-pane\{filter:url\(#mSharpen\)/);
   assert.match(js, /kernelMatrix="0 -0\.15 0 -0\.15 1\.6 -0\.15 0 -0\.15 0"/);
 });
+
+test('lot-size miss does not hide a map that already found the property', () => {
+  assert.match(html, /keepFoundResult\(mapVisible,ST\.fitGeo\)/);
+  assert.match(html, /if\(failed&&!keep\)\{/);
+  assert.match(html, /AddrMatch\.completeAddress\(typed,rows\)/);
+  assert.match(js, /GeoFallback\.fromNominatim\(g, typed\)/);
+});

@@ -45,13 +45,52 @@
     return ad.road || ad.pedestrian || ad.residential || ad.highway || '';
   }
 
-  function fromNominatim(results) {
-    if (!results || !results.length) return null;
-    var g = results[0];
-    var lat = g && +g.lat, lng = g && +g.lon;
-    if (!finite(lat) || !finite(lng)) return null;
+  // City / town / neighborhood hits (e.g. "Montclair, NJ") when the user typed a house number.
+  function isCityLike(g) {
+    if (!g) return false;
     var ad = g.address || {};
-    return { lat: lat, lng: lng, town: townFromNominatim(ad), street: streetFromNominatim(ad), source: 'nominatim' };
+    if (ad.house_number) return false;
+    var typ = String(g.type || '').toLowerCase();
+    var cls = String(g.class || '').toLowerCase();
+    return cls === 'boundary' || typ === 'administrative' || typ === 'city' || typ === 'town' || typ === 'village' || typ === 'municipality' || typ === 'neighbourhood' || typ === 'neighborhood' || typ === 'locality' || typ === 'suburb';
+  }
+
+  function houseOf(g) {
+    return String(((g && g.address) || {}).house_number || '').trim();
+  }
+
+  function stateOf(g) {
+    return String(((g && g.address) || {}).state || '').toLowerCase();
+  }
+
+  function sameHouse(g, typed) {
+    if (!typed || !typed.num || !g) return false;
+    var h = houseOf(g);
+    if (!h) return false;
+    return h.toUpperCase().replace(/\s+/g, '') === String(typed.num).toUpperCase().replace(/\s+/g, '') || String(+h) === String(+typed.num);
+  }
+
+  // Prefer a house that matches the typed number, skip city hits when a house number was typed, prefer Illinois.
+  function fromNominatim(results, typed) {
+    if (!results || !results.length) return null;
+    var list = results.filter(function (g) { return g && finite(+g.lat) && finite(+g.lon); });
+    if (!list.length) return null;
+    if (typed && typed.num) {
+      var numbered = list.filter(function (g) { return sameHouse(g, typed); });
+      if (numbered.length) list = numbered;
+      else list = list.filter(function (g) { return !isCityLike(g); });
+      if (!list.length) return null;
+    }
+    var il = list.filter(function (g) { return /illinois|^il$/.test(stateOf(g)); });
+    if (il.length) list = il;
+    var g = list[0];
+    var ad = g.address || {};
+    return { lat: +g.lat, lng: +g.lon, town: townFromNominatim(ad), street: streetFromNominatim(ad), source: 'nominatim' };
+  }
+
+  // A later failed lot lookup must not hide a map or pin that already found the property.
+  function keepFoundResult(mapVisible, fitGeo) {
+    return !!(mapVisible || (fitGeo && finite(+fitGeo.lat) && finite(+fitGeo.lng)));
   }
 
   function censusUrl(address) {
@@ -70,10 +109,10 @@
     return { lat: lat, lng: lng, town: a.city || '', street: street, source: 'census' };
   }
 
-  // Priority: Nominatim, then parcel centroid, then Census. Returns null when none have a point.
+  // Priority: a usable Nominatim hit (not a city when a house number was typed), then parcel centroid, then Census.
   function pick(opts) {
     opts = opts || {};
-    var nom = fromNominatim(opts.nominatim);
+    var nom = fromNominatim(opts.nominatim, opts.typed);
     if (nom) return nom;
     var c = opts.parcelCentroid || centroidFromEsriGeometry(opts.parcelGeometry);
     if (c && finite(c.lat) && finite(c.lng)) {
@@ -84,10 +123,12 @@
 
   var api = {
     centroidFromEsriGeometry: centroidFromEsriGeometry,
+    isCityLike: isCityLike,
     fromNominatim: fromNominatim,
     fromCensus: fromCensus,
     censusUrl: censusUrl,
-    pick: pick
+    pick: pick,
+    keepFoundResult: keepFoundResult
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GeoFallback = api;

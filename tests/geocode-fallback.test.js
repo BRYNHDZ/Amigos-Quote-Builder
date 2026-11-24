@@ -126,3 +126,52 @@ test('pick: nothing to go on returns null', () => {
   assert.strictEqual(G.pick({ nominatim: [], parcelGeometry: null, census: null }), null);
   assert.strictEqual(G.pick({}), null);
 });
+
+const NJ_CITIES = [
+  { lat: '40.8164458', lon: '-74.2210643', type: 'administrative', class: 'boundary', address: { town: 'Montclair', state: 'New Jersey' } },
+  { lat: '34.0775104', lon: '-117.6897776', type: 'administrative', class: 'boundary', address: { city: 'Montclair', state: 'California' } },
+  { lat: '38.6097746', lon: '-77.3575148', type: 'village', class: 'place', address: { village: 'Montclair', state: 'Virginia' } }
+];
+const HOUSE_248 = {
+  lat: '41.8685642', lon: '-88.0580980', type: 'house', class: 'place',
+  address: { house_number: '248', road: 'North Montclair Avenue', town: 'Glen Ellyn', state: 'Illinois' }
+};
+
+test('fromNominatim ignores city hits when a house number was typed (248 n montclair)', () => {
+  const typed = { num: '248', dir: 'N', name: 'MONTCLAIR' };
+  assert.strictEqual(G.fromNominatim(NJ_CITIES, typed), null);
+  assert.ok(G.isCityLike(NJ_CITIES[0]));
+  assert.strictEqual(G.isCityLike(HOUSE_248), false);
+  // Without a typed house number, the first hit still wins (no regression).
+  const raw = G.fromNominatim(NJ_CITIES);
+  assert.strictEqual(raw.town, 'Montclair');
+  near(raw.lat, 40.8164458, 1e-9);
+});
+
+test('fromNominatim prefers the Illinois house over a city or an out-of-state house', () => {
+  const typed = { num: '248', dir: 'N', name: 'MONTCLAIR' };
+  const fl = { lat: '27.94', lon: '-82.27', type: 'house', class: 'place', address: { house_number: '248', road: 'North Montclair Avenue', city: 'Brandon', state: 'Florida' } };
+  const g = G.fromNominatim(NJ_CITIES.concat([fl, HOUSE_248]), typed);
+  assert.strictEqual(g.town, 'Glen Ellyn');
+  assert.strictEqual(g.street, 'North Montclair Avenue');
+  near(g.lat, 41.8685642, 1e-9);
+});
+
+test('pick: city-only Nominatim yields to the parcel pin when a house number was typed', () => {
+  const picked = G.pick({
+    nominatim: NJ_CITIES,
+    typed: { num: '248', name: 'MONTCLAIR' },
+    parcelGeometry: RING_22W389,
+    town: 'Glen Ellyn',
+    street: 'Montclair Ave'
+  });
+  assert.strictEqual(picked.source, 'parcel');
+  assert.strictEqual(picked.town, 'Glen Ellyn');
+});
+
+test('keepFoundResult: a later lot miss must not hide a map or pin that already found the property', () => {
+  assert.strictEqual(G.keepFoundResult(true, null), true);
+  assert.strictEqual(G.keepFoundResult(false, { lat: 41.8685642, lng: -88.0580980 }), true);
+  assert.strictEqual(G.keepFoundResult(false, null), false);
+  assert.strictEqual(G.keepFoundResult(false, {}), false);
+});
